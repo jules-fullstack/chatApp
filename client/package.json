@@ -10,9 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hookform/error-message": "^2.0.1",
     "@tailwindcss/vite": "^4.1.11",
+    "@tanstack/react-router": "^1.125.6",
+    "@tanstack/react-router-devtools": "^1.125.6",
+    "@tanstack/router-plugin": "^1.125.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.60.0",
     "tailwindcss": "^4.1.11"
   },
   "devDependencies": {
