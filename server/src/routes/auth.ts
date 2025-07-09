@@ -4,6 +4,7 @@ import {
   login,
   logout,
   getCurrentUser,
+  verifyOTP,
 } from '../controllers/authController';
 import {
   ensureAuthenticated,
@@ -15,6 +16,8 @@ const router = express.Router();
 router.post('/register', ensureNotAuthenticated, register);
 
 router.post('/login', ensureNotAuthenticated, login);
+
+router.post('/verify-otp', ensureNotAuthenticated, verifyOTP);
 
 router.post('/logout', ensureAuthenticated, logout);
 

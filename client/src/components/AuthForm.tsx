@@ -5,6 +5,7 @@ import {
   type UseFormHandleSubmit,
   type SubmitHandler,
 } from "react-hook-form";
+import Button from "./button";
 
 interface AuthFormProps<T extends FieldValues> {
   onSubmit: SubmitHandler<T>;
@@ -22,12 +23,7 @@ export default function AuthForm<T extends FieldValues>({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       {children}
-      <button
-        type="submit"
-        className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-      >
-        {submitLabel}
-      </button>
+      <Button>{submitLabel}</Button>
     </form>
   );
 }

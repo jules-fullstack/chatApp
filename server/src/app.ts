@@ -1,9 +1,9 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import session from 'express-session';
 import passport from 'passport';
 import MongoStore from 'connect-mongo';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 import connectDB from './config/database';
 import authRoutes from './routes/auth';

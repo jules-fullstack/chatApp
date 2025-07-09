@@ -21,6 +21,7 @@
     "@types/express-session": "^1.18.2",
     "@types/mongoose": "^5.11.96",
     "@types/node": "^24.0.10",
+    "@types/nodemailer": "^6.4.17",
     "@types/passport": "^1.0.17",
     "@types/passport-local": "^1.0.38",
     "dotenv": "^17.1.0",
@@ -41,6 +42,7 @@
     "express-session": "^1.18.1",
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.2",
+    "nodemailer": "^7.0.5",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0"
   }

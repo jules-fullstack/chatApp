@@ -16,6 +16,18 @@ const userSchema = new Schema<IUser>(
       required: true,
       minlength: 6,
     },
+    otp: {
+      type: String,
+      default: null,
+    },
+    otpExpiry: {
+      type: Date,
+      default: null,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -38,6 +50,19 @@ userSchema.methods.comparePassword = async function (
   candidatePassword: string,
 ): Promise<boolean> {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.generateOTP = function (): string {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  this.otp = otp;
+  this.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  return otp;
+};
+
+userSchema.methods.verifyOTP = function (inputOTP: string): boolean {
+  if (!this.otp || !this.otpExpiry) return false;
+  if (new Date() > this.otpExpiry) return false;
+  return this.otp === inputOTP;
 };
 
 export default model<IUser>('User', userSchema);

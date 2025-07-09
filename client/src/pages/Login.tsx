@@ -4,6 +4,7 @@ import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
 import FormField from "../components/FormField";
 import AuthLink from "../components/AuthLink";
+import Head from "../components/Head";
 
 interface LoginInputs {
   email: string;
@@ -24,38 +25,41 @@ export default function Login() {
     register,
     handleSubmit,
     formState: { errors },
-    setError
+    setError,
   } = useForm<LoginInputs>();
 
   const onSubmit: SubmitHandler<LoginInputs> = async (data) => {
     try {
-      const response = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/api/auth/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify(data),
       });
 
       const result: ApiResponse = await response.json();
 
       if (response.ok) {
-        navigate({ to: '/dashboard', replace: true });
+        // Store email in localStorage for OTP verification
+        localStorage.setItem("pendingEmail", data.email);
+        navigate({ to: "/verify", replace: true });
       } else {
-        setError('root', { message: result.message });
+        setError("root", { message: result.message });
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Network error. Please try again.';
-      setError('root', { message: errorMessage });
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Network error. Please try again.";
+      setError("root", { message: errorMessage });
     }
   };
 
   return (
     <AuthLayout>
-      <h2 className="text-gray-800 text-4xl/12 font-bold text-center mb-4">
-        Welcome to ChatApp
-      </h2>
+      <Head>Welcome to ChatApp</Head>
 
       <AuthForm
         onSubmit={onSubmit}
@@ -79,10 +83,8 @@ export default function Login() {
           errors={errors}
           validation={{ required: "Password is required" }}
         />
-        
-        {errors.root && (
-          <p className="text-red-900">{errors.root.message}</p>
-        )}
+
+        {errors.root && <p className="text-red-900">{errors.root.message}</p>}
       </AuthForm>
 
       <AuthLink
