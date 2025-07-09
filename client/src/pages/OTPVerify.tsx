@@ -4,12 +4,14 @@ import AuthLayout from "../layouts/AuthLayout";
 import { PinInput } from "@mantine/core";
 import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { userStore } from "../store/userStore";
 
 interface ApiResponse {
   message: string;
   user?: {
     id: string;
     email: string;
+    role: "user" | "superAdmin";
   };
 }
 
@@ -19,6 +21,7 @@ export default function OTPVerify() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const setUser = userStore((state) => state.setUser);
 
   useEffect(() => {
     const pendingEmail = localStorage.getItem("pendingEmail");
@@ -56,7 +59,8 @@ export default function OTPVerify() {
 
       const result: ApiResponse = await response.json();
 
-      if (response.ok) {
+      if (response.ok && result.user) {
+        setUser(result.user);
         localStorage.removeItem("pendingEmail");
         navigate({ to: "/dashboard", replace: true });
       } else {

@@ -9,18 +9,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
 import OTPVerify from "./pages/OTPVerify";
-
-const checkAuthStatus = async (): Promise<boolean> => {
-  try {
-    const response = await fetch("http://localhost:3000/api/auth/user", {
-      credentials: "include",
-    });
-    return response.ok;
-  } catch (error) {
-    console.error("User is not authenticated", error);
-    return false;
-  }
-};
+import AdminDashboard from "./pages/AdminDashboard";
+import { userStore } from "./store/userStore";
 
 const checkPendingVerification = (): boolean => {
   return localStorage.getItem("pendingEmail") !== null;
@@ -38,18 +28,16 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   component: Login,
-  beforeLoad: async () => {
-    const isAuthenticated = await checkAuthStatus();
-    if (isAuthenticated) {
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (user) {
       throw redirect({
-        to: "/dashboard",
+        to: user.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
     if (checkPendingVerification()) {
-      throw redirect({
-        to: "/verify",
-      });
+      throw redirect({ to: "/verify" });
     }
   },
 });
@@ -58,18 +46,16 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
   component: Register,
-  beforeLoad: async () => {
-    const isAuthenticated = await checkAuthStatus();
-    if (isAuthenticated) {
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (user) {
       throw redirect({
-        to: "/dashboard",
+        to: user.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
     if (checkPendingVerification()) {
-      throw redirect({
-        to: "/verify",
-      });
+      throw redirect({ to: "/verify" });
     }
   },
 });
@@ -78,18 +64,16 @@ const verifyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/verify",
   component: OTPVerify,
-  beforeLoad: async () => {
-    const isAuthenticated = await checkAuthStatus();
-    if (isAuthenticated) {
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (user) {
       throw redirect({
-        to: "/dashboard",
+        to: user.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
     if (!checkPendingVerification()) {
-      throw redirect({
-        to: "/login",
-      });
+      throw redirect({ to: "/login" });
     }
   },
 });
@@ -98,12 +82,28 @@ const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/dashboard",
   component: UserDashboard,
-  beforeLoad: async () => {
-    const isAuthenticated = await checkAuthStatus();
-    if (!isAuthenticated) {
-      throw redirect({
-        to: "/login",
-      });
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (!user) {
+      throw redirect({ to: "/login" });
+    }
+    if (user.role === "superAdmin") {
+      throw redirect({ to: "/adminDashboard" });
+    }
+  },
+});
+
+const adminDashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/adminDashboard",
+  component: AdminDashboard,
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (!user) {
+      throw redirect({ to: "/login" });
+    }
+    if (user.role !== "superAdmin") {
+      throw redirect({ to: "/dashboard" });
     }
   },
 });
@@ -111,20 +111,16 @@ const dashboardRoute = createRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  beforeLoad: async () => {
-    const isAuthenticated = await checkAuthStatus();
-    if (isAuthenticated) {
+  beforeLoad: () => {
+    const user = userStore.getState().user;
+    if (user) {
       throw redirect({
-        to: "/dashboard",
+        to: user.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     } else if (checkPendingVerification()) {
-      throw redirect({
-        to: "/verify",
-      });
+      throw redirect({ to: "/verify" });
     } else {
-      throw redirect({
-        to: "/login",
-      });
+      throw redirect({ to: "/login" });
     }
   },
 });
@@ -135,6 +131,7 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   verifyRoute,
   dashboardRoute,
+  adminDashboardRoute,
 ]);
 
 export const router = createRouter({

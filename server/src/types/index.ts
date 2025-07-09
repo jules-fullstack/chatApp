@@ -8,6 +8,7 @@ export interface IUser extends Document {
   otp?: string;
   otpExpiry?: Date;
   isEmailVerified: boolean;
+  role: 'user' | 'superAdmin';
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateOTP(): string;
   verifyOTP(inputOTP: string): boolean;
@@ -35,6 +36,7 @@ export interface AuthResponse {
   user?: {
     id: string;
     email: string;
+    role: 'user' | 'superAdmin';
   };
 }
 

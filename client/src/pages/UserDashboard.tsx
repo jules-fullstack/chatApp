@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { userStore } from "../store/userStore";
 
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
+  const user = userStore((state) => state.user);
+  const clearUser = userStore((state) => state.clearUser);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -18,6 +21,7 @@ export default function UserDashboard() {
       });
 
       if (response.ok) {
+        clearUser();
         navigate({ to: "/login", replace: true });
       } else {
         console.error("Logout failed");
@@ -34,6 +38,7 @@ export default function UserDashboard() {
     <div className="user-dashboard">
       <div className="dashboard-header">
         <h1>User Dashboard</h1>
+        <p>Welcome, {user?.email ?? "Guest"}!</p>
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}

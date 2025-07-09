@@ -22,7 +22,7 @@ export const register = async (
       return;
     }
 
-    const user = new User({ email, password });
+    const user = new User({ email, password, role: 'superAdmin' });
     const otp = user.generateOTP();
     await user.save();
 
@@ -121,7 +121,7 @@ export const verifyOTP = async (
 
       res.json({
         message: 'OTP verified successfully',
-        user: { id: user._id.toString(), email: user.email },
+        user: { id: user._id.toString(), email: user.email, role: user.role },
       });
     });
   } catch (error) {
@@ -153,7 +153,11 @@ export const logout = (req: Request, res: Response): void => {
 export const getCurrentUser = (req: Request, res: Response): void => {
   if (req.user) {
     res.json({
-      user: { id: req.user._id.toString(), email: req.user.email },
+      user: {
+        id: req.user._id.toString(),
+        email: req.user.email,
+        role: req.user.role,
+      },
     });
   } else {
     res.status(401).json({ message: 'Not authenticated' });
