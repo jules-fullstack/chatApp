@@ -5,7 +5,7 @@ import {
   type UseFormHandleSubmit,
   type SubmitHandler,
 } from "react-hook-form";
-import Button from "./button";
+import Button from "./ui/button";
 
 interface AuthFormProps<T extends FieldValues> {
   onSubmit: SubmitHandler<T>;

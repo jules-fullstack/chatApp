@@ -3,6 +3,9 @@ import { persist } from "zustand/middleware";
 
 interface User {
   id: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
   email: string;
   role: "user" | "superAdmin";
 }

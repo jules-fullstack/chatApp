@@ -1,5 +1,5 @@
-import Button from "../components/button";
-import Head from "../components/Head";
+import Button from "../components/ui/button";
+import Head from "../components/ui/Head";
 import AuthLayout from "../layouts/AuthLayout";
 import { PinInput } from "@mantine/core";
 import { useState, useEffect } from "react";
@@ -10,6 +10,9 @@ interface ApiResponse {
   message: string;
   user?: {
     id: string;
+    firstName: string;
+    lastName: string;
+    userName: string;
     email: string;
     role: "user" | "superAdmin";
   };

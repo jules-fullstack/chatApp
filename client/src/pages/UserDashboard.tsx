@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
+import ChatsMenu from "../components/ChatsMenu";
+import MessageWindow from "../components/MessageWindow";
 
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
-  const user = userStore((state) => state.user);
+  // const user = userStore((state) => state.user);
   const clearUser = userStore((state) => state.clearUser);
 
   const handleLogout = async () => {
@@ -35,23 +37,16 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="user-dashboard">
-      <div className="dashboard-header">
-        <h1>User Dashboard</h1>
-        <p>Welcome, {user?.email ?? "Guest"}!</p>
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="logout-button"
-        >
-          {isLoggingOut ? "Logging out..." : "Logout"}
-        </button>
-      </div>
-
-      {/* Rest of your dashboard content */}
-      <div className="dashboard-content">
-        {/* Your dashboard content goes here */}
-      </div>
+    <div className="bg-gray-100 h-screen flex items-center">
+      <button
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className="cursor-pointer"
+      >
+        {isLoggingOut ? "Logging out..." : "Logout"}
+      </button>
+      <ChatsMenu />
+      <MessageWindow />
     </div>
   );
 }

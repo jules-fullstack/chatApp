@@ -2,9 +2,9 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate } from "@tanstack/react-router";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
-import FormField from "../components/FormField";
+import FormField from "../components/ui/FormField";
 import AuthLink from "../components/AuthLink";
-import Head from "../components/Head";
+import Head from "../components/ui/Head";
 
 interface LoginInputs {
   email: string;
