@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
-import ChatsMenu from "../components/ChatsMenu";
+import Sidebar from "../components/Sidebar";
 import MessageWindow from "../components/MessageWindow";
 
 export default function UserDashboard() {
@@ -45,7 +45,7 @@ export default function UserDashboard() {
       >
         {isLoggingOut ? "Logging out..." : "Logout"}
       </button>
-      <ChatsMenu />
+      <Sidebar />
       <MessageWindow />
     </div>
   );

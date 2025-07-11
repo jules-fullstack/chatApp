@@ -1,9 +1,9 @@
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import SearchBar from "./SearchBar";
-import MessagesList from "./MessagesList";
+import Inbox from "./Inbox";
 import Container from "./ui/Container";
 
-export default function ChatsMenu() {
+export default function Sidebar() {
   return (
     <Container size="sm">
       <div className="flex justify-between items-center px-4 py-2">
@@ -18,7 +18,7 @@ export default function ChatsMenu() {
       </div>
 
       <div className="flex-1 overflow-y-auto mt-2">
-        <MessagesList />
+        <Inbox />
       </div>
     </Container>
   );

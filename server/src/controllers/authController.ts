@@ -14,7 +14,7 @@ export const register = async (
   res: Response<AuthResponse>,
 ): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { firstName, lastName, userName, email, password } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -22,7 +22,14 @@ export const register = async (
       return;
     }
 
-    const user = new User({ email, password, role: 'superAdmin' });
+    const user = new User({
+      firstName,
+      lastName,
+      userName,
+      email,
+      password,
+      role: 'user',
+    });
     const otp = user.generateOTP();
     await user.save();
 
@@ -121,7 +128,14 @@ export const verifyOTP = async (
 
       res.json({
         message: 'OTP verified successfully',
-        user: { id: user._id.toString(), email: user.email, role: user.role },
+        user: {
+          id: user._id.toString(),
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userName: user.userName,
+          email: user.email,
+          role: user.role,
+        },
       });
     });
   } catch (error) {

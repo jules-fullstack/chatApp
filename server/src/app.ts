@@ -7,6 +7,7 @@ import cors from 'cors';
 
 import connectDB from './config/database';
 import authRoutes from './routes/auth';
+import userSearchRoutes from './routes/userSearchRoutes.js';
 import passportConfig from './config/passport';
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userSearchRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Server is running' });
