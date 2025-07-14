@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
+import { UserCircleIcon } from "@heroicons/react/24/outline";
 import Sidebar from "../components/Sidebar";
 import MessageWindow from "../components/MessageWindow";
+import { Menu } from "@mantine/core";
 
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -69,14 +71,23 @@ export default function UserDashboard() {
   }, [conversations, setActiveConversation]);
 
   return (
-    <div className="bg-gray-100 h-screen flex items-center">
-      <button
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className="cursor-pointer"
-      >
-        {isLoggingOut ? "Logging out..." : "Logout"}
-      </button>
+    <div className="bg-gray-100 h-screen flex items-center relative">
+      <Menu position="top">
+        <Menu.Target>
+          <UserCircleIcon className="size-12 place-self-end mb-8 ml-4 cursor-pointer" />
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item>
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="cursor-pointer"
+            >
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </button>
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
       <Sidebar />
       <MessageWindow />
     </div>
