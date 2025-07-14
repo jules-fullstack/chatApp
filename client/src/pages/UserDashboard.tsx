@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useChatStore } from "../store/chatStore";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
 import Sidebar from "../components/Sidebar";
@@ -9,6 +10,14 @@ export default function UserDashboard() {
   const navigate = useNavigate();
   // const user = userStore((state) => state.user);
   const clearUser = userStore((state) => state.clearUser);
+
+  const {
+    connect,
+    disconnect,
+    loadConversations,
+    conversations,
+    setActiveConversation,
+  } = useChatStore();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -35,6 +44,29 @@ export default function UserDashboard() {
       setIsLoggingOut(false);
     }
   };
+
+  useEffect(() => {
+    // Connect to WebSocket when component mounts
+    connect();
+
+    // Load conversations
+    loadConversations();
+
+    // Cleanup on unmount
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect, loadConversations]);
+
+  useEffect(() => {
+    // Set the most recent conversation as active on load
+    if (
+      conversations.length > 0 &&
+      !useChatStore.getState().activeConversation
+    ) {
+      setActiveConversation(conversations[0].participant._id);
+    }
+  }, [conversations, setActiveConversation]);
 
   return (
     <div className="bg-gray-100 h-screen flex items-center">

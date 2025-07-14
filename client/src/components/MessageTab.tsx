@@ -1,24 +1,21 @@
-// client/src/components/MessageTab.tsx
 import { UserCircleIcon } from "@heroicons/react/24/outline";
-
-interface MessageTabProps {
-  type?: "default" | "minimal";
-  username: string;
-  lastMessage?: string;
-  onClick?: () => void;
-}
+import { type MessageTabProps } from "../types";
 
 export default function MessageTab({
   type = "default",
   username,
   lastMessage = "Lorem ipsum dolor sit amet consectetur adipisicing elit.",
+  unreadCount = 0,
+  isActive = false,
   onClick,
 }: MessageTabProps) {
   const isDefault = type === "default";
 
   return (
     <div
-      className="flex pl-2 py-2 cursor-pointer hover:bg-gray-50 transition-colors duration-150 rounded-lg"
+      className={`flex pl-2 py-2 cursor-pointer transition-colors duration-150 rounded-lg ${
+        isActive ? "bg-blue-50 border-r-2 border-blue-500" : "hover:bg-gray-50"
+      }`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -29,9 +26,16 @@ export default function MessageTab({
         }
       }}
     >
-      <UserCircleIcon
-        className={`${isDefault ? "size-16" : "size-12"} text-gray-400`}
-      />
+      <div className="relative">
+        <UserCircleIcon
+          className={`${isDefault ? "size-16" : "size-12"} text-gray-400`}
+        />
+        {unreadCount > 0 && (
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full min-w-5 h-5 flex items-center justify-center text-xs font-semibold">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </div>
+        )}
+      </div>
       <div
         className={
           isDefault
@@ -40,12 +44,20 @@ export default function MessageTab({
         }
       >
         <h3
-          className={`font-semibold truncate ${isDefault ? "" : "text-center"}`}
+          className={`font-semibold truncate ${
+            isDefault ? "" : "text-center"
+          } ${unreadCount > 0 ? "text-gray-900" : "text-gray-700"}`}
         >
           {username}
         </h3>
         {isDefault && (
-          <p className="text-gray-500 line-clamp-1 text-sm">{lastMessage}</p>
+          <p
+            className={`line-clamp-1 text-sm ${
+              unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"
+            }`}
+          >
+            {lastMessage}
+          </p>
         )}
       </div>
     </div>

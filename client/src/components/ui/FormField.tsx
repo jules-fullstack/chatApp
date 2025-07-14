@@ -4,7 +4,6 @@ import {
   type FieldValues,
   type Path,
 } from "react-hook-form";
-
 import { type ReactNode } from "react";
 
 interface FormFieldProps<T extends FieldValues> {
@@ -19,6 +18,7 @@ interface FormFieldProps<T extends FieldValues> {
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   showError?: boolean;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 export default function FormField<T extends FieldValues>({
@@ -33,22 +33,24 @@ export default function FormField<T extends FieldValues>({
   leftIcon,
   rightIcon,
   showError = true,
+  onKeyDown,
 }: FormFieldProps<T>) {
   const error = errors[name];
   return (
     <div>
-      <div className={`flex items-center ${containerClassName}`}>
+      <div className={containerClassName}>
         {leftIcon && <div className="mr-2">{leftIcon}</div>}
         <input
+          {...register(name, validation)}
           type={type}
           placeholder={placeholder}
-          {...register(name, validation)}
           className={inputClassName}
+          onKeyDown={onKeyDown}
         />
         {rightIcon && <div className="ml-2">{rightIcon}</div>}
       </div>
       {showError && error && (
-        <p className="text-red-900 mt-1">{String(error.message)}</p>
+        <p className="text-red-500 text-sm mt-1">{String(error.message)}</p>
       )}
     </div>
   );

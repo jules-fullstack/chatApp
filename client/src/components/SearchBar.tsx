@@ -42,7 +42,7 @@ export default function SearchBar() {
           placeholder="Search users..."
           register={register}
           errors={errors}
-          containerClassName="bg-gray-200 p-2 rounded-2xl"
+          containerClassName="flex bg-gray-200 p-2 rounded-2xl"
           inputClassName="w-[95%] focus:outline-none ml-2 pr-8"
           leftIcon={<MagnifyingGlassIcon className="size-6 text-gray-400" />}
           showError={false}
