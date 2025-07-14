@@ -1,0 +1,52 @@
+import mongoose, { Schema, model } from 'mongoose';
+import { IMessage } from '../types/index.js';
+
+const messageSchema = new Schema<IMessage>(
+  {
+    sender: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    recipient: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    content: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    messageType: {
+      type: String,
+      enum: ['text', 'image', 'file'],
+      default: 'text',
+    },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
+    isEdited: {
+      type: Boolean,
+      default: false,
+    },
+    editedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+// Index for efficient querying
+messageSchema.index({ sender: 1, recipient: 1, createdAt: -1 });
+messageSchema.index({ createdAt: -1 });
+
+export default model<IMessage>('Message', messageSchema);

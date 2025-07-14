@@ -6,8 +6,13 @@ import Container from "./ui/Container";
 import { useChatStore } from "../store/chatStore";
 
 export default function MessageWindow() {
-  const { activeConversation, messages, conversations, typingUsers } =
-    useChatStore();
+  const {
+    activeConversation,
+    messages,
+    conversations,
+    typingUsers,
+    fallbackParticipant,
+  } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -19,9 +24,11 @@ export default function MessageWindow() {
   }, [messages]);
 
   // Find the active conversation details
-  const activeConversationData = conversations.find(
-    (conv) => conv.participant._id === activeConversation
-  );
+  const activeConversationData =
+    conversations.find((conv) => conv.participant._id === activeConversation) ||
+    (fallbackParticipant && {
+      participant: fallbackParticipant,
+    });
 
   const isTyping = typingUsers.has(activeConversation || "");
 
@@ -44,10 +51,10 @@ export default function MessageWindow() {
           </svg>
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Your Messages
+          Welcome to Chat App
         </h3>
         <p className="text-sm text-gray-500">
-          Send private messages to friends and family
+          Search for a user to start a conversation
         </p>
       </div>
     </div>

@@ -1,3 +1,10 @@
+export interface Participant {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+}
+
 export interface SearchedUser {
   _id: string;
   userName: string;

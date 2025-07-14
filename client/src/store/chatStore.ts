@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { userStore } from "./userStore";
+import { type Participant } from "../types";
 
 interface Message {
   _id: string;
@@ -52,6 +53,9 @@ interface ChatState {
   isTyping: boolean;
   typingUsers: Set<string>;
 
+  fallbackParticipant: Participant | null;
+  setFallbackParticipant: (participant: Participant | null) => void;
+
   // Actions
   connect: () => void;
   disconnect: () => void;
@@ -79,6 +83,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   isTyping: false,
   typingUsers: new Set(),
+  fallbackParticipant: null,
+
+  setFallbackParticipant: (participant: Participant | null) => {
+    set({ fallbackParticipant: participant });
+  },
 
   connect: () => {
     const user = userStore.getState().user;
@@ -87,7 +96,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const ws = new WebSocket("ws://localhost:3000/api/chat");
 
     ws.onopen = () => {
-      console.log("WebSocket connected");
       set({ ws, isConnected: true });
     };
 
@@ -110,7 +118,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     ws.onclose = () => {
-      console.log("WebSocket disconnected");
       set({ ws: null, isConnected: false });
     };
 

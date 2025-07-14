@@ -12,6 +12,7 @@ export default function Inbox() {
     loadConversations,
     setActiveConversation,
     activeConversation,
+    setFallbackParticipant,
   } = useChatStore();
 
   useEffect(() => {
@@ -21,6 +22,16 @@ export default function Inbox() {
   }, [isSearchActive, loadConversations]);
 
   const handleUserClick = (userId: string) => {
+    const user = searchedUsers.find((u) => u._id === userId);
+    if (user) {
+      setFallbackParticipant({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userName: user.userName,
+      });
+    }
+
     setActiveConversation(userId);
   };
 
@@ -78,7 +89,10 @@ export default function Inbox() {
         lastMessage={conversation.lastMessage?.content || "No messages yet"}
         unreadCount={conversation.unreadCount}
         isActive={activeConversation === conversation.participant._id}
-        onClick={() => handleUserClick(conversation.participant._id)}
+        onClick={() => {
+          setFallbackParticipant(null);
+          handleUserClick(conversation.participant._id);
+        }}
       />
     ));
   };
