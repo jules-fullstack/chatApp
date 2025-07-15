@@ -53,13 +53,22 @@ interface ChatState {
   isTyping: boolean;
   typingUsers: Set<string>;
 
+  isConversationsLoading: boolean;
+  isMessagesLoading: boolean;
+
   fallbackParticipant: Participant | null;
   setFallbackParticipant: (participant: Participant | null) => void;
+
+  // New message state
+  isNewMessage: boolean;
+  newMessageRecipient: Participant | null;
+  setNewMessage: (isNew: boolean, recipient?: Participant) => void;
 
   // Actions
   connect: () => void;
   disconnect: () => void;
   setActiveConversation: (userId: string) => void;
+  startNewMessage: () => void;
 
   // Message actions
   sendMessage: (recipientId: string, content: string) => Promise<void>;
@@ -86,9 +95,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isTyping: false,
   typingUsers: new Set(),
   fallbackParticipant: null,
+  isNewMessage: false,
+  newMessageRecipient: null,
+  isConversationsLoading: false,
+  isMessagesLoading: false,
 
   setFallbackParticipant: (participant: Participant | null) => {
     set({ fallbackParticipant: participant });
+  },
+
+  setNewMessage: (isNew: boolean, recipient?: Participant) => {
+    set({
+      isNewMessage: isNew,
+      newMessageRecipient: recipient || null,
+      messages: isNew ? [] : get().messages,
+    });
+  },
+
+  startNewMessage: () => {
+    set({
+      isNewMessage: true,
+      newMessageRecipient: null,
+      activeConversation: null,
+      messages: [],
+      fallbackParticipant: null,
+    });
   },
 
   connect: () => {
@@ -138,7 +169,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setActiveConversation: (userId: string) => {
-    set({ activeConversation: userId, messages: [] });
+    set({
+      activeConversation: userId,
+      messages: [],
+      isNewMessage: false,
+      newMessageRecipient: null,
+    });
     get().loadMessages(userId);
   },
 
@@ -163,12 +199,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const result = await response.json();
 
-      // Add message to local state
       set((state) => ({
         messages: [...state.messages, result.data],
+        isNewMessage: false,
+        newMessageRecipient: null,
+        activeConversation: recipientId,
       }));
 
-      // Refresh conversations to update last message
       get().loadConversations();
     } catch (error) {
       console.error("Error sending message:", error);
@@ -177,6 +214,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadMessages: async (userId: string) => {
+    set({ isMessagesLoading: true });
     try {
       const response = await fetch(
         `${API_BASE}/messages/conversation/${userId}`,
@@ -193,10 +231,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ messages: result.messages });
     } catch (error) {
       console.error("Error loading messages:", error);
+    } finally {
+      set({ isMessagesLoading: false });
     }
   },
 
   loadConversations: async () => {
+    set({ isConversationsLoading: true });
     try {
       const response = await fetch(`${API_BASE}/messages/conversations`, {
         credentials: "include",
@@ -210,6 +251,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ conversations });
     } catch (error) {
       console.error("Error loading conversations:", error);
+    } finally {
+      set({ isConversationsLoading: false });
     }
   },
 
@@ -273,6 +316,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isTyping: false,
       typingUsers: new Set(),
       fallbackParticipant: null,
+      isNewMessage: false,
+      newMessageRecipient: null,
     });
   },
 }));

@@ -7,8 +7,14 @@ import { type MessageFormData } from "../types";
 import FormField from "./ui/FormField";
 
 export default function MessageSender() {
-  const { activeConversation, sendMessage, startTyping, stopTyping } =
-    useChatStore();
+  const {
+    activeConversation,
+    sendMessage,
+    startTyping,
+    stopTyping,
+    isNewMessage,
+    newMessageRecipient,
+  } = useChatStore();
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -24,12 +30,15 @@ export default function MessageSender() {
 
   // Handle typing indicators
   useEffect(() => {
-    if (!activeConversation) return;
+    const recipientId = isNewMessage
+      ? newMessageRecipient?._id
+      : activeConversation;
+    if (!recipientId) return;
 
     if (messageValue && messageValue.trim().length > 0) {
       if (!isTyping) {
         setIsTyping(true);
-        startTyping(activeConversation);
+        startTyping(recipientId);
       }
 
       // Clear existing timeout
@@ -40,11 +49,11 @@ export default function MessageSender() {
       // Set new timeout to stop typing
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
-        stopTyping(activeConversation);
+        stopTyping(recipientId);
       }, 1000);
     } else if (isTyping) {
       setIsTyping(false);
-      stopTyping(activeConversation);
+      stopTyping(recipientId);
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
@@ -55,19 +64,30 @@ export default function MessageSender() {
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [messageValue, activeConversation, isTyping, startTyping, stopTyping]);
+  }, [
+    messageValue,
+    activeConversation,
+    isNewMessage,
+    newMessageRecipient,
+    isTyping,
+    startTyping,
+    stopTyping,
+  ]);
 
   const onSubmit = async (data: MessageFormData) => {
-    if (!activeConversation || !data.message.trim()) return;
+    const recipientId = isNewMessage
+      ? newMessageRecipient?._id
+      : activeConversation;
+    if (!recipientId || !data.message.trim()) return;
 
     try {
-      await sendMessage(activeConversation, data.message.trim());
+      await sendMessage(recipientId, data.message.trim());
       reset();
 
       // Stop typing indicator
       if (isTyping) {
         setIsTyping(false);
-        stopTyping(activeConversation);
+        stopTyping(recipientId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -82,11 +102,20 @@ export default function MessageSender() {
   };
 
   const handleLikeClick = () => {
-    if (!activeConversation) return;
-    sendMessage(activeConversation, "👍");
+    const recipientId = isNewMessage
+      ? newMessageRecipient?._id
+      : activeConversation;
+    if (!recipientId) return;
+    sendMessage(recipientId, "👍");
   };
 
-  if (!activeConversation) {
+  // Don't show MessageSender if in new message mode but no recipient selected
+  if (isNewMessage && !newMessageRecipient) {
+    return null;
+  }
+
+  // Don't show MessageSender if no active conversation and not in new message mode
+  if (!activeConversation && !isNewMessage) {
     return null;
   }
 
