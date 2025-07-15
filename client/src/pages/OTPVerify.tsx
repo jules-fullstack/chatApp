@@ -107,6 +107,7 @@ export default function OTPVerify() {
       <PinInput
         value={pin}
         onChange={setPin}
+        placeholder=""
         type="number"
         length={6}
         size="lg"

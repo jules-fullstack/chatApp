@@ -18,30 +18,73 @@ import { z } from "zod";
 import FormField from "../components/ui/FormField";
 
 // Zod schema for profile update
-const profileUpdateSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, "First name is required")
-    .max(50, "First name must be less than 50 characters"),
-  lastName: z
-    .string()
-    .min(1, "Last name is required")
-    .max(50, "Last name must be less than 50 characters"),
-  userName: z
-    .string()
-    .min(3, "Username must be at least 3 characters")
-    .max(30, "Username must be less than 30 characters")
-    .regex(
-      /^[a-zA-Z0-9_]+$/,
-      "Username can only contain letters, numbers, and underscores"
-    ),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .max(100, "Password must be less than 100 characters")
-    .optional()
-    .or(z.literal("")),
-});
+const profileUpdateSchema = z
+  .object({
+    firstName: z
+      .string()
+      .min(1, "First name is required")
+      .max(50, "First name must be less than 50 characters"),
+    lastName: z
+      .string()
+      .min(1, "Last name is required")
+      .max(50, "Last name must be less than 50 characters"),
+    userName: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(30, "Username must be less than 30 characters")
+      .regex(
+        /^[a-zA-Z0-9_]+$/,
+        "Username can only contain letters, numbers, and underscores"
+      ),
+    currentPassword: z.string().optional().or(z.literal("")),
+    newPassword: z.string().optional().or(z.literal("")),
+    confirmPassword: z.string().optional().or(z.literal("")),
+  })
+  .refine(
+    (data) => {
+      // If any password field is filled, all must be filled
+      const hasCurrentPassword =
+        data.currentPassword && data.currentPassword.trim() !== "";
+      const hasNewPassword = data.newPassword && data.newPassword.trim() !== "";
+      const hasConfirmPassword =
+        data.confirmPassword && data.confirmPassword.trim() !== "";
+
+      if (hasCurrentPassword || hasNewPassword || hasConfirmPassword) {
+        return hasCurrentPassword && hasNewPassword && hasConfirmPassword;
+      }
+      return true;
+    },
+    {
+      message: "If changing password, all password fields are required",
+      path: ["currentPassword"],
+    }
+  )
+  .refine(
+    (data) => {
+      // If new password is provided, it must meet length requirements
+      if (data.newPassword && data.newPassword.trim() !== "") {
+        return data.newPassword.length >= 6 && data.newPassword.length <= 100;
+      }
+      return true;
+    },
+    {
+      message: "New password must be between 6 and 100 characters",
+      path: ["newPassword"],
+    }
+  )
+  .refine(
+    (data) => {
+      // New password and confirm password must match
+      if (data.newPassword && data.confirmPassword) {
+        return data.newPassword === data.confirmPassword;
+      }
+      return true;
+    },
+    {
+      message: "New password and confirm password must match",
+      path: ["confirmPassword"],
+    }
+  );
 
 type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 
@@ -73,7 +116,9 @@ export default function UserDashboard() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       userName: user?.userName || "",
-      password: "",
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -120,7 +165,11 @@ export default function UserDashboard() {
         firstName: data.firstName,
         lastName: data.lastName,
         userName: data.userName,
-        ...(data.password && { password: data.password }),
+        ...(data.currentPassword &&
+          data.newPassword && {
+            currentPassword: data.currentPassword,
+            newPassword: data.newPassword,
+          }),
       };
 
       const response = await fetch("http://localhost:3000/api/users/profile", {
@@ -141,7 +190,9 @@ export default function UserDashboard() {
           firstName: result.user.firstName,
           lastName: result.user.lastName,
           userName: result.user.userName,
-          password: "",
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
         });
         close();
         notifications.show({
@@ -176,7 +227,9 @@ export default function UserDashboard() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       userName: user?.userName || "",
-      password: "",
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     });
     open();
   };
@@ -258,22 +311,60 @@ export default function UserDashboard() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <p className="text-xs text-gray-500 mb-1">
-                Leave blank to keep current password
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-3">
+                Change Password
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Leave all password fields blank to keep your current password
               </p>
-              <FormField
-                name="password"
-                type="password"
-                placeholder="Enter new password (optional)"
-                register={register}
-                errors={errors}
-                containerClassName="bg-gray-100 rounded p-3 flex items-center"
-                inputClassName="w-full focus:outline-none bg-transparent"
-              />
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Password
+                  </label>
+                  <FormField
+                    name="currentPassword"
+                    type="password"
+                    placeholder="Enter your current password"
+                    register={register}
+                    errors={errors}
+                    containerClassName="bg-gray-100 rounded p-3 flex items-center"
+                    inputClassName="w-full focus:outline-none bg-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
+                  <FormField
+                    name="newPassword"
+                    type="password"
+                    placeholder="Enter your new password"
+                    register={register}
+                    errors={errors}
+                    containerClassName="bg-gray-100 rounded p-3 flex items-center"
+                    inputClassName="w-full focus:outline-none bg-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <FormField
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your new password"
+                    register={register}
+                    errors={errors}
+                    containerClassName="bg-gray-100 rounded p-3 flex items-center"
+                    inputClassName="w-full focus:outline-none bg-transparent"
+                  />
+                </div>
+              </div>
             </div>
 
             <Group justify="flex-end" mt="md">

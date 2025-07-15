@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import User from '../models/User.js';
 import { IUser } from '../types/index.js';
+import { updateProfileSchema } from '../schemas/validations.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -10,7 +11,8 @@ interface UpdateProfileRequest {
   firstName?: string;
   lastName?: string;
   userName?: string;
-  password?: string;
+  currentPassword?: string;
+  newPassword?: string;
 }
 
 export const updateProfile = async (
@@ -18,20 +20,23 @@ export const updateProfile = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { firstName, lastName, userName, password } =
-      req.body as UpdateProfileRequest;
+    // Validate request body with Zod
+    const validationResult = updateProfileSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      res.status(400).json({
+        message: 'Validation error',
+        errors: validationResult.error.issues,
+      });
+      return;
+    }
+
+    const { firstName, lastName, userName, currentPassword, newPassword } =
+      validationResult.data;
     const userId = req.user?._id;
 
     if (!userId) {
       res.status(401).json({ message: 'Not authenticated' });
-      return;
-    }
-
-    // Validate required fields
-    if (!firstName || !lastName || !userName) {
-      res
-        .status(400)
-        .json({ message: 'First name, last name, and username are required' });
       return;
     }
 
@@ -53,14 +58,24 @@ export const updateProfile = async (
       return;
     }
 
+    // If password change is requested, validate current password
+    if (currentPassword && newPassword) {
+      const isCurrentPasswordValid =
+        await user.comparePassword(currentPassword);
+      if (!isCurrentPasswordValid) {
+        res.status(400).json({ message: 'Current password is incorrect' });
+        return;
+      }
+    }
+
     // Update user fields
     user.firstName = firstName;
     user.lastName = lastName;
     user.userName = userName.toLowerCase();
 
     // Update password if provided
-    if (password && password.trim() !== '') {
-      user.password = password;
+    if (newPassword && newPassword.trim() !== '') {
+      user.password = newPassword;
     }
 
     // Save the updated user
