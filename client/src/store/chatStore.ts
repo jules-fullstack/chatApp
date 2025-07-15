@@ -71,6 +71,8 @@ interface ChatState {
   startTyping: (recipientId: string) => void;
   stopTyping: (recipientId: string) => void;
   setTypingUser: (userId: string, isTyping: boolean) => void;
+
+  resetStore: () => void;
 }
 
 const API_BASE = "http://localhost:3000/api";
@@ -258,6 +260,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         newTypingUsers.delete(userId);
       }
       return { typingUsers: newTypingUsers };
+    });
+  },
+
+  resetStore: () => {
+    set({
+      ws: null,
+      isConnected: false,
+      activeConversation: null,
+      messages: [],
+      conversations: [],
+      isTyping: false,
+      typingUsers: new Set(),
+      fallbackParticipant: null,
     });
   },
 }));

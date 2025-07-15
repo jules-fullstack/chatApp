@@ -122,6 +122,8 @@ export default function UserDashboard() {
     },
   });
 
+  const { resetStore: resetChatStore } = useChatStore.getState();
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
 
@@ -136,6 +138,7 @@ export default function UserDashboard() {
 
       if (response.ok) {
         clearUser();
+        resetChatStore();
         navigate({ to: "/login", replace: true });
       } else {
         console.error("Logout failed");
