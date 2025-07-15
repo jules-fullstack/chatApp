@@ -42,7 +42,6 @@ export default function Login() {
       const result: ApiResponse = await response.json();
 
       if (response.ok) {
-        // Store email in localStorage for OTP verification
         localStorage.setItem("pendingEmail", data.email);
         navigate({ to: "/verify", replace: true });
       } else {

@@ -1,4 +1,3 @@
-// client/src/components/AuthForm.tsx
 import { type ReactNode, useState } from "react";
 import {
   type FieldValues,
