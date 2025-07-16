@@ -139,6 +139,7 @@ export default function UserDashboard() {
       if (response.ok) {
         clearUser();
         resetChatStore();
+        localStorage.removeItem("auth-storage");
         navigate({ to: "/login", replace: true });
       } else {
         console.error("Logout failed");
