@@ -16,13 +16,21 @@ interface ApiResponse {
     email: string;
     role: "user" | "superAdmin";
   };
+  remainingAttempts?: number;
+  timeUntilReset?: number;
 }
 
 export default function OTPVerify() {
   const [pin, setPin] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(
+    null
+  );
+  const [timeUntilReset, setTimeUntilReset] = useState<number | null>(null);
   const navigate = useNavigate();
   const setUser = userStore((state) => state.setUser);
 
@@ -81,18 +89,48 @@ export default function OTPVerify() {
   };
 
   const handleResendOTP = async () => {
-    setLoading(true);
+    setResendLoading(true);
     setError("");
+    setSuccessMessage("");
 
     try {
-      setError(
-        "Please wait for the current OTP to expire before requesting a new one."
+      const response = await fetch(
+        "http://localhost:3000/api/auth/resend-otp",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email,
+          }),
+        }
       );
-    } catch (error) {
-      console.error(error);
-      setError("Failed to resend OTP. Please try again.");
+
+      const result: ApiResponse = await response.json();
+
+      if (response.ok) {
+        setError("");
+        setSuccessMessage(result.message);
+        setRemainingAttempts(result.remainingAttempts ?? null);
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 5000);
+      } else {
+        setError(result.message);
+        if (result.timeUntilReset) {
+          setTimeUntilReset(result.timeUntilReset);
+        }
+      }
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Network error. Please try again.";
+      setError(errorMessage);
     } finally {
-      setLoading(false);
+      setResendLoading(false);
     }
   };
 
@@ -116,6 +154,9 @@ export default function OTPVerify() {
       />
 
       {error && <p className="text-red-900 text-center mb-4">{error}</p>}
+      {successMessage && (
+        <p className="text-green-600 text-center mb-4">{successMessage}</p>
+      )}
 
       <Button
         onClick={handleSubmit}
@@ -125,13 +166,26 @@ export default function OTPVerify() {
         {loading ? "Verifying..." : "Submit"}
       </Button>
 
-      <button
-        onClick={handleResendOTP}
-        disabled={loading}
-        className="w-full text-blue-600 hover:text-blue-800 underline"
-      >
-        Resend OTP
-      </button>
+      <div className="text-center">
+        {remainingAttempts !== null && (
+          <p className="text-gray-600 text-sm mb-2">
+            Remaining OTP resend attempts: {remainingAttempts}
+          </p>
+        )}
+        <button
+          onClick={handleResendOTP}
+          disabled={loading || resendLoading || timeUntilReset !== null}
+          className="w-full text-blue-600 hover:text-blue-800 hover:cursor-pointer underline disabled:cursor-not-allowed disabled:text-gray-400 disabled:no-underline"
+        >
+          {resendLoading ? "Sending..." : "Resend OTP"}
+        </button>
+        {timeUntilReset && (
+          <p className="text-red-600 text-sm mt-2">
+            Too many attempts. Try again in {Math.ceil(timeUntilReset / 60)}{" "}
+            minutes.
+          </p>
+        )}
+      </div>
     </AuthLayout>
   );
 }

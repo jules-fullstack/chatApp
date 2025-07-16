@@ -8,6 +8,7 @@ import {
   AuthResponse,
 } from '../types/index.js';
 import { sendOTPEmail } from '../services/emailService.js';
+import { rateLimitService } from '../services/rateLimitService.js';
 
 export const register = async (
   req: Request<{}, AuthResponse, RegisterRequest>,
@@ -162,6 +163,53 @@ export const logout = (req: Request, res: Response): void => {
       res.json({ message: 'Logout successful' });
     });
   });
+};
+
+export const resendOTP = async (
+  req: Request<{}, AuthResponse, { email: string }>,
+  res: Response<AuthResponse>
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!req.session.pendingUser || req.session.pendingUser.email !== email) {
+      res.status(400).json({ message: 'Invalid verification session' });
+      return;
+    }
+
+    const rateLimit = rateLimitService.checkRateLimit(email);
+    if (!rateLimit.allowed) {
+      res.status(429).json({ 
+        message: `Too many OTP requests. Please try again in ${Math.ceil(rateLimit.timeUntilReset! / 60)} minutes.`,
+        timeUntilReset: rateLimit.timeUntilReset
+      });
+      return;
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      res.status(400).json({ message: 'User not found' });
+      return;
+    }
+
+    const otp = user.generateOTP();
+    await user.save();
+    await sendOTPEmail(email, otp);
+
+    rateLimitService.recordAttempt(email);
+
+    const remainingAttempts = rateLimitService.getRemainingAttempts(email);
+
+    res.json({
+      message: 'OTP resent successfully. Please check your email.',
+      remainingAttempts
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({
+      message: `Server error: ${errorMessage}`
+    });
+  }
 };
 
 export const getCurrentUser = (req: Request, res: Response): void => {

@@ -5,6 +5,7 @@ import {
   logout,
   getCurrentUser,
   verifyOTP,
+  resendOTP,
 } from '../controllers/authController';
 import {
   ensureAuthenticated,
@@ -18,6 +19,8 @@ router.post('/register', ensureNotAuthenticated, register);
 router.post('/login', ensureNotAuthenticated, login);
 
 router.post('/verify-otp', ensureNotAuthenticated, verifyOTP);
+
+router.post('/resend-otp', ensureNotAuthenticated, resendOTP);
 
 router.post('/logout', ensureAuthenticated, logout);
 

@@ -5,13 +5,12 @@ import { type Participant, type SearchedUser } from "../types";
 import { useChatStore } from "../store/chatStore";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
-import FormField from "./ui/FormField";
 import userSearchService from "../services/userSearchService";
-import { Badge, Group } from "@mantine/core";
+import { Badge } from "@mantine/core";
 
 interface ConversationHeaderProps {
   participant?: Participant;
-  conversation?: any;
+  conversation?: { isGroup: boolean; groupName?: string; participants?: any[]; participant?: any };
   isTyping?: boolean;
 }
 
@@ -27,10 +26,8 @@ export default function ConversationHeader({
   const { 
     isNewMessage, 
     newMessageRecipients, 
-    setNewMessage, 
     addRecipient, 
-    removeRecipient, 
-    loadMessages 
+    removeRecipient 
   } = useChatStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -40,7 +37,6 @@ export default function ConversationHeader({
     register,
     watch,
     setValue,
-    formState: { errors },
   } = useForm<SearchFormData>();
 
   const searchValue = watch("search");

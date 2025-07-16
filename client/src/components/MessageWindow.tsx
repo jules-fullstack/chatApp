@@ -191,7 +191,7 @@ export default function MessageWindow() {
         participant={
           isNewMessage ? undefined : activeConversationData?.participant
         }
-        conversation={isNewMessage ? undefined : activeConversationData}
+        conversation={isNewMessage ? undefined : (activeConversationData || undefined)}
         isTyping={isTyping}
       />
 

@@ -49,7 +49,7 @@ export default function Inbox() {
     }
   };
 
-  const handleConversationClick = (conversationId: string, participant?: any) => {
+  const handleConversationClick = (conversationId: string, participant?: { _id: string; firstName: string; lastName: string; userName: string; email: string }) => {
     if (participant) {
       setFallbackParticipant({
         _id: participant._id,
@@ -156,7 +156,7 @@ export default function Inbox() {
             onClick={() => {
               handleConversationClick(
                 conversation._id, 
-                conversation.isGroup ? null : conversation.participant
+                conversation.isGroup ? undefined : conversation.participant
               );
             }}
           />

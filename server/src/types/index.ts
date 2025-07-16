@@ -55,6 +55,8 @@ export interface AuthResponse {
     email: string;
     role: 'user' | 'superAdmin';
   };
+  remainingAttempts?: number;
+  timeUntilReset?: number;
 }
 
 export interface IConversation extends Document {
