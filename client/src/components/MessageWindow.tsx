@@ -37,22 +37,20 @@ export default function MessageWindow() {
 
   const typingUsersArray = getTypingUsersForConversation();
   const isTyping = typingUsersArray.length > 0;
-  
-  console.log('DEBUG: MessageWindow - activeConversation:', activeConversation, 'typingUsers:', typingUsersArray, 'isTyping:', isTyping);
 
   // Helper function to format typing message
   const getTypingMessage = () => {
-    if (typingUsersArray.length === 0) return '';
-    
+    if (typingUsersArray.length === 0) return "";
+
     if (typingUsersArray.length === 1) {
       const user = typingUsersArray[0];
-      const displayName = user.firstName || user.userName || 'Someone';
+      const displayName = user.firstName || user.userName || "Someone";
       return `${displayName} is typing...`;
     } else if (typingUsersArray.length === 2) {
       const user1 = typingUsersArray[0];
       const user2 = typingUsersArray[1];
-      const name1 = user1.firstName || user1.userName || 'Someone';
-      const name2 = user2.firstName || user2.userName || 'Someone';
+      const name1 = user1.firstName || user1.userName || "Someone";
+      const name2 = user2.firstName || user2.userName || "Someone";
       return `${name1} and ${name2} are typing...`;
     } else {
       return `${typingUsersArray.length} people are typing...`;
@@ -190,7 +188,9 @@ export default function MessageWindow() {
   return (
     <Container size="lg">
       <ConversationHeader
-        participant={isNewMessage ? undefined : activeConversationData?.participant}
+        participant={
+          isNewMessage ? undefined : activeConversationData?.participant
+        }
         conversation={isNewMessage ? undefined : activeConversationData}
         isTyping={isTyping}
       />

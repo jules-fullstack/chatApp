@@ -70,7 +70,6 @@ class WebSocketManager {
   }
 
   private handleMessage(senderId: string, data: any) {
-    console.log('DEBUG: WebSocket message received from', senderId, ':', data);
     switch (data.type) {
       case 'typing':
         this.handleTyping(senderId, data);
@@ -88,11 +87,8 @@ class WebSocketManager {
 
   private async handleTyping(senderId: string, data: any) {
     const { recipientId, conversationId } = data;
-    console.log('DEBUG: handleTyping - senderId:', senderId, 'recipientId:', recipientId, 'conversationId:', conversationId);
-    
+
     if (recipientId) {
-      // Direct message typing
-      console.log('DEBUG: Handling direct message typing to:', recipientId);
       const recipientConnection = this.connectedUsers.get(recipientId);
       if (recipientConnection) {
         const message = {
@@ -101,23 +97,20 @@ class WebSocketManager {
           isTyping: true,
           conversationId: conversationId || recipientId,
         };
-        console.log('DEBUG: Sending typing notification to', recipientId, ':', message);
         recipientConnection.ws.send(JSON.stringify(message));
-      } else {
-        console.log('DEBUG: Recipient not connected:', recipientId);
       }
     } else if (conversationId) {
-      // Group chat typing - need to get all participants
-      console.log('DEBUG: Handling group chat typing for conversation:', conversationId);
       try {
-        const Conversation = (await import('../models/Conversation.js')).default;
+        const Conversation = (await import('../models/Conversation.js'))
+          .default;
         const conversation = await Conversation.findById(conversationId);
-        
+
         if (conversation) {
-          console.log('DEBUG: Found conversation with participants:', conversation.participants.map((p: any) => p.toString()));
           conversation.participants.forEach((participantId: any) => {
             if (participantId.toString() !== senderId) {
-              const connection = this.connectedUsers.get(participantId.toString());
+              const connection = this.connectedUsers.get(
+                participantId.toString(),
+              );
               if (connection) {
                 const message = {
                   type: 'user_typing',
@@ -125,27 +118,20 @@ class WebSocketManager {
                   isTyping: true,
                   conversationId,
                 };
-                console.log('DEBUG: Sending group typing notification to', participantId.toString(), ':', message);
                 connection.ws.send(JSON.stringify(message));
-              } else {
-                console.log('DEBUG: Group participant not connected:', participantId.toString());
               }
             }
           });
-        } else {
-          console.log('DEBUG: Conversation not found:', conversationId);
         }
       } catch (error) {
         console.error('Error handling group typing:', error);
       }
-    } else {
-      console.log('DEBUG: No recipientId or conversationId provided');
     }
   }
 
   private async handleStopTyping(senderId: string, data: any) {
     const { recipientId, conversationId } = data;
-    
+
     if (recipientId) {
       // Direct message stop typing
       const recipientConnection = this.connectedUsers.get(recipientId);
@@ -162,13 +148,16 @@ class WebSocketManager {
     } else if (conversationId) {
       // Group chat stop typing
       try {
-        const Conversation = (await import('../models/Conversation.js')).default;
+        const Conversation = (await import('../models/Conversation.js'))
+          .default;
         const conversation = await Conversation.findById(conversationId);
-        
+
         if (conversation) {
           conversation.participants.forEach((participantId: any) => {
             if (participantId.toString() !== senderId) {
-              const connection = this.connectedUsers.get(participantId.toString());
+              const connection = this.connectedUsers.get(
+                participantId.toString(),
+              );
               if (connection) {
                 connection.ws.send(
                   JSON.stringify({
@@ -219,7 +208,7 @@ class WebSocketManager {
 
   // Method to send group message notification
   sendGroupMessageNotification(participantIds: string[], message: any) {
-    participantIds.forEach(participantId => {
+    participantIds.forEach((participantId) => {
       const connection = this.connectedUsers.get(participantId);
       if (connection) {
         connection.ws.send(

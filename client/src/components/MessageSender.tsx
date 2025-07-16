@@ -35,12 +35,9 @@ export default function MessageSender() {
 
     // Handle typing for different conversation types
     const handleTyping = (isTypingNow: boolean) => {
-      console.log('DEBUG: MessageSender handleTyping called - isTypingNow:', isTypingNow, 'isNewMessage:', isNewMessage, 'activeConversation:', activeConversation, 'newMessageRecipients:', newMessageRecipients);
-      
       if (isNewMessage) {
         // For new messages, send typing to all recipients individually
-        newMessageRecipients.forEach(recipient => {
-          console.log('DEBUG: New message typing to recipient:', recipient._id);
+        newMessageRecipients.forEach((recipient) => {
           if (isTypingNow) {
             startTyping(recipient._id);
           } else {
@@ -48,24 +45,16 @@ export default function MessageSender() {
           }
         });
       } else if (activeConversation) {
-        // For existing conversations (both direct and group), send to the conversation
-        console.log('DEBUG: Existing conversation typing to:', activeConversation);
         if (isTypingNow) {
           startTyping(activeConversation);
         } else {
           stopTyping(activeConversation);
         }
-      } else {
-        console.log('DEBUG: No active conversation or new message recipients');
       }
     };
 
-    console.log('DEBUG: MessageSender useEffect - messageValue:', messageValue, 'messageValue.length:', messageValue?.length, 'isTyping:', isTyping);
-    
     if (messageValue && messageValue.trim().length > 0) {
-      console.log('DEBUG: User is typing, messageValue has content');
       if (!isTyping) {
-        console.log('DEBUG: Starting typing indicator');
         setIsTyping(true);
         handleTyping(true);
       }
@@ -77,12 +66,10 @@ export default function MessageSender() {
 
       // Set new timeout to stop typing
       typingTimeoutRef.current = setTimeout(() => {
-        console.log('DEBUG: Typing timeout - stopping typing indicator');
         setIsTyping(false);
         handleTyping(false);
       }, 1000);
     } else if (isTyping) {
-      console.log('DEBUG: Stopping typing indicator - no message content');
       setIsTyping(false);
       handleTyping(false);
       if (typingTimeoutRef.current) {
@@ -111,23 +98,23 @@ export default function MessageSender() {
     try {
       if (isNewMessage) {
         if (newMessageRecipients.length === 0) return;
-        const recipientIds = newMessageRecipients.map(r => r._id);
+        const recipientIds = newMessageRecipients.map((r) => r._id);
         await sendMessage(recipientIds, data.message.trim());
       } else if (activeConversation) {
-        // For existing conversations, we need to use a different approach
+        // For existing conversations,
         // Send to the conversation endpoint with conversationId
         await sendMessage([activeConversation], data.message.trim());
       } else {
         return;
       }
-      
+
       reset();
 
       // Stop typing indicator
       if (isTyping) {
         setIsTyping(false);
         if (isNewMessage) {
-          newMessageRecipients.forEach(recipient => {
+          newMessageRecipients.forEach((recipient) => {
             stopTyping(recipient._id);
           });
         } else if (activeConversation) {
@@ -149,7 +136,7 @@ export default function MessageSender() {
   const handleLikeClick = () => {
     if (isNewMessage) {
       if (newMessageRecipients.length === 0) return;
-      const recipientIds = newMessageRecipients.map(r => r._id);
+      const recipientIds = newMessageRecipients.map((r) => r._id);
       sendMessage(recipientIds, "👍");
     } else if (activeConversation) {
       sendMessage([activeConversation], "👍");

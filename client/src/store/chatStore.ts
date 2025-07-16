@@ -54,7 +54,11 @@ interface ChatState {
   handleIncomingMessage: (message: Message) => void;
   startTyping: (recipientId: string) => void;
   stopTyping: (recipientId: string) => void;
-  setTypingUser: (userId: string, isTyping: boolean, userInfo?: Partial<TypingUser>) => void;
+  setTypingUser: (
+    userId: string,
+    isTyping: boolean,
+    userInfo?: Partial<TypingUser>
+  ) => void;
   getTypingUsersForConversation: () => TypingUser[];
   getUserInfoFromConversations: (userId: string) => Partial<TypingUser>;
 
@@ -91,7 +95,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   addRecipient: (recipient: Participant) => {
     const current = get().newMessageRecipients;
-    if (!current.find(r => r._id === recipient._id)) {
+    if (!current.find((r) => r._id === recipient._id)) {
       set({
         newMessageRecipients: [...current, recipient],
       });
@@ -100,7 +104,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   removeRecipient: (recipientId: string) => {
     set({
-      newMessageRecipients: get().newMessageRecipients.filter(r => r._id !== recipientId),
+      newMessageRecipients: get().newMessageRecipients.filter(
+        (r) => r._id !== recipientId
+      ),
     });
   },
 
@@ -136,30 +142,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
           get().handleIncomingMessage(data.message);
           break;
         case "user_typing": {
-          console.log('DEBUG: Received user_typing message:', data);
           // Only show typing indicator if it's for the active conversation
           const { activeConversation } = get();
-          console.log('DEBUG: Current activeConversation:', activeConversation);
-          
+
           // Check if this typing indicator is for the current active conversation
           let shouldShowTyping = false;
-          
+
           if (activeConversation) {
-            if (activeConversation.startsWith('user:')) {
+            if (activeConversation.startsWith("user:")) {
               // Direct message with user: format - check if the typing user is the same as the target user
-              const targetUserId = activeConversation.replace('user:', '');
+              const targetUserId = activeConversation.replace("user:", "");
               shouldShowTyping = data.userId === targetUserId;
-              console.log('DEBUG: Direct message check - targetUserId:', targetUserId, 'typingUserId:', data.userId, 'shouldShow:', shouldShowTyping);
             } else {
               // Group chat or existing conversation - check conversation ID
               shouldShowTyping = data.conversationId === activeConversation;
-              console.log('DEBUG: Group/existing check - conversationId:', data.conversationId, 'activeConversation:', activeConversation, 'shouldShow:', shouldShowTyping);
             }
           }
-          
-          console.log('DEBUG: Final shouldShowTyping:', shouldShowTyping);
+
           if (shouldShowTyping) {
-            console.log('DEBUG: Setting typing user:', data.userId, data.isTyping);
             // Try to get user info from conversations
             const userInfo = get().getUserInfoFromConversations(data.userId);
             get().setTypingUser(data.userId, data.isTyping, userInfo);
@@ -205,7 +205,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendMessage: async (targets: string[], content: string) => {
     try {
       const { isNewMessage, activeConversation } = get();
-      
+
       let requestBody;
       if (isNewMessage) {
         // New message - send to multiple recipients
@@ -214,9 +214,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
           content,
           messageType: "text",
         };
-      } else if (activeConversation?.startsWith('user:')) {
+      } else if (activeConversation?.startsWith("user:")) {
         // Direct message to a user (new conversation)
-        const userId = activeConversation.replace('user:', '');
+        const userId = activeConversation.replace("user:", "");
         requestBody = {
           recipientIds: [userId],
           content,
@@ -230,7 +230,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messageType: "text",
         };
       }
-      
+
       const response = await fetch(`${API_BASE}/messages/send`, {
         method: "POST",
         headers: {
@@ -264,15 +264,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       let url;
-      if (conversationId.startsWith('user:')) {
+      if (conversationId.startsWith("user:")) {
         // Direct message to a user - use legacy endpoint
-        const userId = conversationId.replace('user:', '');
+        const userId = conversationId.replace("user:", "");
         url = `${API_BASE}/messages/conversation/user/${userId}`;
       } else {
         // Existing conversation
         url = `${API_BASE}/messages/conversation/${conversationId}`;
       }
-      
+
       const response = await fetch(url, {
         credentials: "include",
       });
@@ -325,7 +325,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set((state) => ({
         messages: [...state.messages, message],
       }));
-    } else if (!message.conversation && activeConversation === message.sender._id) {
+    } else if (
+      !message.conversation &&
+      activeConversation === message.sender._id
+    ) {
       // Legacy direct message handling
       set((state) => ({
         messages: [...state.messages, message],
@@ -338,17 +341,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   startTyping: (target: string) => {
     const { ws } = get();
-    console.log('DEBUG: startTyping called with target:', target);
     if (ws && ws.readyState === WebSocket.OPEN) {
-      if (target.startsWith('user:')) {
+      if (target.startsWith("user:")) {
         // Direct message with user: format
-        const recipientId = target.replace('user:', '');
+        const recipientId = target.replace("user:", "");
         const message = {
           type: "typing",
           recipientId,
           conversationId: recipientId,
         };
-        console.log('DEBUG: Sending typing message (direct):', message);
         ws.send(JSON.stringify(message));
       } else {
         // Group chat or existing conversation - send only conversationId
@@ -356,20 +357,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
           type: "typing",
           conversationId: target,
         };
-        console.log('DEBUG: Sending typing message (group/existing):', message);
         ws.send(JSON.stringify(message));
       }
     } else {
-      console.log('DEBUG: WebSocket not ready, readyState:', ws?.readyState);
+      console.log("DEBUG: WebSocket not ready, readyState:", ws?.readyState);
     }
   },
 
   stopTyping: (target: string) => {
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      if (target.startsWith('user:')) {
+      if (target.startsWith("user:")) {
         // Direct message with user: format
-        const recipientId = target.replace('user:', '');
+        const recipientId = target.replace("user:", "");
         ws.send(
           JSON.stringify({
             type: "stop_typing",
@@ -389,8 +389,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setTypingUser: (userId: string, isTyping: boolean, userInfo?: Partial<TypingUser>) => {
-    console.log('DEBUG: setTypingUser called - userId:', userId, 'isTyping:', isTyping, 'userInfo:', userInfo);
+  setTypingUser: (
+    userId: string,
+    isTyping: boolean,
+    userInfo?: Partial<TypingUser>
+  ) => {
     set((state) => {
       const newTypingUsers = new Map(state.typingUsers);
       if (isTyping) {
@@ -401,10 +404,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           lastName: userInfo?.lastName,
         };
         newTypingUsers.set(userId, typingUser);
-        console.log('DEBUG: Added user to typing map, new map:', Array.from(newTypingUsers.entries()));
       } else {
         newTypingUsers.delete(userId);
-        console.log('DEBUG: Removed user from typing map, new map:', Array.from(newTypingUsers.entries()));
       }
       return { typingUsers: newTypingUsers };
     });
@@ -412,11 +413,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   getUserInfoFromConversations: (userId: string) => {
     const { conversations } = get();
-    
+
     // Find the user in conversations
     for (const conversation of conversations) {
       if (conversation.isGroup && conversation.participants) {
-        const participant = conversation.participants.find(p => p._id === userId);
+        const participant = conversation.participants.find(
+          (p) => p._id === userId
+        );
         if (participant) {
           return {
             userName: participant.userName,
@@ -424,7 +427,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             lastName: participant.lastName,
           };
         }
-      } else if (!conversation.isGroup && conversation.participant && conversation.participant._id === userId) {
+      } else if (
+        !conversation.isGroup &&
+        conversation.participant &&
+        conversation.participant._id === userId
+      ) {
         return {
           userName: conversation.participant.userName,
           firstName: conversation.participant.firstName,
