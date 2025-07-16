@@ -41,19 +41,21 @@ export interface User {
 
 export interface Message {
   _id: string;
+  conversation?: string;
   sender: User;
-  recipient: User;
   content: string;
   messageType: "text" | "image" | "file";
-  isRead: boolean;
-  readAt?: string;
+  readBy: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Conversation {
   _id: string;
-  participant: User;
+  isGroup: boolean;
+  participant?: User; // For direct messages
+  participants?: User[]; // For group messages
+  groupName?: string;
   lastMessage?: Message;
   lastMessageAt: string;
   unreadCount: number;

@@ -57,6 +57,31 @@ export interface AuthResponse {
   };
 }
 
+export interface IConversation extends Document {
+  _id: Types.ObjectId;
+  participants: Types.ObjectId[];
+  isGroup: boolean;
+  groupName?: string;
+  groupAdmin?: Types.ObjectId;
+  lastMessage?: Types.ObjectId;
+  lastMessageAt: Date;
+  isActive: boolean;
+  unreadCount: Map<string, number>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMessage extends Document {
+  _id: Types.ObjectId;
+  conversation: Types.ObjectId;
+  sender: Types.ObjectId;
+  content: string;
+  messageType: 'text' | 'image' | 'file';
+  readBy: Map<string, Date>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 declare global {
   namespace Express {
     interface User extends IUser {}

@@ -11,11 +11,11 @@ export default function MessageWindow() {
     activeConversation,
     messages,
     conversations,
-    typingUsers,
     fallbackParticipant,
     isNewMessage,
-    newMessageRecipient,
+    newMessageRecipients,
     isMessagesLoading,
+    getTypingUsersForConversation,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,12 +29,35 @@ export default function MessageWindow() {
 
   // Find the active conversation details
   const activeConversationData =
-    conversations.find((conv) => conv.participant._id === activeConversation) ||
+    conversations.find((conv) => conv._id === activeConversation) ||
     (fallbackParticipant && {
       participant: fallbackParticipant,
+      isGroup: false,
     });
 
-  const isTyping = typingUsers.has(activeConversation || "");
+  const typingUsersArray = getTypingUsersForConversation();
+  const isTyping = typingUsersArray.length > 0;
+  
+  console.log('DEBUG: MessageWindow - activeConversation:', activeConversation, 'typingUsers:', typingUsersArray, 'isTyping:', isTyping);
+
+  // Helper function to format typing message
+  const getTypingMessage = () => {
+    if (typingUsersArray.length === 0) return '';
+    
+    if (typingUsersArray.length === 1) {
+      const user = typingUsersArray[0];
+      const displayName = user.firstName || user.userName || 'Someone';
+      return `${displayName} is typing...`;
+    } else if (typingUsersArray.length === 2) {
+      const user1 = typingUsersArray[0];
+      const user2 = typingUsersArray[1];
+      const name1 = user1.firstName || user1.userName || 'Someone';
+      const name2 = user2.firstName || user2.userName || 'Someone';
+      return `${name1} and ${name2} are typing...`;
+    } else {
+      return `${typingUsersArray.length} people are typing...`;
+    }
+  };
 
   const renderDefaultView = () => (
     <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -153,8 +176,8 @@ export default function MessageWindow() {
     return <Container size="lg">{renderDefaultView()}</Container>;
   }
 
-  // Show new message view if in new message mode but no recipient selected
-  if (isNewMessage && !newMessageRecipient) {
+  // Show new message view if in new message mode but no recipients selected
+  if (isNewMessage && newMessageRecipients.length === 0) {
     return (
       <Container size="lg">
         <ConversationHeader />
@@ -167,7 +190,8 @@ export default function MessageWindow() {
   return (
     <Container size="lg">
       <ConversationHeader
-        participant={activeConversationData?.participant}
+        participant={isNewMessage ? undefined : activeConversationData?.participant}
+        conversation={isNewMessage ? undefined : activeConversationData}
         isTyping={isTyping}
       />
 
@@ -175,17 +199,22 @@ export default function MessageWindow() {
         {renderMessages()}
         {isTyping && (
           <div className="flex justify-start mb-2">
-            <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-2xl rounded-bl-md">
-              <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
+            <div className="flex flex-col items-start">
+              <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-2xl rounded-bl-md">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 mt-1 ml-2">
+                {getTypingMessage()}
               </div>
             </div>
           </div>

@@ -257,7 +257,8 @@ export default function UserDashboard() {
       conversations.length > 0 &&
       !useChatStore.getState().activeConversation
     ) {
-      setActiveConversation(conversations[0].participant._id);
+      // Use conversation ID for both group and direct chats
+      setActiveConversation(conversations[0]._id);
     }
   }, [conversations, setActiveConversation]);
 

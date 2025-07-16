@@ -1,40 +1,12 @@
 import { create } from "zustand";
 import { userStore } from "./userStore";
-import { type Participant } from "../types";
+import { type Participant, type Message, type Conversation } from "../types";
 
-interface Message {
-  _id: string;
-  sender: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    userName: string;
-  };
-  recipient: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    userName: string;
-  };
-  content: string;
-  messageType: "text" | "image" | "file";
-  isRead: boolean;
-  readAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Conversation {
-  _id: string;
-  participant: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    userName: string;
-  };
-  lastMessage?: Message;
-  lastMessageAt: string;
-  unreadCount: number;
+interface TypingUser {
+  userId: string;
+  userName?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 interface ChatState {
@@ -51,7 +23,7 @@ interface ChatState {
 
   // UI state
   isTyping: boolean;
-  typingUsers: Set<string>;
+  typingUsers: Map<string, TypingUser>;
 
   isConversationsLoading: boolean;
   isMessagesLoading: boolean;
@@ -61,8 +33,11 @@ interface ChatState {
 
   // New message state
   isNewMessage: boolean;
-  newMessageRecipient: Participant | null;
-  setNewMessage: (isNew: boolean, recipient?: Participant) => void;
+  newMessageRecipients: Participant[];
+  setNewMessage: (isNew: boolean, recipients?: Participant[]) => void;
+  addRecipient: (recipient: Participant) => void;
+  removeRecipient: (recipientId: string) => void;
+  clearRecipients: () => void;
 
   // Actions
   connect: () => void;
@@ -71,7 +46,7 @@ interface ChatState {
   startNewMessage: () => void;
 
   // Message actions
-  sendMessage: (recipientId: string, content: string) => Promise<void>;
+  sendMessage: (recipientIds: string[], content: string) => Promise<void>;
   loadMessages: (userId: string) => Promise<void>;
   loadConversations: () => Promise<void>;
 
@@ -79,7 +54,9 @@ interface ChatState {
   handleIncomingMessage: (message: Message) => void;
   startTyping: (recipientId: string) => void;
   stopTyping: (recipientId: string) => void;
-  setTypingUser: (userId: string, isTyping: boolean) => void;
+  setTypingUser: (userId: string, isTyping: boolean, userInfo?: Partial<TypingUser>) => void;
+  getTypingUsersForConversation: () => TypingUser[];
+  getUserInfoFromConversations: (userId: string) => Partial<TypingUser>;
 
   resetStore: () => void;
 }
@@ -93,10 +70,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   conversations: [],
   isTyping: false,
-  typingUsers: new Set(),
+  typingUsers: new Map(),
   fallbackParticipant: null,
   isNewMessage: false,
-  newMessageRecipient: null,
+  newMessageRecipients: [],
   isConversationsLoading: false,
   isMessagesLoading: false,
 
@@ -104,18 +81,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ fallbackParticipant: participant });
   },
 
-  setNewMessage: (isNew: boolean, recipient?: Participant) => {
+  setNewMessage: (isNew: boolean, recipients?: Participant[]) => {
     set({
       isNewMessage: isNew,
-      newMessageRecipient: recipient || null,
+      newMessageRecipients: recipients || [],
       messages: isNew ? [] : get().messages,
     });
+  },
+
+  addRecipient: (recipient: Participant) => {
+    const current = get().newMessageRecipients;
+    if (!current.find(r => r._id === recipient._id)) {
+      set({
+        newMessageRecipients: [...current, recipient],
+      });
+    }
+  },
+
+  removeRecipient: (recipientId: string) => {
+    set({
+      newMessageRecipients: get().newMessageRecipients.filter(r => r._id !== recipientId),
+    });
+  },
+
+  clearRecipients: () => {
+    set({ newMessageRecipients: [] });
   },
 
   startNewMessage: () => {
     set({
       isNewMessage: true,
-      newMessageRecipient: null,
+      newMessageRecipients: [],
       activeConversation: null,
       messages: [],
       fallbackParticipant: null,
@@ -139,9 +135,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
         case "new_message":
           get().handleIncomingMessage(data.message);
           break;
-        case "user_typing":
-          get().setTypingUser(data.userId, data.isTyping);
+        case "user_typing": {
+          console.log('DEBUG: Received user_typing message:', data);
+          // Only show typing indicator if it's for the active conversation
+          const { activeConversation } = get();
+          console.log('DEBUG: Current activeConversation:', activeConversation);
+          
+          // Check if this typing indicator is for the current active conversation
+          let shouldShowTyping = false;
+          
+          if (activeConversation) {
+            if (activeConversation.startsWith('user:')) {
+              // Direct message with user: format - check if the typing user is the same as the target user
+              const targetUserId = activeConversation.replace('user:', '');
+              shouldShowTyping = data.userId === targetUserId;
+              console.log('DEBUG: Direct message check - targetUserId:', targetUserId, 'typingUserId:', data.userId, 'shouldShow:', shouldShowTyping);
+            } else {
+              // Group chat or existing conversation - check conversation ID
+              shouldShowTyping = data.conversationId === activeConversation;
+              console.log('DEBUG: Group/existing check - conversationId:', data.conversationId, 'activeConversation:', activeConversation, 'shouldShow:', shouldShowTyping);
+            }
+          }
+          
+          console.log('DEBUG: Final shouldShowTyping:', shouldShowTyping);
+          if (shouldShowTyping) {
+            console.log('DEBUG: Setting typing user:', data.userId, data.isTyping);
+            // Try to get user info from conversations
+            const userInfo = get().getUserInfoFromConversations(data.userId);
+            get().setTypingUser(data.userId, data.isTyping, userInfo);
+          }
           break;
+        }
         case "message_read":
           // Handle message read status
           break;
@@ -168,29 +192,52 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setActiveConversation: (userId: string) => {
+  setActiveConversation: (conversationId: string) => {
     set({
-      activeConversation: userId,
+      activeConversation: conversationId,
       messages: [],
       isNewMessage: false,
-      newMessageRecipient: null,
+      newMessageRecipients: [],
     });
-    get().loadMessages(userId);
+    get().loadMessages(conversationId);
   },
 
-  sendMessage: async (recipientId: string, content: string) => {
+  sendMessage: async (targets: string[], content: string) => {
     try {
+      const { isNewMessage, activeConversation } = get();
+      
+      let requestBody;
+      if (isNewMessage) {
+        // New message - send to multiple recipients
+        requestBody = {
+          recipientIds: targets,
+          content,
+          messageType: "text",
+        };
+      } else if (activeConversation?.startsWith('user:')) {
+        // Direct message to a user (new conversation)
+        const userId = activeConversation.replace('user:', '');
+        requestBody = {
+          recipientIds: [userId],
+          content,
+          messageType: "text",
+        };
+      } else {
+        // Existing conversation - send to conversation
+        requestBody = {
+          conversationId: activeConversation,
+          content,
+          messageType: "text",
+        };
+      }
+      
       const response = await fetch(`${API_BASE}/messages/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          recipientId,
-          content,
-          messageType: "text",
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -202,8 +249,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set((state) => ({
         messages: [...state.messages, result.data],
         isNewMessage: false,
-        newMessageRecipient: null,
-        activeConversation: recipientId,
+        newMessageRecipients: [],
+        activeConversation: result.data.conversation || activeConversation,
       }));
 
       get().loadConversations();
@@ -213,24 +260,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  loadMessages: async (userId: string) => {
+  loadMessages: async (conversationId: string) => {
     set({ isMessagesLoading: true });
     try {
-      const response = await fetch(
-        `${API_BASE}/messages/conversation/${userId}`,
-        {
-          credentials: "include",
-        }
-      );
+      let url;
+      if (conversationId.startsWith('user:')) {
+        // Direct message to a user - use legacy endpoint
+        const userId = conversationId.replace('user:', '');
+        url = `${API_BASE}/messages/conversation/user/${userId}`;
+      } else {
+        // Existing conversation
+        url = `${API_BASE}/messages/conversation/${conversationId}`;
+      }
+      
+      const response = await fetch(url, {
+        credentials: "include",
+      });
 
       if (!response.ok) {
+        // If conversation doesn't exist yet, that's okay
+        if (response.status === 403 || response.status === 404) {
+          set({ messages: [] });
+          return;
+        }
         throw new Error("Failed to load messages");
       }
 
       const result = await response.json();
-      set({ messages: result.messages });
+      set({ messages: result.messages || [] });
     } catch (error) {
       console.error("Error loading messages:", error);
+      set({ messages: [] });
     } finally {
       set({ isMessagesLoading: false });
     }
@@ -260,7 +320,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { activeConversation } = get();
 
     // If this message is for the active conversation, add it to messages
-    if (activeConversation === message.sender._id) {
+    // For group chats, we need to check the conversation ID
+    if (message.conversation && activeConversation === message.conversation) {
+      set((state) => ({
+        messages: [...state.messages, message],
+      }));
+    } else if (!message.conversation && activeConversation === message.sender._id) {
+      // Legacy direct message handling
       set((state) => ({
         messages: [...state.messages, message],
       }));
@@ -270,40 +336,108 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().loadConversations();
   },
 
-  startTyping: (recipientId: string) => {
+  startTyping: (target: string) => {
     const { ws } = get();
+    console.log('DEBUG: startTyping called with target:', target);
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
+      if (target.startsWith('user:')) {
+        // Direct message with user: format
+        const recipientId = target.replace('user:', '');
+        const message = {
           type: "typing",
           recipientId,
-        })
-      );
+          conversationId: recipientId,
+        };
+        console.log('DEBUG: Sending typing message (direct):', message);
+        ws.send(JSON.stringify(message));
+      } else {
+        // Group chat or existing conversation - send only conversationId
+        const message = {
+          type: "typing",
+          conversationId: target,
+        };
+        console.log('DEBUG: Sending typing message (group/existing):', message);
+        ws.send(JSON.stringify(message));
+      }
+    } else {
+      console.log('DEBUG: WebSocket not ready, readyState:', ws?.readyState);
     }
   },
 
-  stopTyping: (recipientId: string) => {
+  stopTyping: (target: string) => {
     const { ws } = get();
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(
-        JSON.stringify({
-          type: "stop_typing",
-          recipientId,
-        })
-      );
+      if (target.startsWith('user:')) {
+        // Direct message with user: format
+        const recipientId = target.replace('user:', '');
+        ws.send(
+          JSON.stringify({
+            type: "stop_typing",
+            recipientId,
+            conversationId: recipientId,
+          })
+        );
+      } else {
+        // Group chat or existing conversation - send only conversationId
+        ws.send(
+          JSON.stringify({
+            type: "stop_typing",
+            conversationId: target,
+          })
+        );
+      }
     }
   },
 
-  setTypingUser: (userId: string, isTyping: boolean) => {
+  setTypingUser: (userId: string, isTyping: boolean, userInfo?: Partial<TypingUser>) => {
+    console.log('DEBUG: setTypingUser called - userId:', userId, 'isTyping:', isTyping, 'userInfo:', userInfo);
     set((state) => {
-      const newTypingUsers = new Set(state.typingUsers);
+      const newTypingUsers = new Map(state.typingUsers);
       if (isTyping) {
-        newTypingUsers.add(userId);
+        const typingUser: TypingUser = {
+          userId,
+          userName: userInfo?.userName,
+          firstName: userInfo?.firstName,
+          lastName: userInfo?.lastName,
+        };
+        newTypingUsers.set(userId, typingUser);
+        console.log('DEBUG: Added user to typing map, new map:', Array.from(newTypingUsers.entries()));
       } else {
         newTypingUsers.delete(userId);
+        console.log('DEBUG: Removed user from typing map, new map:', Array.from(newTypingUsers.entries()));
       }
       return { typingUsers: newTypingUsers };
     });
+  },
+
+  getUserInfoFromConversations: (userId: string) => {
+    const { conversations } = get();
+    
+    // Find the user in conversations
+    for (const conversation of conversations) {
+      if (conversation.isGroup && conversation.participants) {
+        const participant = conversation.participants.find(p => p._id === userId);
+        if (participant) {
+          return {
+            userName: participant.userName,
+            firstName: participant.firstName,
+            lastName: participant.lastName,
+          };
+        }
+      } else if (!conversation.isGroup && conversation.participant && conversation.participant._id === userId) {
+        return {
+          userName: conversation.participant.userName,
+          firstName: conversation.participant.firstName,
+          lastName: conversation.participant.lastName,
+        };
+      }
+    }
+    return {};
+  },
+
+  getTypingUsersForConversation: () => {
+    const { typingUsers } = get();
+    return Array.from(typingUsers.values());
   },
 
   resetStore: () => {
@@ -314,10 +448,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       conversations: [],
       isTyping: false,
-      typingUsers: new Set(),
+      typingUsers: new Map(),
       fallbackParticipant: null,
       isNewMessage: false,
-      newMessageRecipient: null,
+      newMessageRecipients: [],
     });
   },
 }));

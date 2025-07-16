@@ -1,27 +1,6 @@
 import { format } from "date-fns";
 import { userStore } from "../store/userStore";
-
-interface Message {
-  _id: string;
-  sender: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    userName: string;
-  };
-  recipient: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    userName: string;
-  };
-  content: string;
-  messageType: "text" | "image" | "file";
-  isRead: boolean;
-  readAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { type Message } from "../types";
 
 interface MessageBubbleProps {
   message: Message;
@@ -36,6 +15,9 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const currentUser = userStore.getState().user;
   const isOwnMessage = currentUser?.id === message.sender._id;
+  
+  // Check if message is read by checking the readBy property
+  const isRead = currentUser?.id ? Boolean(message.readBy[currentUser.id]) : false;
 
   const formatTime = (dateString: string) => {
     return format(new Date(dateString), "HH:mm");
@@ -60,7 +42,7 @@ export default function MessageBubble({
             }`}
           >
             {formatTime(message.createdAt)}
-            {isOwnMessage && message.isRead && <span className="ml-1">✓</span>}
+            {isOwnMessage && isRead && <span className="ml-1">✓</span>}
           </div>
         )}
       </div>

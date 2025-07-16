@@ -3,12 +3,12 @@ import { IMessage } from '../types/index.js';
 
 const messageSchema = new Schema<IMessage>(
   {
-    sender: {
+    conversation: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'Conversation',
       required: true,
     },
-    recipient: {
+    sender: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
@@ -23,13 +23,10 @@ const messageSchema = new Schema<IMessage>(
       enum: ['text', 'image', 'file'],
       default: 'text',
     },
-    isRead: {
-      type: Boolean,
-      default: false,
-    },
-    readAt: {
-      type: Date,
-      default: null,
+    readBy: {
+      type: Map,
+      of: Date,
+      default: new Map(),
     },
     isEdited: {
       type: Boolean,
@@ -46,7 +43,8 @@ const messageSchema = new Schema<IMessage>(
 );
 
 // Index for efficient querying
-messageSchema.index({ sender: 1, recipient: 1, createdAt: -1 });
+messageSchema.index({ conversation: 1, createdAt: -1 });
+messageSchema.index({ sender: 1, createdAt: -1 });
 messageSchema.index({ createdAt: -1 });
 
 export default model<IMessage>('Message', messageSchema);

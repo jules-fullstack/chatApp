@@ -1,14 +1,17 @@
 import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Participant, type SearchedUser } from "../types";
 import { useChatStore } from "../store/chatStore";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import FormField from "./ui/FormField";
 import userSearchService from "../services/userSearchService";
+import { Badge, Group } from "@mantine/core";
 
 interface ConversationHeaderProps {
   participant?: Participant;
+  conversation?: any;
   isTyping?: boolean;
 }
 
@@ -18,10 +21,17 @@ interface SearchFormData {
 
 export default function ConversationHeader({
   participant,
+  conversation,
   isTyping,
 }: ConversationHeaderProps) {
-  const { isNewMessage, newMessageRecipient, setNewMessage, loadMessages } =
-    useChatStore();
+  const { 
+    isNewMessage, 
+    newMessageRecipients, 
+    setNewMessage, 
+    addRecipient, 
+    removeRecipient, 
+    loadMessages 
+  } = useChatStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -61,17 +71,23 @@ export default function ConversationHeader({
   }, [searchValue, isNewMessage]);
 
   const handleUserSelect = (user: SearchedUser) => {
-    // Set the new message recipient but stay in new message mode
-    setNewMessage(true, user);
-    // Load messages for this user (if any exist)
-    loadMessages(user._id);
+    // Add user to recipients
+    addRecipient(user);
+    
+    // Don't try to load messages here - let the UI handle it properly
+    // The conversation will be created when the first message is sent
+    
     // Clear search
     setValue("search", "");
     setShowResults(false);
     setSearchResults([]);
   };
 
-  if (!participant && !isNewMessage) {
+  const handleRemoveRecipient = (recipientId: string) => {
+    removeRecipient(recipientId);
+  };
+
+  if (!participant && !conversation && !isNewMessage) {
     return (
       <div className="flex justify-between items-center shadow-xs p-2">
         <div className="flex">
@@ -85,22 +101,42 @@ export default function ConversationHeader({
     );
   }
 
-  if (isNewMessage && !newMessageRecipient) {
+  if (isNewMessage) {
     return (
       <div className="relative">
         <div className="flex justify-between items-center shadow-xs p-2">
           <div className="flex-1">
-            <FormField
-              name="search"
-              type="text"
-              placeholder="To:"
-              register={register}
-              errors={errors}
-              containerClassName="bg-gray-100 rounded-lg p-2 flex items-center"
-              inputClassName="flex-1 focus:outline-none bg-transparent"
-              leftIcon={<span className="text-gray-500 font-medium">To:</span>}
-              showError={false}
-            />
+            <div className="bg-gray-100 rounded-lg p-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-gray-500 font-medium">To:</span>
+                
+                {/* Selected Recipients as Badges */}
+                {newMessageRecipients.map((recipient) => (
+                  <Badge
+                    key={recipient._id}
+                    variant="filled"
+                    color="blue"
+                    rightSection={
+                      <XMarkIcon 
+                        className="w-3 h-3 cursor-pointer" 
+                        onClick={() => handleRemoveRecipient(recipient._id)}
+                      />
+                    }
+                    className="cursor-pointer"
+                  >
+                    {recipient.userName}
+                  </Badge>
+                ))}
+                
+                {/* Search Input */}
+                <input
+                  {...register("search")}
+                  type="text"
+                  placeholder={newMessageRecipients.length === 0 ? "Search users..." : "Add more..."}
+                  className="flex-1 min-w-[120px] focus:outline-none bg-transparent"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -137,7 +173,14 @@ export default function ConversationHeader({
     );
   }
 
-  const displayParticipant = newMessageRecipient || participant;
+  const displayParticipant = participant;
+  const recipientNames = newMessageRecipients.map(r => r.firstName + ' ' + r.lastName).join(', ');
+  const recipientUsernames = newMessageRecipients.map(r => r.userName).join(', ');
+  
+  // For group chats, use conversation data
+  const isGroupChat = conversation?.isGroup;
+  const groupName = conversation?.groupName;
+  const groupParticipants = conversation?.participants || [];
 
   return (
     <div className="flex justify-between items-center shadow-xs p-2">
@@ -145,11 +188,20 @@ export default function ConversationHeader({
         <UserCircleIcon className="size-12 text-gray-400" />
         <div className="grid grid-rows-2 h-12 place-self-center ml-2">
           <h3 className="font-semibold">
-            {displayParticipant?.firstName} {displayParticipant?.lastName}
+            {isNewMessage && newMessageRecipients.length > 0
+              ? `New Message to ${recipientNames}`
+              : isGroupChat
+              ? groupName
+              : `${displayParticipant?.firstName} ${displayParticipant?.lastName}`
+            }
           </h3>
           <p className="text-gray-500 text-xs">
             {isTyping ? (
               <span className="text-green-500">typing...</span>
+            ) : isNewMessage && newMessageRecipients.length > 0 ? (
+              `@${recipientUsernames}`
+            ) : isGroupChat ? (
+              `${groupParticipants.length} participants`
             ) : (
               "@" + displayParticipant?.userName
             )}

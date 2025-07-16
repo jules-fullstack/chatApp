@@ -14,7 +14,7 @@ export default function Inbox() {
     activeConversation,
     setFallbackParticipant,
     isNewMessage,
-    newMessageRecipient,
+    newMessageRecipients,
     isConversationsLoading,
   } = useChatStore();
 
@@ -35,7 +35,32 @@ export default function Inbox() {
       });
     }
 
-    setActiveConversation(userId);
+    // Try to find existing conversation with this user
+    const existingConversation = conversations.find(
+      (conv) => !conv.isGroup && conv.participant?._id === userId
+    );
+    
+    if (existingConversation) {
+      setActiveConversation(existingConversation._id);
+    } else {
+      // For new conversations, we'll use a special format that the frontend can handle
+      // The backend will create the conversation when the first message is sent
+      setActiveConversation(`user:${userId}`);
+    }
+  };
+
+  const handleConversationClick = (conversationId: string, participant?: any) => {
+    if (participant) {
+      setFallbackParticipant({
+        _id: participant._id,
+        firstName: participant.firstName,
+        lastName: participant.lastName,
+        userName: participant.userName,
+      });
+    } else {
+      setFallbackParticipant(null);
+    }
+    setActiveConversation(conversationId);
   };
 
   const renderSearchResults = () => {
@@ -80,8 +105,10 @@ export default function Inbox() {
 
     // Show new message tab if in new message mode
     if (isNewMessage) {
-      const newMessageText = newMessageRecipient
-        ? `New Message to ${newMessageRecipient.firstName} ${newMessageRecipient.lastName}`
+      const newMessageText = newMessageRecipients.length > 0
+        ? newMessageRecipients.length === 1
+          ? `New Message to ${newMessageRecipients[0].firstName} ${newMessageRecipients[0].lastName}`
+          : `New Message to ${newMessageRecipients.length} people`
         : "New Message";
 
       conversationsList.push(
@@ -111,20 +138,26 @@ export default function Inbox() {
       );
     } else {
       conversations.forEach((conversation) => {
+        const displayName = conversation.isGroup 
+          ? conversation.groupName || 'Group Chat'
+          : conversation.participant?.userName || 'Unknown';
+        
         conversationsList.push(
           <MessageTab
             key={conversation._id}
             type="default"
-            username={conversation.participant.userName}
+            username={displayName}
             lastMessage={conversation.lastMessage?.content || "No messages yet"}
             unreadCount={conversation.unreadCount}
             isActive={
               !isNewMessage &&
-              activeConversation === conversation.participant._id
+              activeConversation === conversation._id
             }
             onClick={() => {
-              setFallbackParticipant(null);
-              handleUserClick(conversation.participant._id);
+              handleConversationClick(
+                conversation._id, 
+                conversation.isGroup ? null : conversation.participant
+              );
             }}
           />
         );
