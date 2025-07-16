@@ -41,6 +41,11 @@ const conversationSchema = new Schema<IConversation>(
       of: Number,
       default: new Map(),
     },
+    readAt: {
+      type: Map,
+      of: Date,
+      default: new Map(),
+    },
   },
   {
     timestamps: true,

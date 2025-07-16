@@ -4,6 +4,8 @@ import MessageSender from "./MessageSender";
 import MessageBubble from "./MessageBubble";
 import Container from "./ui/Container";
 import { useChatStore } from "../store/chatStore";
+import { userStore } from "../store/userStore";
+import { useConversationRead } from "../hooks/useMessageRead";
 import { Loader } from "@mantine/core";
 
 export default function MessageWindow() {
@@ -18,6 +20,12 @@ export default function MessageWindow() {
     getTypingUsersForConversation,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Use intersection observer to mark conversation as read when visible
+  const { ref: conversationRef } = useConversationRead(
+    activeConversation || '',
+    !!activeConversation
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -149,6 +157,49 @@ export default function MessageWindow() {
       );
     }
 
+    // Helper function to determine which users last read each message
+    const getUsersWhoLastReadEachMessage = () => {
+      if (!activeConversationData || !('_id' in activeConversationData)) return new Map();
+      
+      const currentUser = userStore.getState().user;
+      const messageToUsersMap = new Map<number, string[]>(); // messageIndex -> array of userIds
+      
+      // Get all participants except current user
+      const participants = activeConversationData.isGroup 
+        ? activeConversationData.participants?.filter(p => p._id !== currentUser?.id) || []
+        : activeConversationData.participant ? [activeConversationData.participant] : [];
+      
+      participants.forEach(participant => {
+        const userReadAt = activeConversationData.readAt?.[participant._id];
+        if (userReadAt) {
+          const readAtTime = new Date(userReadAt).getTime();
+          
+          // Find the last message that was sent by current user before the read timestamp
+          let lastReadIndex = -1;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            const messageTime = new Date(message.createdAt).getTime();
+            
+            // Only consider messages sent by current user
+            if (message.sender._id === currentUser?.id && messageTime <= readAtTime) {
+              lastReadIndex = i;
+              break;
+            }
+          }
+          
+          if (lastReadIndex !== -1) {
+            // Add this participant to the users who last read this message
+            const existingUsers = messageToUsersMap.get(lastReadIndex) || [];
+            messageToUsersMap.set(lastReadIndex, [...existingUsers, participant._id]);
+          }
+        }
+      });
+      
+      return messageToUsersMap;
+    };
+    
+    const usersWhoLastReadEachMessage = getUsersWhoLastReadEachMessage();
+    
     return messages.map((message, index) => {
       const isLast = index === messages.length - 1;
       const showTime =
@@ -158,12 +209,17 @@ export default function MessageWindow() {
             new Date(messages[index - 1].createdAt).getTime() >
             5 * 60 * 1000);
 
+      // Get the users who last read this specific message
+      const usersWhoLastReadThisMessage = usersWhoLastReadEachMessage.get(index) || [];
+
       return (
         <MessageBubble
           key={message._id}
           message={message}
           isLast={isLast}
           showTime={showTime}
+          conversation={activeConversationData && '_id' in activeConversationData ? activeConversationData : undefined}
+          usersWhoLastReadThisMessage={usersWhoLastReadThisMessage}
         />
       );
     });
@@ -195,7 +251,7 @@ export default function MessageWindow() {
         isTyping={isTyping}
       />
 
-      <div className="flex-1 overflow-y-auto p-4 pb-20">
+      <div ref={conversationRef} className="flex-1 overflow-y-auto p-4 pb-20">
         {renderMessages()}
         {isTyping && (
           <div className="flex justify-start mb-2">

@@ -69,6 +69,7 @@ export interface IConversation extends Document {
   lastMessageAt: Date;
   isActive: boolean;
   unreadCount: Map<string, number>;
+  readAt: Map<string, Date>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -79,7 +80,8 @@ export interface IMessage extends Document {
   sender: Types.ObjectId;
   content: string;
   messageType: 'text' | 'image' | 'file';
-  readBy: Map<string, Date>;
+  isEdited: boolean;
+  editedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

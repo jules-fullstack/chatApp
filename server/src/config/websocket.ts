@@ -77,8 +77,8 @@ class WebSocketManager {
       case 'stop_typing':
         this.handleStopTyping(senderId, data);
         break;
-      case 'message_read':
-        this.handleMessageRead(senderId, data);
+      case 'conversation_read':
+        this.handleConversationRead(senderId, data);
         break;
       default:
         console.log('Unknown message type:', data.type);
@@ -177,18 +177,55 @@ class WebSocketManager {
     }
   }
 
-  private handleMessageRead(senderId: string, data: any) {
-    const { recipientId, messageId } = data;
-    const recipientConnection = this.connectedUsers.get(recipientId);
+  private async handleConversationRead(senderId: string, data: any) {
+    const { conversationId } = data;
+    
+    try {
+      const Conversation = (await import('../models/Conversation.js')).default;
+      const User = (await import('../models/User.js')).default;
 
-    if (recipientConnection) {
-      recipientConnection.ws.send(
-        JSON.stringify({
-          type: 'message_read',
-          messageId,
-          readBy: senderId,
-        }),
+      // Find and update the conversation
+      const conversation = await Conversation.findById(conversationId);
+      if (!conversation || !conversation.participants.some(p => p.toString() === senderId)) {
+        return;
+      }
+
+      // Initialize readAt if it doesn't exist
+      if (!conversation.readAt) {
+        conversation.readAt = new Map();
+      }
+
+      // Update conversation read timestamp and unread count
+      conversation.readAt.set(senderId, new Date());
+      conversation.unreadCount.set(senderId, 0);
+      await conversation.save();
+
+      // Notify other participants
+      const otherParticipants = conversation.participants.filter(
+        p => p.toString() !== senderId
       );
+
+      const user = await User.findById(senderId).select('firstName lastName userName');
+      
+      otherParticipants.forEach(participantId => {
+        const connection = this.connectedUsers.get(participantId.toString());
+        if (connection) {
+          connection.ws.send(JSON.stringify({
+            type: 'conversation_read',
+            conversationId: conversation._id,
+            readBy: {
+              userId: senderId,
+              userName: user?.userName,
+              firstName: user?.firstName,
+              lastName: user?.lastName,
+            },
+            readAt: conversation.readAt.get(senderId),
+            isGroup: conversation.isGroup
+          }));
+        }
+      });
+    } catch (error) {
+      console.error('Error handling conversation read via WebSocket:', error);
     }
   }
 
@@ -219,6 +256,15 @@ class WebSocketManager {
         );
       }
     });
+  }
+
+  // Generic method to send any WebSocket message
+  sendMessage(recipientId: string, message: any) {
+    const recipientConnection = this.connectedUsers.get(recipientId);
+
+    if (recipientConnection) {
+      recipientConnection.ws.send(JSON.stringify(message));
+    }
   }
 
   // Method to send online status

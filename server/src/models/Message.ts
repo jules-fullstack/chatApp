@@ -23,11 +23,6 @@ const messageSchema = new Schema<IMessage>(
       enum: ['text', 'image', 'file'],
       default: 'text',
     },
-    readBy: {
-      type: Map,
-      of: Date,
-      default: new Map(),
-    },
     isEdited: {
       type: Boolean,
       default: false,

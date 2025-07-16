@@ -62,6 +62,10 @@ interface ChatState {
   getTypingUsersForConversation: () => TypingUser[];
   getUserInfoFromConversations: (userId: string) => Partial<TypingUser>;
 
+  // Read status actions
+  markConversationAsRead: (conversationId: string) => Promise<void>;
+  handleConversationRead: (data: any) => void;
+
   resetStore: () => void;
 }
 
@@ -166,8 +170,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           break;
         }
-        case "message_read":
-          // Handle message read status
+        case "conversation_read":
+          get().handleConversationRead(data);
           break;
         default:
           console.log("Unknown WebSocket message:", data);
@@ -200,6 +204,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       newMessageRecipients: [],
     });
     get().loadMessages(conversationId);
+
+    // Also mark conversation as read when switching to it (for immediate UI update)
+    if (!conversationId.startsWith("user:")) {
+      get().markConversationAsRead(conversationId);
+    }
   },
 
   sendMessage: async (targets: string[], content: string) => {
@@ -318,6 +327,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   handleIncomingMessage: (message: Message) => {
     const { activeConversation } = get();
+
+    // Ensure message has required properties
+    if (!message || !message.sender) {
+      console.error("Invalid message received:", message);
+      return;
+    }
 
     // If this message is for the active conversation, add it to messages
     // For group chats, we need to check the conversation ID
@@ -445,6 +460,66 @@ export const useChatStore = create<ChatState>((set, get) => ({
   getTypingUsersForConversation: () => {
     const { typingUsers } = get();
     return Array.from(typingUsers.values());
+  },
+
+  markConversationAsRead: async (conversationId: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/messages/conversation/${conversationId}/read`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to mark conversation as read");
+      }
+
+      const result = await response.json();
+      const currentUserId = userStore.getState().user?.id || "";
+
+      // Update local state - update conversation read timestamp and unread count
+      set((state) => ({
+        conversations: state.conversations.map((conv) => {
+          if (conv._id === conversationId) {
+            const updatedConv = {
+              ...conv,
+              unreadCount: 0,
+              readAt: {
+                ...conv.readAt,
+                [currentUserId]: result.readAt || new Date().toISOString(),
+              },
+            };
+            return updatedConv;
+          }
+          return conv;
+        }),
+      }));
+    } catch (error) {
+      console.error("Error marking conversation as read:", error);
+    }
+  },
+
+  handleConversationRead: (data: any) => {
+    const { conversationId, readBy, readAt } = data;
+
+    // Update conversation read timestamp in local state
+    set((state) => ({
+      conversations: state.conversations.map((conv) => {
+        if (conv._id === conversationId) {
+          const updatedConv = {
+            ...conv,
+            readAt: {
+              ...conv.readAt,
+              [readBy.userId]: readAt || new Date().toISOString(),
+            },
+          };
+          return updatedConv;
+        }
+        return conv;
+      }),
+    }));
   },
 
   resetStore: () => {

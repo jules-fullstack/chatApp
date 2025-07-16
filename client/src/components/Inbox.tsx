@@ -39,7 +39,7 @@ export default function Inbox() {
     const existingConversation = conversations.find(
       (conv) => !conv.isGroup && conv.participant?._id === userId
     );
-    
+
     if (existingConversation) {
       setActiveConversation(existingConversation._id);
     } else {
@@ -49,7 +49,16 @@ export default function Inbox() {
     }
   };
 
-  const handleConversationClick = (conversationId: string, participant?: { _id: string; firstName: string; lastName: string; userName: string; email: string }) => {
+  const handleConversationClick = (
+    conversationId: string,
+    participant?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      userName: string;
+      email: string;
+    }
+  ) => {
     if (participant) {
       setFallbackParticipant({
         _id: participant._id,
@@ -105,11 +114,12 @@ export default function Inbox() {
 
     // Show new message tab if in new message mode
     if (isNewMessage) {
-      const newMessageText = newMessageRecipients.length > 0
-        ? newMessageRecipients.length === 1
-          ? `New Message to ${newMessageRecipients[0].firstName} ${newMessageRecipients[0].lastName}`
-          : `New Message to ${newMessageRecipients.length} people`
-        : "New Message";
+      const newMessageText =
+        newMessageRecipients.length > 0
+          ? newMessageRecipients.length === 1
+            ? `New Message to ${newMessageRecipients[0].firstName} ${newMessageRecipients[0].lastName}`
+            : `New Message to ${newMessageRecipients.length} people`
+          : "New Message";
 
       conversationsList.push(
         <MessageTab
@@ -138,10 +148,10 @@ export default function Inbox() {
       );
     } else {
       conversations.forEach((conversation) => {
-        const displayName = conversation.isGroup 
-          ? conversation.groupName || 'Group Chat'
-          : conversation.participant?.userName || 'Unknown';
-        
+        const displayName = conversation.isGroup
+          ? conversation.groupName || "Group Chat"
+          : conversation.participant?.userName || "Unknown";
+
         conversationsList.push(
           <MessageTab
             key={conversation._id}
@@ -149,13 +159,10 @@ export default function Inbox() {
             username={displayName}
             lastMessage={conversation.lastMessage?.content || "No messages yet"}
             unreadCount={conversation.unreadCount}
-            isActive={
-              !isNewMessage &&
-              activeConversation === conversation._id
-            }
+            isActive={!isNewMessage && activeConversation === conversation._id}
             onClick={() => {
               handleConversationClick(
-                conversation._id, 
+                conversation._id,
                 conversation.isGroup ? undefined : conversation.participant
               );
             }}

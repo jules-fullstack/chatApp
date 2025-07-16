@@ -45,7 +45,6 @@ export interface Message {
   sender: User;
   content: string;
   messageType: "text" | "image" | "file";
-  readBy: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,4 +58,5 @@ export interface Conversation {
   lastMessage?: Message;
   lastMessageAt: string;
   unreadCount: number;
+  readAt?: Record<string, string>;
 }

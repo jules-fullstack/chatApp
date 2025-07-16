@@ -6,6 +6,7 @@ import {
   getDirectMessages,
   getConversations,
   markAsRead,
+  migrateConversations,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -25,7 +26,10 @@ router.get('/conversation/user/:userId', getDirectMessages);
 // Get all conversations for current user
 router.get('/conversations', getConversations);
 
-// Mark message as read
-router.patch('/:messageId/read', markAsRead);
+// Mark conversation as read
+router.patch('/conversation/:conversationId/read', markAsRead);
+
+// Migration endpoint - remove this after migration is complete
+router.post('/migrate', migrateConversations);
 
 export default router;

@@ -4,6 +4,7 @@ import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
 import { IUser } from '../types/index.js';
 import WebSocketManager from '../config/websocket.js';
+import { migrateConversationsToReadAt } from '../utils/migrateConversations.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -18,8 +19,8 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    let conversation;
-    let recipients = [];
+    let conversation: any;
+    let recipients: string[] = [];
 
     if (conversationId) {
       // Existing conversation
@@ -30,8 +31,8 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       
       // Get all participants except sender for notifications
       recipients = conversation.participants
-        .map(p => p.toString())
-        .filter(p => p !== senderId.toString());
+        .map((p: any) => p.toString())
+        .filter((p: string) => p !== senderId.toString());
     } else {
       // New message - support both single recipient (legacy) and multiple recipients
       if (recipientIds) {
@@ -69,6 +70,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
               [senderId.toString(), 0],
               [recipients[0], 0],
             ]),
+            readAt: new Map([
+              [senderId.toString(), new Date()],
+              [recipients[0], new Date(0)], // Initialize with epoch for new conversations
+            ]),
           });
           await conversation.save();
         }
@@ -88,12 +93,15 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
           senderId.toString(),
         );
         
-        // Initialize unread counts for all participants
+        // Initialize unread counts and readAt for all participants
         const unreadCount = new Map();
+        const readAt = new Map();
         allParticipants.forEach(participantId => {
           unreadCount.set(participantId, participantId === senderId.toString() ? 0 : 0);
+          readAt.set(participantId, participantId === senderId.toString() ? new Date() : new Date(0));
         });
         conversation.unreadCount = unreadCount;
+        conversation.readAt = readAt;
         await conversation.save();
       }
     }
@@ -104,7 +112,6 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       sender: senderId,
       content,
       messageType,
-      readBy: new Map([[senderId.toString(), new Date()]]),
     });
 
     await message.save();
@@ -120,6 +127,8 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
         conversation.unreadCount.set(participantId.toString(), currentUnread + 1);
       } else {
         conversation.unreadCount.set(participantId.toString(), 0);
+        // Update sender's readAt timestamp
+        conversation.readAt.set(senderId.toString(), new Date());
       }
     });
 
@@ -129,6 +138,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     const populatedMessage = await Message.findById(message._id)
       .populate('sender', 'firstName lastName userName')
       .populate('conversation');
+
+    if (!populatedMessage) {
+      return res.status(500).json({ message: 'Failed to create message' });
+    }
 
     // Add backward compatibility fields for frontend
     const responseMessage = {
@@ -183,14 +196,13 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
       .limit(Number(limit))
       .populate('sender', 'firstName lastName userName');
 
-    // Mark messages as read for current user
-    const messageIds = messages.map(m => m._id);
-    await Message.updateMany(
-      { _id: { $in: messageIds } },
-      { $set: { [`readBy.${currentUserId}`]: new Date() } }
-    );
+    // Initialize readAt if it doesn't exist
+    if (!conversation.readAt) {
+      conversation.readAt = new Map();
+    }
 
-    // Update conversation unread count
+    // Update conversation read timestamp and unread count
+    conversation.readAt.set(currentUserId.toString(), new Date());
     conversation.unreadCount.set(currentUserId.toString(), 0);
     await conversation.save();
 
@@ -258,6 +270,31 @@ export const getConversations = async (
       .lean();
 
     const formattedConversations = conversations.map((conv) => {
+      // Convert readAt Map to object for JSON serialization
+      const readAtObject: Record<string, string> = {};
+      
+      try {
+        if (conv.readAt && conv.readAt instanceof Map) {
+          // Handle Map objects (when not using .lean())
+          for (const [key, value] of conv.readAt) {
+            readAtObject[key] = value.toISOString();
+          }
+        } else if (conv.readAt && typeof conv.readAt === 'object') {
+          // Handle plain objects (when using .lean())
+          for (const [key, value] of Object.entries(conv.readAt)) {
+            if (value instanceof Date) {
+              readAtObject[key] = value.toISOString();
+            } else if (typeof value === 'string') {
+              readAtObject[key] = value;
+            }
+          }
+        }
+        // If readAt doesn't exist or is invalid, readAtObject remains empty
+      } catch (error) {
+        console.error('Error processing readAt for conversation:', conv._id, error);
+        // readAtObject remains empty object
+      }
+
       if (conv.isGroup) {
         // For group conversations
         return {
@@ -268,6 +305,7 @@ export const getConversations = async (
           lastMessage: conv.lastMessage,
           lastMessageAt: conv.lastMessageAt,
           unreadCount: conv.unreadCount?.[userId.toString()] || 0,
+          readAt: readAtObject,
         };
       } else {
         // For direct conversations - maintain backward compatibility
@@ -282,6 +320,7 @@ export const getConversations = async (
           lastMessage: conv.lastMessage,
           lastMessageAt: conv.lastMessageAt,
           unreadCount: conv.unreadCount?.[userId.toString()] || 0,
+          readAt: readAtObject,
         };
       }
     });
@@ -295,16 +334,70 @@ export const getConversations = async (
 
 export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { messageId } = req.params;
+    const { conversationId } = req.params;
     const userId = req.user?._id;
 
-    await Message.findByIdAndUpdate(messageId, {
-      $set: { [`readBy.${userId}`]: new Date() }
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Find and update the conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res.status(403).json({ message: 'Not authorized to mark conversation as read' });
+    }
+
+    // Initialize readAt if it doesn't exist
+    if (!conversation.readAt) {
+      conversation.readAt = new Map();
+    }
+
+    // Update conversation read timestamp and unread count
+    conversation.readAt.set(userId.toString(), new Date());
+    conversation.unreadCount.set(userId.toString(), 0);
+    await conversation.save();
+
+    // Notify other participants via WebSocket
+    const otherParticipants = conversation.participants.filter(
+      p => p.toString() !== userId.toString()
+    );
+
+    // Get user info for notifications
+    const user = await User.findById(userId).select('firstName lastName userName');
+    
+    otherParticipants.forEach(participantId => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'conversation_read',
+        conversationId: conversation._id,
+        readBy: {
+          userId: userId.toString(),
+          userName: user?.userName,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+        },
+        readAt: conversation.readAt.get(userId.toString()),
+        isGroup: conversation.isGroup
+      });
     });
 
-    res.json({ message: 'Message marked as read' });
+    res.json({ 
+      message: 'Conversation marked as read',
+      readAt: conversation.readAt.get(userId.toString())
+    });
   } catch (error) {
-    console.error('Error marking message as read:', error);
+    console.error('Error marking conversation as read:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// Migration endpoint - remove this after migration is complete
+export const migrateConversations = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const result = await migrateConversationsToReadAt();
+    res.json(result);
+  } catch (error) {
+    console.error('Migration endpoint error:', error);
+    res.status(500).json({ message: 'Migration failed' });
+  }
+};
+

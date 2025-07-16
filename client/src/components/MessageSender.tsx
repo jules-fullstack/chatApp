@@ -14,6 +14,7 @@ export default function MessageSender() {
     stopTyping,
     isNewMessage,
     newMessageRecipients,
+    markConversationAsRead,
   } = useChatStore();
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -143,6 +144,13 @@ export default function MessageSender() {
     }
   };
 
+  const handleMessageSenderClick = () => {
+    // Mark conversation as read when user clicks on MessageSender
+    if (activeConversation && !activeConversation.startsWith("user:")) {
+      markConversationAsRead(activeConversation);
+    }
+  };
+
   // Don't show MessageSender if in new message mode but no recipients selected
   if (isNewMessage && newMessageRecipients.length === 0) {
     return null;
@@ -154,7 +162,7 @@ export default function MessageSender() {
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-white p-4">
+    <div className="absolute bottom-0 left-0 right-0 bg-white p-4" onClick={handleMessageSenderClick}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
         <PhotoIcon className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors" />
 
