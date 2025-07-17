@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { userStore } from "./userStore";
 import { type Participant, type Message, type Conversation } from "../types";
 
@@ -24,6 +25,7 @@ interface ChatState {
   // UI state
   isTyping: boolean;
   typingUsers: Map<string, TypingUser>;
+  showConversationDetails: boolean;
 
   isConversationsLoading: boolean;
   isMessagesLoading: boolean;
@@ -70,12 +72,18 @@ interface ChatState {
   markConversationAsRead: (conversationId: string) => Promise<void>;
   handleConversationRead: (data: any) => void;
 
+  // UI actions
+  setShowConversationDetails: (show: boolean) => void;
+  toggleConversationDetails: () => void;
+
   resetStore: () => void;
 }
 
 const API_BASE = "http://localhost:3000/api";
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
   ws: null,
   isConnected: false,
   activeConversation: null,
@@ -83,6 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   conversations: [],
   isTyping: false,
   typingUsers: new Map(),
+  showConversationDetails: false,
   fallbackParticipant: null,
   isNewMessage: false,
   newMessageRecipients: [],
@@ -531,6 +540,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
+  setShowConversationDetails: (show: boolean) => {
+    set({ showConversationDetails: show });
+  },
+
+  toggleConversationDetails: () => {
+    set({ showConversationDetails: !get().showConversationDetails });
+  },
+
   resetStore: () => {
     set({
       ws: null,
@@ -540,9 +557,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       conversations: [],
       isTyping: false,
       typingUsers: new Map(),
+      showConversationDetails: false,
       fallbackParticipant: null,
       isNewMessage: false,
       newMessageRecipients: [],
     });
   },
-}));
+}),
+    {
+      name: "chat-storage",
+      partialize: (state) => ({
+        showConversationDetails: state.showConversationDetails,
+      }),
+    }
+  )
+);

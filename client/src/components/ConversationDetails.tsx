@@ -15,10 +15,12 @@ import {
 } from "@heroicons/react/24/solid";
 import { Accordion, Menu } from "@mantine/core";
 import { useChatStore } from "../store/chatStore";
+import { userStore } from "../store/userStore";
 import Container from "./ui/Container";
 
 export default function ConversationDetails() {
   const { activeConversation, conversations } = useChatStore();
+  const { user: currentUser } = userStore();
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -26,13 +28,31 @@ export default function ConversationDetails() {
 
   const isGroup = conversation?.isGroup;
 
-  console.log(isGroup);
+  const getConversationTitle = () => {
+    if (!conversation) return "";
+
+    if (isGroup) {
+      if (conversation.groupName) {
+        return conversation.groupName;
+      }
+      // For group chats without a group name, show participant usernames excluding current user
+      return (
+        conversation.participants
+          ?.filter((participant) => participant._id !== currentUser?.id)
+          .map((participant) => participant.userName)
+          .join(", ") || ""
+      );
+    } else {
+      // For direct messages, show the other participant's username
+      return conversation.participant?.userName || "";
+    }
+  };
 
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
         <UserCircleIcon className="size-28 text-gray-400 mt-2" />
-        <p className="font-semibold text-blue-500">Username</p>
+        <p className="font-semibold text-blue-500">{getConversationTitle()}</p>
       </div>
 
       <Accordion

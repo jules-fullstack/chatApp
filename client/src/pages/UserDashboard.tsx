@@ -92,7 +92,6 @@ type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showConversationDetails, setShowConversationDetails] = useState(false);
   const [isOpen, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
   const user = userStore((state) => state.user);
@@ -105,6 +104,8 @@ export default function UserDashboard() {
     loadConversations,
     conversations,
     setActiveConversation,
+    showConversationDetails,
+    toggleConversationDetails,
   } = useChatStore();
 
   const {
@@ -264,6 +265,7 @@ export default function UserDashboard() {
     }
   }, [conversations, setActiveConversation]);
 
+
   return (
     <div className="bg-gray-100 h-screen flex items-center relative">
       <Modal opened={isOpen} onClose={close} title="Profile Settings" size="md">
@@ -408,9 +410,7 @@ export default function UserDashboard() {
       </Menu>
       <Sidebar />
       <MessageWindow
-        onEllipsisClick={() =>
-          setShowConversationDetails(!showConversationDetails)
-        }
+        onEllipsisClick={toggleConversationDetails}
       />
       {showConversationDetails && <ConversationDetails />}
     </div>
