@@ -12,6 +12,7 @@ import {
   ChatBubbleOvalLeftIcon,
   UserPlusIcon,
   UserIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/solid";
 import { Accordion, Menu } from "@mantine/core";
 import { useState } from "react";
@@ -21,7 +22,12 @@ import Container from "./ui/Container";
 import GroupNameModal from "./GroupNameModal";
 
 export default function ConversationDetails() {
-  const { activeConversation, conversations, updateGroupName } = useChatStore();
+  const {
+    activeConversation,
+    conversations,
+    updateGroupName,
+    fallbackParticipant,
+  } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
 
@@ -30,8 +36,15 @@ export default function ConversationDetails() {
   );
 
   const isGroup = conversation?.isGroup;
+  const isGroupAdmin = isGroup
+    ? conversation.groupAdmin === currentUser?.id
+    : "";
 
   const getConversationTitle = () => {
+    if (!conversation && fallbackParticipant) {
+      return fallbackParticipant.userName;
+    }
+
     if (!conversation) return "";
 
     if (isGroup) {
@@ -88,12 +101,12 @@ export default function ConversationDetails() {
         }}
         multiple={true}
       >
-        <Accordion.Item value="customize-chat">
-          <Accordion.Control>
-            <p className="font-semibold">Customize chat</p>
-          </Accordion.Control>
+        {isGroup && isGroupAdmin && (
+          <Accordion.Item value="customize-chat">
+            <Accordion.Control>
+              <p className="font-semibold">Customize chat</p>
+            </Accordion.Control>
 
-          {isGroup && (
             <div
               className="cursor-pointer hover:bg-gray-50"
               onClick={handleOpenGroupNameModal}
@@ -107,117 +120,155 @@ export default function ConversationDetails() {
                 </div>
               </Accordion.Panel>
             </div>
-          )}
 
-          <div className="cursor-pointer hover:bg-gray-50">
-            <Accordion.Panel>
-              <div className="flex items-center gap-2">
-                <div className="bg-gray-200 rounded-full p-2">
-                  <HandThumbUpIcon className="size-4 text-blue-500" />
-                </div>
-                <p className="font-medium">Change emoji</p>
-              </div>
-            </Accordion.Panel>
-          </div>
-        </Accordion.Item>
-        {isGroup && (
-          <Accordion.Item value="chat-members">
-            <Accordion.Control>
-              <p className="font-semibold">Chat Members</p>
-            </Accordion.Control>
-
-            <div className="cursor-pointer hover:bg-gray-50">
-              <Accordion.Panel>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex gap-1 items-center">
-                    <UserCircleIcon className="size-12 text-gray-400" />
-                    <p className="font-medium">Username</p>
-                  </div>
-                  <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1">
-                    <Menu position="bottom-end" width={250}>
-                      <Menu.Target>
-                        <EllipsisHorizontalIcon className="size-6" />
-                      </Menu.Target>
-                      <Menu.Dropdown className="!rounded-2xl !rounded-tr-sm">
-                        <Menu.Item
-                          leftSection={
-                            <div className="bg-gray-200 rounded-full p-2">
-                              <ChatBubbleOvalLeftIcon className="size-4" />
-                            </div>
-                          }
-                        >
-                          <span className="font-medium">Message</span>
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={
-                            <div className="bg-gray-200 rounded-full p-2">
-                              <UserIcon className="size-4" />
-                            </div>
-                          }
-                        >
-                          <span className="font-medium">Make Admin</span>
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={
-                            <div className="bg-gray-200 rounded-full p-2">
-                              <NoSymbolIcon className="size-4" />
-                            </div>
-                          }
-                        >
-                          <span className="font-medium">Block</span>
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={
-                            <div className="bg-gray-200 rounded-full p-2">
-                              <XMarkIcon className="size-4" />
-                            </div>
-                          }
-                        >
-                          <span className="font-medium">Remove from Group</span>
-                        </Menu.Item>
-                        <Menu.Item
-                          leftSection={
-                            <div className="bg-gray-200 rounded-full p-2">
-                              <ArrowRightStartOnRectangleIcon className="size-4" />
-                            </div>
-                          }
-                        >
-                          <span className="font-medium">Leave Group</span>
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  </div>
-                </div>
-              </Accordion.Panel>
-            </div>
             <div className="cursor-pointer hover:bg-gray-50">
               <Accordion.Panel>
                 <div className="flex items-center gap-2">
                   <div className="bg-gray-200 rounded-full p-2">
-                    <UserPlusIcon className="size-4" />
+                    <PhotoIcon className="size-4" />
                   </div>
-                  <p className="font-medium">Add people</p>
+                  <p className="font-medium">Change photo</p>
+                </div>
+              </Accordion.Panel>
+            </div>
+
+            <div className="cursor-pointer hover:bg-gray-50">
+              <Accordion.Panel>
+                <div className="flex items-center gap-2">
+                  <div className="bg-gray-200 rounded-full p-2">
+                    <HandThumbUpIcon className="size-4 text-blue-500" />
+                  </div>
+                  <p className="font-medium">Change emoji</p>
                 </div>
               </Accordion.Panel>
             </div>
           </Accordion.Item>
         )}
 
+        {isGroup && (
+          <Accordion.Item value="chat-members">
+            <Accordion.Control>
+              <p className="font-semibold">Chat members</p>
+            </Accordion.Control>
+
+            {conversation.participants?.map((participant) => (
+              <div
+                key={participant._id}
+                className="cursor-pointer hover:bg-gray-50"
+              >
+                <Accordion.Panel>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex gap-1 items-center">
+                      <UserCircleIcon className="size-12 text-gray-400" />
+                      <p className="font-medium">{participant.userName}</p>
+                    </div>
+                    <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1">
+                      <Menu position="bottom-end" width={250}>
+                        <Menu.Target>
+                          <EllipsisHorizontalIcon className="size-6" />
+                        </Menu.Target>
+                        <Menu.Dropdown className="!rounded-2xl !rounded-tr-sm">
+                          {participant._id === currentUser?.id ? (
+                            <Menu.Item
+                              leftSection={
+                                <div className="bg-gray-200 rounded-full p-2">
+                                  <ArrowRightStartOnRectangleIcon className="size-4" />
+                                </div>
+                              }
+                            >
+                              <span className="font-medium">Leave group</span>
+                            </Menu.Item>
+                          ) : (
+                            <>
+                              <Menu.Item
+                                leftSection={
+                                  <div className="bg-gray-200 rounded-full p-2">
+                                    <ChatBubbleOvalLeftIcon className="size-4" />
+                                  </div>
+                                }
+                              >
+                                <span className="font-medium">Message</span>
+                              </Menu.Item>
+
+                              {isGroupAdmin && (
+                                <Menu.Item
+                                  leftSection={
+                                    <div className="bg-gray-200 rounded-full p-2">
+                                      <UserIcon className="size-4" />
+                                    </div>
+                                  }
+                                >
+                                  <span className="font-medium">
+                                    Make admin
+                                  </span>
+                                </Menu.Item>
+                              )}
+
+                              <Menu.Item
+                                leftSection={
+                                  <div className="bg-gray-200 rounded-full p-2">
+                                    <NoSymbolIcon className="size-4" />
+                                  </div>
+                                }
+                              >
+                                <span className="font-medium">Block</span>
+                              </Menu.Item>
+
+                              {isGroupAdmin && (
+                                <Menu.Item
+                                  leftSection={
+                                    <div className="bg-gray-200 rounded-full p-2">
+                                      <XMarkIcon className="size-4" />
+                                    </div>
+                                  }
+                                >
+                                  <span className="font-medium">
+                                    Remove from group
+                                  </span>
+                                </Menu.Item>
+                              )}
+                            </>
+                          )}
+                        </Menu.Dropdown>
+                      </Menu>
+                    </div>
+                  </div>
+                </Accordion.Panel>
+              </div>
+            ))}
+
+            {isGroupAdmin && (
+              <div className="cursor-pointer hover:bg-gray-50">
+                <Accordion.Panel>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-gray-200 rounded-full p-2">
+                      <UserPlusIcon className="size-4" />
+                    </div>
+                    <p className="font-medium">Add people</p>
+                  </div>
+                </Accordion.Panel>
+              </div>
+            )}
+          </Accordion.Item>
+        )}
+
         <Accordion.Item value="privacy-support">
           <Accordion.Control>
-            <p className="font-semibold">Privacy & Support</p>
+            <p className="font-semibold">Privacy & support</p>
           </Accordion.Control>
 
-          <div className="cursor-pointer hover:bg-gray-50">
-            <Accordion.Panel>
-              <div className="flex items-center gap-2">
-                <div className="bg-gray-200 rounded-full p-2">
-                  <NoSymbolIcon className="size-4" />
+          {!isGroup && (
+            <div className="cursor-pointer hover:bg-gray-50">
+              <Accordion.Panel>
+                <div className="flex items-center gap-2">
+                  <div className="bg-gray-200 rounded-full p-2">
+                    <NoSymbolIcon className="size-4" />
+                  </div>
+                  <p className="font-medium">Block</p>
                 </div>
-                <p className="font-medium">Block</p>
-              </div>
-            </Accordion.Panel>
-          </div>
+              </Accordion.Panel>
+            </div>
+          )}
 
           {isGroup && (
             <div className="cursor-pointer hover:bg-gray-50">
@@ -226,7 +277,7 @@ export default function ConversationDetails() {
                   <div className="bg-gray-200 rounded-full p-2">
                     <ArrowRightStartOnRectangleIcon className="size-4" />
                   </div>
-                  <p className="font-medium">Leave Group</p>
+                  <p className="font-medium">Leave group</p>
                 </div>
               </Accordion.Panel>
             </div>

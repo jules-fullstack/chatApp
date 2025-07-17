@@ -32,11 +32,9 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       // Existing conversation
       conversation = await Conversation.findById(conversationId);
       if (!conversation || !conversation.participants.includes(senderId)) {
-        return res
-          .status(403)
-          .json({
-            message: 'Not authorized to send message to this conversation',
-          });
+        return res.status(403).json({
+          message: 'Not authorized to send message to this conversation',
+        });
       }
 
       // Get all participants except sender for notifications
@@ -96,7 +94,8 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
         const allParticipants = [senderId.toString(), ...recipients];
 
         // Use provided group name or set to null if not provided
-        let finalGroupName = groupName && groupName.trim() ? groupName.trim() : null;
+        let finalGroupName =
+          groupName && groupName.trim() ? groupName.trim() : null;
 
         conversation = await (Conversation as any).createGroup(
           allParticipants,
@@ -337,6 +336,7 @@ export const getConversations = async (
           _id: conv._id,
           isGroup: true,
           groupName: conv.groupName,
+          groupAdmin: conv.groupAdmin,
           participants: conv.participants,
           lastMessage: conv.lastMessage,
           lastMessageAt: conv.lastMessageAt,
@@ -430,7 +430,10 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-export const updateGroupName = async (req: AuthenticatedRequest, res: Response) => {
+export const updateGroupName = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
   try {
     const { conversationId } = req.params;
     const { groupName } = req.body;
@@ -465,8 +468,10 @@ export const updateGroupName = async (req: AuthenticatedRequest, res: Response) 
       .lean();
 
     // Notify all participants via WebSocket
-    const user = await User.findById(userId).select('firstName lastName userName');
-    
+    const user = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
+
     conversation.participants.forEach((participantId: any) => {
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'group_name_updated',

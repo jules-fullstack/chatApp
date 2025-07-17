@@ -105,7 +105,6 @@ export default function UserDashboard() {
     conversations,
     setActiveConversation,
     showConversationDetails,
-    toggleConversationDetails,
   } = useChatStore();
 
   const {
@@ -265,7 +264,6 @@ export default function UserDashboard() {
     }
   }, [conversations, setActiveConversation]);
 
-
   return (
     <div className="bg-gray-100 h-screen flex items-center relative">
       <Modal opened={isOpen} onClose={close} title="Profile Settings" size="md">
@@ -409,9 +407,7 @@ export default function UserDashboard() {
         </Menu.Dropdown>
       </Menu>
       <Sidebar />
-      <MessageWindow
-        onEllipsisClick={toggleConversationDetails}
-      />
+      <MessageWindow />
       {showConversationDetails && <ConversationDetails />}
     </div>
   );

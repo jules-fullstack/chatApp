@@ -55,6 +55,7 @@ export interface Conversation {
   participant?: User; // For direct messages
   participants?: User[]; // For group messages
   groupName?: string;
+  groupAdmin?: User;
   lastMessage?: Message;
   lastMessageAt: string;
   unreadCount: number;

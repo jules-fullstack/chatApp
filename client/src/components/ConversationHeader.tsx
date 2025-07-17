@@ -28,7 +28,6 @@ interface ConversationHeaderProps {
     };
   };
   isTyping?: boolean;
-  onEllipsisClick?: () => void;
 }
 
 interface SearchFormData {
@@ -39,10 +38,14 @@ export default function ConversationHeader({
   participant,
   conversation,
   isTyping,
-  onEllipsisClick,
 }: ConversationHeaderProps) {
-  const { isNewMessage, newMessageRecipients, addRecipient, removeRecipient } =
-    useChatStore();
+  const {
+    isNewMessage,
+    newMessageRecipients,
+    addRecipient,
+    removeRecipient,
+    toggleConversationDetails,
+  } = useChatStore();
   const { user: currentUser } = userStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -237,7 +240,10 @@ export default function ConversationHeader({
           </p>
         </div>
       </div>
-      <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1" onClick={onEllipsisClick}>
+      <div
+        className="rounded-full cursor-pointer hover:bg-gray-200 p-1"
+        onClick={toggleConversationDetails}
+      >
         <EllipsisHorizontalIcon className="size-6" />
       </div>
     </div>
