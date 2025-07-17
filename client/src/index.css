@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+.accordion-chevron {
+  transition: transform 0.3s ease;
+}
+
+[data-active] .accordion-chevron {
+  transform: rotate(90deg);
+}
+
+.no-bottom-border {
+  border-bottom: none !important;
+}

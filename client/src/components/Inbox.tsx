@@ -151,11 +151,13 @@ export default function Inbox() {
     } else {
       conversations.forEach((conversation) => {
         const displayName = conversation.isGroup
-          ? conversation.groupName || 
-            (conversation.participants && conversation.participants.length > 0 && currentUser
+          ? conversation.groupName ||
+            (conversation.participants &&
+            conversation.participants.length > 0 &&
+            currentUser
               ? conversation.participants
-                  .filter(p => p._id !== currentUser.id) // Filter out current user
-                  .map(p => `${p.firstName} ${p.lastName}`)
+                  .filter((p) => p._id !== currentUser.id) // Filter out current user
+                  .map((p) => `${p.userName}`)
                   .join(", ") || "Group Chat"
               : "Group Chat")
           : conversation.participant?.userName || "Unknown";

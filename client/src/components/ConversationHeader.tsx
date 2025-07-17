@@ -28,6 +28,7 @@ interface ConversationHeaderProps {
     };
   };
   isTyping?: boolean;
+  onEllipsisClick?: () => void;
 }
 
 interface SearchFormData {
@@ -38,6 +39,7 @@ export default function ConversationHeader({
   participant,
   conversation,
   isTyping,
+  onEllipsisClick,
 }: ConversationHeaderProps) {
   const { isNewMessage, newMessageRecipients, addRecipient, removeRecipient } =
     useChatStore();
@@ -194,17 +196,17 @@ export default function ConversationHeader({
   const isGroupChat = conversation?.isGroup;
   const groupName = conversation?.groupName;
   const groupParticipants = conversation?.participants || [];
-  
+
   // Get participant names for unnamed groups (excluding current user)
   const getGroupDisplayName = () => {
     if (groupName) return groupName;
     if (groupParticipants.length > 0 && currentUser) {
       // Filter out the current user from participants
-      const otherParticipants = groupParticipants.filter(p => p._id !== currentUser.id);
+      const otherParticipants = groupParticipants.filter(
+        (p) => p._id !== currentUser.id
+      );
       if (otherParticipants.length > 0) {
-        return otherParticipants
-          .map(p => `${p.firstName} ${p.lastName}`)
-          .join(", ");
+        return otherParticipants.map((p) => `${p.userName}`).join(", ");
       }
     }
     return "Group Chat";
@@ -235,7 +237,7 @@ export default function ConversationHeader({
           </p>
         </div>
       </div>
-      <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1">
+      <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1" onClick={onEllipsisClick}>
         <EllipsisHorizontalIcon className="size-6" />
       </div>
     </div>

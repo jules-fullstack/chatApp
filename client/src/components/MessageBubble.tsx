@@ -34,7 +34,10 @@ export default function MessageBubble({
     if (conversation.isGroup) {
       // For group chats, only show avatars for users who last read THIS specific message
       conversation.participants?.forEach((participant) => {
-        if (participant._id !== currentUser?.id && usersWhoLastReadThisMessage.includes(participant._id)) {
+        if (
+          participant._id !== currentUser?.id &&
+          usersWhoLastReadThisMessage.includes(participant._id)
+        ) {
           readByUsers.push({ userId: participant._id, user: participant });
         }
       });
@@ -42,10 +45,15 @@ export default function MessageBubble({
     } else {
       // For direct messages, check if this is the last read message for the other participant
       const otherParticipant = conversation.participant;
-      if (otherParticipant && usersWhoLastReadThisMessage.includes(otherParticipant._id)) {
+      if (
+        otherParticipant &&
+        usersWhoLastReadThisMessage.includes(otherParticipant._id)
+      ) {
         return {
           hasBeenRead: true,
-          readByUsers: [{ userId: otherParticipant._id, user: otherParticipant }]
+          readByUsers: [
+            { userId: otherParticipant._id, user: otherParticipant },
+          ],
         };
       }
     }
@@ -84,26 +92,24 @@ export default function MessageBubble({
         </div>
       </div>
       {/* Read status with user avatars - only show for users who last read this specific message */}
-      {isOwnMessage &&
-        hasBeenRead &&
-        readByUsers.length > 0 && (
-          <div className="flex justify-end mb-1">
-            <div className="flex items-center space-x-1">
-              {readByUsers.slice(0, 3).map(({ userId, user }) => (
-                <UserCircleIcon
-                  key={userId}
-                  className="size-4 text-gray-400"
-                  title={`Read by ${user.userName}`}
-                />
-              ))}
-              {readByUsers.length > 3 && (
-                <span className="text-xs text-gray-500">
-                  +{readByUsers.length - 3}
-                </span>
-              )}
-            </div>
+      {isOwnMessage && hasBeenRead && readByUsers.length > 0 && (
+        <div className="flex justify-end mb-1">
+          <div className="flex items-center space-x-1">
+            {readByUsers.slice(0, 3).map(({ userId, user }) => (
+              <UserCircleIcon
+                key={userId}
+                className="size-4 text-gray-400"
+                title={`Read by ${user.userName}`}
+              />
+            ))}
+            {readByUsers.length > 3 && (
+              <span className="text-xs text-gray-500">
+                +{readByUsers.length - 3}
+              </span>
+            )}
           </div>
-        )}
+        </div>
+      )}
     </>
   );
 }

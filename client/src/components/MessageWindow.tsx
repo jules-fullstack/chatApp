@@ -8,7 +8,11 @@ import { userStore } from "../store/userStore";
 import { useConversationRead } from "../hooks/useMessageRead";
 import { Loader } from "@mantine/core";
 
-export default function MessageWindow() {
+interface MessageWindowProps {
+  onEllipsisClick?: () => void;
+}
+
+export default function MessageWindow({ onEllipsisClick }: MessageWindowProps) {
   const {
     activeConversation,
     messages,
@@ -234,7 +238,7 @@ export default function MessageWindow() {
   if (isNewMessage && newMessageRecipients.length === 0) {
     return (
       <Container size="lg">
-        <ConversationHeader />
+        <ConversationHeader onEllipsisClick={onEllipsisClick} />
         {renderNewMessageView()}
       </Container>
     );
@@ -249,6 +253,7 @@ export default function MessageWindow() {
         }
         conversation={isNewMessage ? undefined : (activeConversationData || undefined)}
         isTyping={isTyping}
+        onEllipsisClick={onEllipsisClick}
       />
 
       <div ref={conversationRef} className="flex-1 overflow-y-auto p-4 pb-20">

@@ -13,7 +13,7 @@ export default function Container({
   };
   return (
     <section
-      className={`${sizeTypes[size]} h-[95%] ml-4 bg-white shadow-sm rounded-md flex flex-col relative`}
+      className={`${sizeTypes[size]} h-[95%] mr-4 bg-white shadow-sm rounded-md flex flex-col relative`}
     >
       {children}
     </section>

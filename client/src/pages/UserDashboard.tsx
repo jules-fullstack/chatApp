@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import FormField from "../components/ui/FormField";
+import ConversationDetails from "../components/ConversationDetails";
 
 // Zod schema for profile update
 const profileUpdateSchema = z
@@ -91,6 +92,7 @@ type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showConversationDetails, setShowConversationDetails] = useState(false);
   const [isOpen, { open, close }] = useDisclosure(false);
   const navigate = useNavigate();
   const user = userStore((state) => state.user);
@@ -386,7 +388,7 @@ export default function UserDashboard() {
 
       <Menu position="top">
         <Menu.Target>
-          <UserCircleIcon className="size-12 place-self-end mb-8 ml-4 cursor-pointer" />
+          <UserCircleIcon className="size-12 place-self-end mb-8 ml-4 mr-4 cursor-pointer" />
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item
@@ -405,7 +407,12 @@ export default function UserDashboard() {
         </Menu.Dropdown>
       </Menu>
       <Sidebar />
-      <MessageWindow />
+      <MessageWindow
+        onEllipsisClick={() =>
+          setShowConversationDetails(!showConversationDetails)
+        }
+      />
+      {showConversationDetails && <ConversationDetails />}
     </div>
   );
 }
