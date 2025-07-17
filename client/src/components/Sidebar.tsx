@@ -5,10 +5,10 @@ import Container from "./ui/Container";
 import { useChatStore } from "../store/chatStore";
 
 export default function Sidebar() {
-  const { startNewMessage, toggleConversationDetails } = useChatStore();
+  const { startNewMessage, setShowConversationDetails } = useChatStore();
 
   const handleNewMessageClick = () => {
-    toggleConversationDetails();
+    setShowConversationDetails(false);
     startNewMessage();
   };
 

@@ -6,7 +6,6 @@ import {
 } from "@heroicons/react/24/outline";
 import {
   PencilIcon,
-  HandThumbUpIcon,
   EllipsisHorizontalIcon,
   NoSymbolIcon,
   ChatBubbleOvalLeftIcon,
@@ -20,6 +19,7 @@ import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import Container from "./ui/Container";
 import GroupNameModal from "./GroupNameModal";
+import LeaveGroupModal from "./LeaveGroupModal";
 
 export default function ConversationDetails() {
   const {
@@ -27,9 +27,12 @@ export default function ConversationDetails() {
     conversations,
     updateGroupName,
     fallbackParticipant,
+    leaveGroup,
   } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
+  const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -37,8 +40,8 @@ export default function ConversationDetails() {
 
   const isGroup = conversation?.isGroup;
   const isGroupAdmin = isGroup
-    ? conversation.groupAdmin === currentUser?.id
-    : "";
+    ? conversation.groupAdmin?._id === currentUser?.id
+    : false;
 
   const getConversationTitle = () => {
     if (!conversation && fallbackParticipant) {
@@ -82,6 +85,27 @@ export default function ConversationDetails() {
     }
   };
 
+  const handleOpenLeaveGroupModal = () => {
+    setIsLeaveGroupModalOpen(true);
+  };
+
+  const handleCloseLeaveGroupModal = () => {
+    setIsLeaveGroupModalOpen(false);
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!conversation || !activeConversation) return;
+
+    setIsLeavingGroup(true);
+    try {
+      await leaveGroup(activeConversation);
+    } catch (error) {
+      console.error("Failed to leave group:", error);
+    } finally {
+      setIsLeavingGroup(false);
+    }
+  };
+
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
@@ -121,27 +145,18 @@ export default function ConversationDetails() {
               </Accordion.Panel>
             </div>
 
-            <div className="cursor-pointer hover:bg-gray-50">
-              <Accordion.Panel>
-                <div className="flex items-center gap-2">
-                  <div className="bg-gray-200 rounded-full p-2">
-                    <PhotoIcon className="size-4" />
+            {isGroup && (
+              <div className="cursor-pointer hover:bg-gray-50">
+                <Accordion.Panel>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-gray-200 rounded-full p-2">
+                      <PhotoIcon className="size-4" />
+                    </div>
+                    <p className="font-medium">Change photo</p>
                   </div>
-                  <p className="font-medium">Change photo</p>
-                </div>
-              </Accordion.Panel>
-            </div>
-
-            <div className="cursor-pointer hover:bg-gray-50">
-              <Accordion.Panel>
-                <div className="flex items-center gap-2">
-                  <div className="bg-gray-200 rounded-full p-2">
-                    <HandThumbUpIcon className="size-4 text-blue-500" />
-                  </div>
-                  <p className="font-medium">Change emoji</p>
-                </div>
-              </Accordion.Panel>
-            </div>
+                </Accordion.Panel>
+              </div>
+            )}
           </Accordion.Item>
         )}
 
@@ -175,6 +190,7 @@ export default function ConversationDetails() {
                                   <ArrowRightStartOnRectangleIcon className="size-4" />
                                 </div>
                               }
+                              onClick={handleOpenLeaveGroupModal}
                             >
                               <span className="font-medium">Leave group</span>
                             </Menu.Item>
@@ -271,7 +287,10 @@ export default function ConversationDetails() {
           )}
 
           {isGroup && (
-            <div className="cursor-pointer hover:bg-gray-50">
+            <div
+              className="cursor-pointer hover:bg-gray-50"
+              onClick={handleOpenLeaveGroupModal}
+            >
               <Accordion.Panel>
                 <div className="flex items-center gap-2">
                   <div className="bg-gray-200 rounded-full p-2">
@@ -291,6 +310,13 @@ export default function ConversationDetails() {
         onConfirm={handleUpdateGroupName}
         mode="edit"
         currentGroupName={conversation?.groupName || ""}
+      />
+
+      <LeaveGroupModal
+        opened={isLeaveGroupModalOpen}
+        onClose={handleCloseLeaveGroupModal}
+        onConfirm={handleLeaveGroup}
+        isLoading={isLeavingGroup}
       />
     </Container>
   );

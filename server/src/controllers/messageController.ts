@@ -297,6 +297,7 @@ export const getConversations = async (
     })
       .sort({ lastMessageAt: -1 })
       .populate('participants', 'firstName lastName userName')
+      .populate('groupAdmin', 'firstName lastName userName')
       .populate('lastMessage')
       .lean();
 
@@ -465,6 +466,7 @@ export const updateGroupName = async (
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
       .populate('participants', 'firstName lastName userName')
+      .populate('groupAdmin', 'firstName lastName userName')
       .lean();
 
     // Notify all participants via WebSocket
@@ -493,6 +495,85 @@ export const updateGroupName = async (
     });
   } catch (error) {
     console.error('Error updating group name:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const leaveGroup = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Find the conversation and verify it's a group conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to leave this conversation' });
+    }
+
+    if (!conversation.isGroup) {
+      return res
+        .status(400)
+        .json({ message: 'Cannot leave a direct message conversation' });
+    }
+
+    // Remove user from participants
+    conversation.participants = conversation.participants.filter(
+      (participant: any) => participant.toString() !== userId.toString()
+    );
+
+    // Remove user from unread counts and readAt
+    conversation.unreadCount.delete(userId.toString());
+    conversation.readAt.delete(userId.toString());
+
+    // If the user was the admin, assign a new admin randomly
+    if (conversation.groupAdmin?.toString() === userId.toString()) {
+      if (conversation.participants.length > 0) {
+        const randomIndex = Math.floor(Math.random() * conversation.participants.length);
+        conversation.groupAdmin = conversation.participants[randomIndex];
+      } else {
+        // If no participants left, mark conversation as inactive
+        conversation.isActive = false;
+      }
+    }
+
+    await conversation.save();
+
+    // Get user info for notifications
+    const user = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
+
+    // Notify remaining participants via WebSocket
+    conversation.participants.forEach((participantId: any) => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'user_left_group',
+        conversationId: conversation._id,
+        leftUser: {
+          userId: userId.toString(),
+          userName: user?.userName,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+        },
+        newAdmin: conversation.groupAdmin?.toString(),
+        isActive: conversation.isActive,
+      });
+    });
+
+    res.json({
+      message: 'Left group successfully',
+      conversationId: conversation._id,
+    });
+  } catch (error) {
+    console.error('Error leaving group:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

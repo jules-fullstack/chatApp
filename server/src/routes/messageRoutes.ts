@@ -8,6 +8,7 @@ import {
   markAsRead,
   migrateConversations,
   updateGroupName,
+  leaveGroup,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -32,6 +33,9 @@ router.patch('/conversation/:conversationId/read', markAsRead);
 
 // Update group name
 router.patch('/conversation/:conversationId/group-name', updateGroupName);
+
+// Leave group
+router.post('/conversation/:conversationId/leave', leaveGroup);
 
 // Migration endpoint - remove this after migration is complete
 router.post('/migrate', migrateConversations);
