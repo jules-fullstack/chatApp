@@ -7,6 +7,7 @@ import {
   getConversations,
   markAsRead,
   migrateConversations,
+  updateGroupName,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -28,6 +29,9 @@ router.get('/conversations', getConversations);
 
 // Mark conversation as read
 router.patch('/conversation/:conversationId/read', markAsRead);
+
+// Update group name
+router.patch('/conversation/:conversationId/group-name', updateGroupName);
 
 // Migration endpoint - remove this after migration is complete
 router.post('/migrate', migrateConversations);

@@ -430,6 +430,68 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
+export const updateGroupName = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { conversationId } = req.params;
+    const { groupName } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    // Find the conversation and verify it's a group conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to update this conversation' });
+    }
+
+    if (!conversation.isGroup) {
+      return res
+        .status(400)
+        .json({ message: 'Cannot update name of direct message conversation' });
+    }
+
+    // Update the group name (allow empty string to remove name)
+    const trimmedGroupName = groupName?.trim() || null;
+    conversation.groupName = trimmedGroupName;
+    await conversation.save();
+
+    // Get updated conversation with populated participants
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate('participants', 'firstName lastName userName')
+      .lean();
+
+    // Notify all participants via WebSocket
+    const user = await User.findById(userId).select('firstName lastName userName');
+    
+    conversation.participants.forEach((participantId: any) => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'group_name_updated',
+        conversationId: conversation._id,
+        groupName: trimmedGroupName,
+        updatedBy: {
+          userId: userId.toString(),
+          userName: user?.userName,
+          firstName: user?.firstName,
+          lastName: user?.lastName,
+        },
+        conversation: updatedConversation,
+      });
+    });
+
+    res.json({
+      message: 'Group name updated successfully',
+      groupName: trimmedGroupName,
+    });
+  } catch (error) {
+    console.error('Error updating group name:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // Migration endpoint - remove this after migration is complete
 export const migrateConversations = async (
   req: AuthenticatedRequest,

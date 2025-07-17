@@ -72,6 +72,10 @@ interface ChatState {
   markConversationAsRead: (conversationId: string) => Promise<void>;
   handleConversationRead: (data: any) => void;
 
+  // Group management actions
+  updateGroupName: (conversationId: string, groupName: string) => Promise<void>;
+  handleGroupNameUpdated: (data: any) => void;
+
   // UI actions
   setShowConversationDetails: (show: boolean) => void;
   toggleConversationDetails: () => void;
@@ -185,6 +189,9 @@ export const useChatStore = create<ChatState>()(
         }
         case "conversation_read":
           get().handleConversationRead(data);
+          break;
+        case "group_name_updated":
+          get().handleGroupNameUpdated(data);
           break;
         default:
           console.log("Unknown WebSocket message:", data);
@@ -534,6 +541,61 @@ export const useChatStore = create<ChatState>()(
             },
           };
           return updatedConv;
+        }
+        return conv;
+      }),
+    }));
+  },
+
+  updateGroupName: async (conversationId: string, groupName: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/messages/conversation/${conversationId}/group-name`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ groupName }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update group name");
+      }
+
+      const result = await response.json();
+
+      // Update local state immediately
+      set((state) => ({
+        conversations: state.conversations.map((conv) => {
+          if (conv._id === conversationId) {
+            return {
+              ...conv,
+              groupName: result.groupName,
+            };
+          }
+          return conv;
+        }),
+      }));
+    } catch (error) {
+      console.error("Error updating group name:", error);
+      throw error;
+    }
+  },
+
+  handleGroupNameUpdated: (data: any) => {
+    const { conversationId, groupName, conversation } = data;
+
+    // Update conversation in local state
+    set((state) => ({
+      conversations: state.conversations.map((conv) => {
+        if (conv._id === conversationId) {
+          return {
+            ...conv,
+            groupName,
+          };
         }
         return conv;
       }),

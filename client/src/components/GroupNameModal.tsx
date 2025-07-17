@@ -1,5 +1,6 @@
 import { Modal, Button } from "@mantine/core";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import FormField from "./ui/FormField";
 
 interface GroupNameFormData {
@@ -10,21 +11,37 @@ interface GroupNameModalProps {
   opened: boolean;
   onClose: () => void;
   onConfirm: (groupName: string) => void;
-  participantNames: string[];
+  participantNames?: string[];
+  mode?: 'create' | 'edit';
+  currentGroupName?: string;
 }
 
 export default function GroupNameModal({
   opened,
   onClose,
   onConfirm,
-  participantNames,
+  participantNames = [],
+  mode = 'create',
+  currentGroupName = '',
 }: GroupNameModalProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
-  } = useForm<GroupNameFormData>();
+    setValue,
+  } = useForm<GroupNameFormData>({
+    defaultValues: {
+      groupName: currentGroupName,
+    },
+  });
+
+  // Update form values when modal opens or currentGroupName changes
+  useEffect(() => {
+    if (opened) {
+      setValue('groupName', currentGroupName);
+    }
+  }, [opened, currentGroupName, setValue]);
 
   const onSubmit = (data: GroupNameFormData) => {
     const groupName = data.groupName?.trim() || "";
@@ -38,24 +55,33 @@ export default function GroupNameModal({
     onClose();
   };
 
+  const isEditMode = mode === 'edit';
+  const modalTitle = isEditMode ? "Change Chat Name" : "Create Group Chat";
+  const buttonText = isEditMode ? "Save" : "Create";
+  const placeholder = isEditMode 
+    ? "Enter group name" 
+    : "Enter group name (optional)";
+
   return (
     <Modal
       opened={opened}
       onClose={handleCancel}
-      title="Create Group Chat"
+      title={modalTitle}
       centered
       size="sm"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <p className="text-sm text-gray-600 mb-3">
-            Creating a group chat with: {participantNames.join(", ")}
-          </p>
+          {!isEditMode && (
+            <p className="text-sm text-gray-600 mb-3">
+              Creating a group chat with: {participantNames.join(", ")}
+            </p>
+          )}
           
           <FormField
             name="groupName"
             type="text"
-            placeholder="Enter group name (optional)"
+            placeholder={placeholder}
             register={register}
             errors={errors}
             containerClassName="bg-gray-100 rounded-lg p-3"
@@ -69,7 +95,7 @@ export default function GroupNameModal({
             Cancel
           </Button>
           <Button type="submit">
-            Create
+            {buttonText}
           </Button>
         </div>
       </form>

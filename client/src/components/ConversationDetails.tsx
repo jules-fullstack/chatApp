@@ -14,13 +14,16 @@ import {
   UserIcon,
 } from "@heroicons/react/24/solid";
 import { Accordion, Menu } from "@mantine/core";
+import { useState } from "react";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import Container from "./ui/Container";
+import GroupNameModal from "./GroupNameModal";
 
 export default function ConversationDetails() {
-  const { activeConversation, conversations } = useChatStore();
+  const { activeConversation, conversations, updateGroupName } = useChatStore();
   const { user: currentUser } = userStore();
+  const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -48,11 +51,31 @@ export default function ConversationDetails() {
     }
   };
 
+  const handleOpenGroupNameModal = () => {
+    setIsGroupNameModalOpen(true);
+  };
+
+  const handleCloseGroupNameModal = () => {
+    setIsGroupNameModalOpen(false);
+  };
+
+  const handleUpdateGroupName = async (groupName: string) => {
+    if (!conversation || !activeConversation) return;
+
+    try {
+      await updateGroupName(activeConversation, groupName);
+    } catch (error) {
+      console.error("Failed to update group name:", error);
+    }
+  };
+
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
         <UserCircleIcon className="size-28 text-gray-400 mt-2" />
-        <p className="font-semibold text-blue-500">{getConversationTitle()}</p>
+        <p className={`font-semibold ${!isGroup ? "text-blue-500" : ""}`}>
+          {getConversationTitle()}
+        </p>
       </div>
 
       <Accordion
@@ -71,7 +94,10 @@ export default function ConversationDetails() {
           </Accordion.Control>
 
           {isGroup && (
-            <div className="cursor-pointer hover:bg-gray-50">
+            <div
+              className="cursor-pointer hover:bg-gray-50"
+              onClick={handleOpenGroupNameModal}
+            >
               <Accordion.Panel>
                 <div className="flex items-center gap-2">
                   <div className="bg-gray-200 rounded-full p-2">
@@ -207,6 +233,14 @@ export default function ConversationDetails() {
           )}
         </Accordion.Item>
       </Accordion>
+
+      <GroupNameModal
+        opened={isGroupNameModalOpen}
+        onClose={handleCloseGroupNameModal}
+        onConfirm={handleUpdateGroupName}
+        mode="edit"
+        currentGroupName={conversation?.groupName || ""}
+      />
     </Container>
   );
 }
