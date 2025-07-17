@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { userStore } from "../store/userStore";
 import { type Message, type Conversation } from "../types";
@@ -6,7 +5,6 @@ import { type Message, type Conversation } from "../types";
 interface MessageBubbleProps {
   message: Message;
   isLast?: boolean;
-  showTime?: boolean;
   conversation?: Conversation;
   usersWhoLastReadThisMessage?: string[]; // Array of user IDs who last read this specific message
 }
@@ -14,7 +12,6 @@ interface MessageBubbleProps {
 export default function MessageBubble({
   message,
   isLast = false,
-  showTime = false,
   conversation,
   usersWhoLastReadThisMessage = [],
 }: MessageBubbleProps) {
@@ -63,10 +60,6 @@ export default function MessageBubble({
 
   const { hasBeenRead, readByUsers } = getReadStatus();
 
-  const formatTime = (dateString: string) => {
-    return format(new Date(dateString), "HH:mm");
-  };
-
   return (
     <>
       <div
@@ -80,15 +73,6 @@ export default function MessageBubble({
           } ${isLast ? "mb-2" : ""}`}
         >
           <p className="text-sm break-words">{message.content}</p>
-          {showTime && (
-            <div
-              className={`text-xs mt-1 ${
-                isOwnMessage ? "text-blue-100" : "text-gray-500"
-              }`}
-            >
-              {formatTime(message.createdAt)}
-            </div>
-          )}
         </div>
       </div>
       {/* Read status with user avatars - only show for users who last read this specific message */}

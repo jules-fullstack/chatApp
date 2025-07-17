@@ -2,10 +2,12 @@ import { useEffect, useRef } from "react";
 import ConversationHeader from "./ConversationHeader";
 import MessageSender from "./MessageSender";
 import MessageBubble from "./MessageBubble";
+import TimestampSeparator from "./TimestampSeparator";
 import Container from "./ui/Container";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { useConversationRead } from "../hooks/useMessageRead";
+import { shouldShowTimeSeparator } from "../utils/dateUtils";
 import { Loader } from "@mantine/core";
 
 interface MessageWindowProps {
@@ -204,29 +206,45 @@ export default function MessageWindow({ onEllipsisClick }: MessageWindowProps) {
     
     const usersWhoLastReadEachMessage = getUsersWhoLastReadEachMessage();
     
-    return messages.map((message, index) => {
+    const renderedElements: JSX.Element[] = [];
+    
+    messages.forEach((message, index) => {
       const isLast = index === messages.length - 1;
-      const showTime =
-        index === 0 ||
-        (index > 0 &&
-          new Date(message.createdAt).getTime() -
-            new Date(messages[index - 1].createdAt).getTime() >
-            5 * 60 * 1000);
+      const previousMessage = index > 0 ? messages[index - 1] : null;
+      
+      // Check if we should show a timestamp separator
+      const showSeparator = shouldShowTimeSeparator(
+        message.createdAt,
+        previousMessage?.createdAt || null
+      );
+
+      // Add timestamp separator if needed
+      if (showSeparator) {
+        renderedElements.push(
+          <TimestampSeparator
+            key={`separator-${message._id}`}
+            timestamp={message.createdAt}
+          />
+        );
+      }
 
       // Get the users who last read this specific message
       const usersWhoLastReadThisMessage = usersWhoLastReadEachMessage.get(index) || [];
 
-      return (
+      // Add the message bubble
+      renderedElements.push(
         <MessageBubble
           key={message._id}
           message={message}
           isLast={isLast}
-          showTime={showTime}
+          showTime={false} // We'll remove the inline timestamps
           conversation={activeConversationData && '_id' in activeConversationData ? activeConversationData : undefined}
           usersWhoLastReadThisMessage={usersWhoLastReadThisMessage}
         />
       );
     });
+    
+    return renderedElements;
   };
 
   // Show default view if no active conversation and not in new message mode
