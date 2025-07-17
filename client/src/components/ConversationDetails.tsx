@@ -20,6 +20,7 @@ import { userStore } from "../store/userStore";
 import Container from "./ui/Container";
 import GroupNameModal from "./GroupNameModal";
 import LeaveGroupModal from "./LeaveGroupModal";
+import AddPeopleModal from "./AddPeopleModal";
 
 export default function ConversationDetails() {
   const {
@@ -33,6 +34,7 @@ export default function ConversationDetails() {
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
   const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);
   const [isLeavingGroup, setIsLeavingGroup] = useState(false);
+  const [isAddPeopleModalOpen, setIsAddPeopleModalOpen] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -104,6 +106,20 @@ export default function ConversationDetails() {
     } finally {
       setIsLeavingGroup(false);
     }
+  };
+
+  const handleOpenAddPeopleModal = () => {
+    setIsAddPeopleModalOpen(true);
+  };
+
+  const handleCloseAddPeopleModal = () => {
+    setIsAddPeopleModalOpen(false);
+  };
+
+  const handleMembersAdded = (newMembers: any) => {
+    // The WebSocket will handle updating the conversation
+    // We could add additional logic here if needed
+    console.log("Members added:", newMembers);
   };
 
   return (
@@ -254,7 +270,10 @@ export default function ConversationDetails() {
             ))}
 
             {isGroupAdmin && (
-              <div className="cursor-pointer hover:bg-gray-50">
+              <div 
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={handleOpenAddPeopleModal}
+              >
                 <Accordion.Panel>
                   <div className="flex items-center gap-2">
                     <div className="bg-gray-200 rounded-full p-2">
@@ -318,6 +337,16 @@ export default function ConversationDetails() {
         onConfirm={handleLeaveGroup}
         isLoading={isLeavingGroup}
       />
+
+      {conversation && isGroup && (
+        <AddPeopleModal
+          opened={isAddPeopleModalOpen}
+          onClose={handleCloseAddPeopleModal}
+          conversationId={conversation._id}
+          existingParticipants={conversation.participants || []}
+          onMembersAdded={handleMembersAdded}
+        />
+      )}
     </Container>
   );
 }

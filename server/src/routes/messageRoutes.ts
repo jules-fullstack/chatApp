@@ -9,6 +9,7 @@ import {
   migrateConversations,
   updateGroupName,
   leaveGroup,
+  addMembersToGroup,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -36,6 +37,9 @@ router.patch('/conversation/:conversationId/group-name', updateGroupName);
 
 // Leave group
 router.post('/conversation/:conversationId/leave', leaveGroup);
+
+// Add members to group
+router.post('/conversation/:conversationId/add-members', addMembersToGroup);
 
 // Migration endpoint - remove this after migration is complete
 router.post('/migrate', migrateConversations);

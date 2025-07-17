@@ -77,6 +77,7 @@ interface ChatState {
   handleGroupNameUpdated: (data: unknown) => void;
   leaveGroup: (conversationId: string) => Promise<void>;
   handleUserLeftGroup: (data: unknown) => void;
+  handleMembersAddedToGroup: (data: unknown) => void;
 
   // UI actions
   setShowConversationDetails: (show: boolean) => void;
@@ -199,6 +200,9 @@ export const useChatStore = create<ChatState>()(
               break;
             case "user_left_group":
               get().handleUserLeftGroup(data);
+              break;
+            case "members_added_to_group":
+              get().handleMembersAddedToGroup(data);
               break;
             default:
               console.log("Unknown WebSocket message:", data);
@@ -691,6 +695,50 @@ export const useChatStore = create<ChatState>()(
             return conv;
           }),
         }));
+      },
+
+      handleMembersAddedToGroup: (data: unknown) => {
+        const { conversationId, addedMembers, conversation } = data as {
+          conversationId: string;
+          addedMembers: Participant[];
+          conversation: Conversation;
+        };
+
+        const currentUserId = userStore.getState().user?._id;
+        
+        set((state) => {
+          const existingConversation = state.conversations.find(
+            (conv) => conv._id === conversationId
+          );
+
+          if (existingConversation) {
+            // Update existing conversation with new participants
+            return {
+              conversations: state.conversations.map((conv) => {
+                if (conv._id === conversationId) {
+                  return {
+                    ...conv,
+                    participants: conversation.participants,
+                  };
+                }
+                return conv;
+              }),
+            };
+          } else {
+            // Add new conversation for newly added members
+            const isNewMember = addedMembers.some(
+              (member) => member._id === currentUserId
+            );
+            
+            if (isNewMember) {
+              return {
+                conversations: [...state.conversations, conversation],
+              };
+            }
+            
+            return state;
+          }
+        });
       },
 
       setShowConversationDetails: (show: boolean) => {

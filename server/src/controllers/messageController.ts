@@ -578,6 +578,126 @@ export const leaveGroup = async (
   }
 };
 
+export const addMembersToGroup = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { conversationId } = req.params;
+    const { userIds } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ message: 'User IDs are required' });
+    }
+
+    // Find the conversation and verify it's a group conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to add members to this conversation' });
+    }
+
+    if (!conversation.isGroup) {
+      return res
+        .status(400)
+        .json({ message: 'Cannot add members to a direct message conversation' });
+    }
+
+    // Verify that the user is the group admin
+    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: 'Only group admin can add members' });
+    }
+
+    // Verify that all users exist
+    const users = await User.find({ _id: { $in: userIds } });
+    if (users.length !== userIds.length) {
+      return res
+        .status(404)
+        .json({ message: 'One or more users not found' });
+    }
+
+    // Filter out users who are already participants
+    const existingParticipantIds = conversation.participants.map((p: any) => p.toString());
+    const newUserIds = userIds.filter(
+      (id: string) => !existingParticipantIds.includes(id)
+    );
+
+    if (newUserIds.length === 0) {
+      return res
+        .status(400)
+        .json({ message: 'All users are already members of this group' });
+    }
+
+    // Add new members to the conversation
+    conversation.participants.push(...newUserIds);
+
+    // Initialize unread counts and readAt for new members
+    newUserIds.forEach((userId: string) => {
+      conversation.unreadCount.set(userId, 0);
+      conversation.readAt.set(userId, new Date(0));
+    });
+
+    await conversation.save();
+
+    // Get updated conversation with populated participants
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate('participants', 'firstName lastName userName')
+      .populate('groupAdmin', 'firstName lastName userName')
+      .lean();
+
+    // Get user info for notifications
+    const addedBy = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
+
+    const newMembers = await User.find({ _id: { $in: newUserIds } }).select(
+      'firstName lastName userName',
+    );
+
+    // Notify all participants via WebSocket
+    conversation.participants.forEach((participantId: any) => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'members_added_to_group',
+        conversationId: conversation._id,
+        addedMembers: newMembers.map((member) => ({
+          userId: member._id.toString(),
+          userName: member.userName,
+          firstName: member.firstName,
+          lastName: member.lastName,
+        })),
+        addedBy: {
+          userId: userId.toString(),
+          userName: addedBy?.userName,
+          firstName: addedBy?.firstName,
+          lastName: addedBy?.lastName,
+        },
+        conversation: updatedConversation,
+      });
+    });
+
+    res.json({
+      message: 'Members added successfully',
+      addedMembers: newMembers.map((member) => ({
+        _id: member._id,
+        userName: member.userName,
+        firstName: member.firstName,
+        lastName: member.lastName,
+      })),
+    });
+  } catch (error) {
+    console.error('Error adding members to group:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 // Migration endpoint - remove this after migration is complete
 export const migrateConversations = async (
   req: AuthenticatedRequest,
