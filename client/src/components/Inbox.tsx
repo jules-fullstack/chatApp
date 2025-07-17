@@ -1,6 +1,7 @@
 import MessageTab from "./MessageTab";
 import useUserSearchStore from "../store/userSearchStore";
 import { useChatStore } from "../store/chatStore";
+import { userStore } from "../store/userStore";
 import { Loader } from "@mantine/core";
 import { useEffect } from "react";
 
@@ -17,6 +18,7 @@ export default function Inbox() {
     newMessageRecipients,
     isConversationsLoading,
   } = useChatStore();
+  const { user: currentUser } = userStore();
 
   useEffect(() => {
     if (!isSearchActive) {
@@ -117,7 +119,7 @@ export default function Inbox() {
       const newMessageText =
         newMessageRecipients.length > 0
           ? newMessageRecipients.length === 1
-            ? `New Message to ${newMessageRecipients[0].firstName} ${newMessageRecipients[0].lastName}`
+            ? `New Message to ${newMessageRecipients[0].userName}`
             : `New Message to ${newMessageRecipients.length} people`
           : "New Message";
 
@@ -149,7 +151,13 @@ export default function Inbox() {
     } else {
       conversations.forEach((conversation) => {
         const displayName = conversation.isGroup
-          ? conversation.groupName || "Group Chat"
+          ? conversation.groupName || 
+            (conversation.participants && conversation.participants.length > 0 && currentUser
+              ? conversation.participants
+                  .filter(p => p._id !== currentUser.id) // Filter out current user
+                  .map(p => `${p.firstName} ${p.lastName}`)
+                  .join(", ") || "Group Chat"
+              : "Group Chat")
           : conversation.participant?.userName || "Unknown";
 
         conversationsList.push(

@@ -3,6 +3,7 @@ import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Participant, type SearchedUser } from "../types";
 import { useChatStore } from "../store/chatStore";
+import { userStore } from "../store/userStore";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import userSearchService from "../services/userSearchService";
@@ -10,7 +11,22 @@ import { Badge } from "@mantine/core";
 
 interface ConversationHeaderProps {
   participant?: Participant;
-  conversation?: { isGroup: boolean; groupName?: string; participants?: any[]; participant?: any };
+  conversation?: {
+    isGroup: boolean;
+    groupName?: string;
+    participants?: Array<{
+      _id: string;
+      firstName: string;
+      lastName: string;
+      userName: string;
+    }>;
+    participant?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      userName: string;
+    };
+  };
   isTyping?: boolean;
 }
 
@@ -23,21 +39,14 @@ export default function ConversationHeader({
   conversation,
   isTyping,
 }: ConversationHeaderProps) {
-  const { 
-    isNewMessage, 
-    newMessageRecipients, 
-    addRecipient, 
-    removeRecipient 
-  } = useChatStore();
+  const { isNewMessage, newMessageRecipients, addRecipient, removeRecipient } =
+    useChatStore();
+  const { user: currentUser } = userStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
-  const {
-    register,
-    watch,
-    setValue,
-  } = useForm<SearchFormData>();
+  const { register, watch, setValue } = useForm<SearchFormData>();
 
   const searchValue = watch("search");
 
@@ -69,10 +78,10 @@ export default function ConversationHeader({
   const handleUserSelect = (user: SearchedUser) => {
     // Add user to recipients
     addRecipient(user);
-    
+
     // Don't try to load messages here - let the UI handle it properly
     // The conversation will be created when the first message is sent
-    
+
     // Clear search
     setValue("search", "");
     setShowResults(false);
@@ -105,7 +114,7 @@ export default function ConversationHeader({
             <div className="bg-gray-100 rounded-lg p-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-gray-500 font-medium">To:</span>
-                
+
                 {/* Selected Recipients as Badges */}
                 {newMessageRecipients.map((recipient) => (
                   <Badge
@@ -113,8 +122,8 @@ export default function ConversationHeader({
                     variant="filled"
                     color="blue"
                     rightSection={
-                      <XMarkIcon 
-                        className="w-3 h-3 cursor-pointer" 
+                      <XMarkIcon
+                        className="w-3 h-3 cursor-pointer"
                         onClick={() => handleRemoveRecipient(recipient._id)}
                       />
                     }
@@ -123,12 +132,16 @@ export default function ConversationHeader({
                     {recipient.userName}
                   </Badge>
                 ))}
-                
+
                 {/* Search Input */}
                 <input
                   {...register("search")}
                   type="text"
-                  placeholder={newMessageRecipients.length === 0 ? "Search users..." : "Add more..."}
+                  placeholder={
+                    newMessageRecipients.length === 0
+                      ? "Search users..."
+                      : "Add more..."
+                  }
                   className="flex-1 min-w-[120px] focus:outline-none bg-transparent"
                 />
               </div>
@@ -150,7 +163,7 @@ export default function ConversationHeader({
                   <UserCircleIcon className="size-10 text-gray-400 mr-3" />
                   <div>
                     <div className="font-medium text-gray-900">
-                      {user.firstName} {user.lastName}
+                      {user.userName}
                     </div>
                     <div className="text-sm text-gray-500">
                       @{user.userName}
@@ -170,13 +183,32 @@ export default function ConversationHeader({
   }
 
   const displayParticipant = participant;
-  const recipientNames = newMessageRecipients.map(r => r.firstName + ' ' + r.lastName).join(', ');
-  const recipientUsernames = newMessageRecipients.map(r => r.userName).join(', ');
-  
+  const recipientNames = newMessageRecipients
+    .map((r) => r.firstName + " " + r.lastName)
+    .join(", ");
+  const recipientUsernames = newMessageRecipients
+    .map((r) => r.userName)
+    .join(", ");
+
   // For group chats, use conversation data
   const isGroupChat = conversation?.isGroup;
   const groupName = conversation?.groupName;
   const groupParticipants = conversation?.participants || [];
+  
+  // Get participant names for unnamed groups (excluding current user)
+  const getGroupDisplayName = () => {
+    if (groupName) return groupName;
+    if (groupParticipants.length > 0 && currentUser) {
+      // Filter out the current user from participants
+      const otherParticipants = groupParticipants.filter(p => p._id !== currentUser.id);
+      if (otherParticipants.length > 0) {
+        return otherParticipants
+          .map(p => `${p.firstName} ${p.lastName}`)
+          .join(", ");
+      }
+    }
+    return "Group Chat";
+  };
 
   return (
     <div className="flex justify-between items-center shadow-xs p-2">
@@ -187,9 +219,8 @@ export default function ConversationHeader({
             {isNewMessage && newMessageRecipients.length > 0
               ? `New Message to ${recipientNames}`
               : isGroupChat
-              ? groupName
-              : `${displayParticipant?.firstName} ${displayParticipant?.lastName}`
-            }
+                ? getGroupDisplayName()
+                : `${displayParticipant?.userName}`}
           </h3>
           <p className="text-gray-500 text-xs">
             {isTyping ? (

@@ -63,7 +63,7 @@ export interface IConversation extends Document {
   _id: Types.ObjectId;
   participants: Types.ObjectId[];
   isGroup: boolean;
-  groupName?: string;
+  groupName?: string | null;
   groupAdmin?: Types.ObjectId;
   lastMessage?: Types.ObjectId;
   lastMessageAt: Date;

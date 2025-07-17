@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
 import { type MessageFormData } from "../types";
 import FormField from "./ui/FormField";
+import GroupNameModal from "./GroupNameModal";
 
 export default function MessageSender() {
   const {
@@ -17,6 +18,8 @@ export default function MessageSender() {
     markConversationAsRead,
   } = useChatStore();
   const [isTyping, setIsTyping] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string>("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
@@ -99,6 +102,15 @@ export default function MessageSender() {
     try {
       if (isNewMessage) {
         if (newMessageRecipients.length === 0) return;
+        
+        // If multiple recipients, show group modal first
+        if (newMessageRecipients.length > 1) {
+          setPendingMessage(data.message.trim());
+          setShowGroupModal(true);
+          return;
+        }
+        
+        // Single recipient - send directly
         const recipientIds = newMessageRecipients.map((r) => r._id);
         await sendMessage(recipientIds, data.message.trim());
       } else if (activeConversation) {
@@ -137,11 +149,47 @@ export default function MessageSender() {
   const handleLikeClick = () => {
     if (isNewMessage) {
       if (newMessageRecipients.length === 0) return;
+      
+      // If multiple recipients, show group modal first
+      if (newMessageRecipients.length > 1) {
+        setPendingMessage("👍");
+        setShowGroupModal(true);
+        return;
+      }
+      
+      // Single recipient - send directly
       const recipientIds = newMessageRecipients.map((r) => r._id);
       sendMessage(recipientIds, "👍");
     } else if (activeConversation) {
       sendMessage([activeConversation], "👍");
     }
+  };
+
+  const handleGroupNameConfirm = async (groupName: string) => {
+    if (!pendingMessage || newMessageRecipients.length === 0) return;
+
+    try {
+      const recipientIds = newMessageRecipients.map((r) => r._id);
+      await sendMessage(recipientIds, pendingMessage, groupName);
+      
+      reset();
+      setPendingMessage("");
+
+      // Stop typing indicator
+      if (isTyping) {
+        setIsTyping(false);
+        newMessageRecipients.forEach((recipient) => {
+          stopTyping(recipient._id);
+        });
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
+
+  const handleGroupModalClose = () => {
+    setShowGroupModal(false);
+    setPendingMessage("");
   };
 
   const handleMessageSenderClick = () => {
@@ -162,41 +210,50 @@ export default function MessageSender() {
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-white p-4" onClick={handleMessageSenderClick}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
-        <PhotoIcon className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors" />
+    <>
+      <div className="absolute bottom-0 left-0 right-0 bg-white p-4" onClick={handleMessageSenderClick}>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
+          <PhotoIcon className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors" />
 
-        <div className="flex-1 mr-4">
-          <FormField
-            name="message"
-            type="text"
-            placeholder="Aa"
-            register={register}
-            errors={errors}
-            containerClassName="bg-gray-200 rounded-2xl"
-            inputClassName="w-full focus:outline-none p-2 bg-transparent resize-none"
-            showError={false}
-            onKeyDown={handleKeyDown}
-          />
-        </div>
+          <div className="flex-1 mr-4">
+            <FormField
+              name="message"
+              type="text"
+              placeholder="Aa"
+              register={register}
+              errors={errors}
+              containerClassName="bg-gray-200 rounded-2xl"
+              inputClassName="w-full focus:outline-none p-2 bg-transparent resize-none"
+              showError={false}
+              onKeyDown={handleKeyDown}
+            />
+          </div>
 
-        {messageValue && messageValue.trim() ? (
-          <button
-            type="submit"
-            className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
-          >
-            <PaperAirplaneIcon className="size-6" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleLikeClick}
-            className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
-          >
-            <HandThumbUpIcon className="size-6" />
-          </button>
-        )}
-      </form>
-    </div>
+          {messageValue && messageValue.trim() ? (
+            <button
+              type="submit"
+              className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+            >
+              <PaperAirplaneIcon className="size-6" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLikeClick}
+              className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+            >
+              <HandThumbUpIcon className="size-6" />
+            </button>
+          )}
+        </form>
+      </div>
+
+      <GroupNameModal
+        opened={showGroupModal}
+        onClose={handleGroupModalClose}
+        onConfirm={handleGroupNameConfirm}
+        participantNames={newMessageRecipients.map(r => r.firstName + " " + r.lastName)}
+      />
+    </>
   );
 }

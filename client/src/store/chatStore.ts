@@ -46,7 +46,11 @@ interface ChatState {
   startNewMessage: () => void;
 
   // Message actions
-  sendMessage: (recipientIds: string[], content: string) => Promise<void>;
+  sendMessage: (
+    recipientIds: string[],
+    content: string,
+    groupName?: string
+  ) => Promise<void>;
   loadMessages: (userId: string) => Promise<void>;
   loadConversations: () => Promise<void>;
 
@@ -211,7 +215,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: async (targets: string[], content: string) => {
+  sendMessage: async (
+    targets: string[],
+    content: string,
+    groupName?: string
+  ) => {
     try {
       const { isNewMessage, activeConversation } = get();
 
@@ -222,6 +230,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           recipientIds: targets,
           content,
           messageType: "text",
+          ...(groupName !== undefined && { groupName }),
         };
       } else if (activeConversation?.startsWith("user:")) {
         // Direct message to a user (new conversation)
@@ -239,6 +248,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messageType: "text",
         };
       }
+
+      console.log(requestBody);
 
       const response = await fetch(`${API_BASE}/messages/send`, {
         method: "POST",

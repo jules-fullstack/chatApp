@@ -12,7 +12,13 @@ interface AuthenticatedRequest extends Request {
 
 export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { recipientIds, conversationId, content, messageType = 'text' } = req.body;
+    const {
+      recipientIds,
+      conversationId,
+      content,
+      messageType = 'text',
+      groupName,
+    } = req.body;
     const senderId = req.user?._id;
 
     if (!senderId || !content) {
@@ -26,9 +32,13 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       // Existing conversation
       conversation = await Conversation.findById(conversationId);
       if (!conversation || !conversation.participants.includes(senderId)) {
-        return res.status(403).json({ message: 'Not authorized to send message to this conversation' });
+        return res
+          .status(403)
+          .json({
+            message: 'Not authorized to send message to this conversation',
+          });
       }
-      
+
       // Get all participants except sender for notifications
       recipients = conversation.participants
         .map((p: any) => p.toString())
@@ -36,12 +46,14 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     } else {
       // New message - support both single recipient (legacy) and multiple recipients
       if (recipientIds) {
-        recipients = Array.isArray(recipientIds) ? recipientIds : [recipientIds];
+        recipients = Array.isArray(recipientIds)
+          ? recipientIds
+          : [recipientIds];
       } else if (req.body.recipientId) {
         // Legacy support
         recipients = [req.body.recipientId];
       }
-      
+
       if (recipients.length === 0) {
         return res.status(400).json({ message: 'No recipients specified' });
       }
@@ -51,7 +63,9 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       // Only check recipients if this is a new message
       const recipientUsers = await User.find({ _id: { $in: recipients } });
       if (recipientUsers.length !== recipients.length) {
-        return res.status(404).json({ message: 'One or more recipients not found' });
+        return res
+          .status(404)
+          .json({ message: 'One or more recipients not found' });
       }
 
       if (recipients.length === 1) {
@@ -80,25 +94,28 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       } else {
         // Group message - create new group conversation
         const allParticipants = [senderId.toString(), ...recipients];
-        
-        // Generate group name from usernames
-        const participantUsers = await User.find({ 
-          _id: { $in: recipients } 
-        }).select('userName');
-        const groupName = participantUsers.map(u => u.userName).join(', ');
+
+        // Use provided group name or set to null if not provided
+        let finalGroupName = groupName && groupName.trim() ? groupName.trim() : null;
 
         conversation = await (Conversation as any).createGroup(
           allParticipants,
-          groupName,
+          finalGroupName,
           senderId.toString(),
         );
-        
+
         // Initialize unread counts and readAt for all participants
         const unreadCount = new Map();
         const readAt = new Map();
-        allParticipants.forEach(participantId => {
-          unreadCount.set(participantId, participantId === senderId.toString() ? 0 : 0);
-          readAt.set(participantId, participantId === senderId.toString() ? new Date() : new Date(0));
+        allParticipants.forEach((participantId) => {
+          unreadCount.set(
+            participantId,
+            participantId === senderId.toString() ? 0 : 0,
+          );
+          readAt.set(
+            participantId,
+            participantId === senderId.toString() ? new Date() : new Date(0),
+          );
         });
         conversation.unreadCount = unreadCount;
         conversation.readAt = readAt;
@@ -123,8 +140,12 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     // Update unread counts for all participants except sender
     conversation.participants.forEach((participantId: any) => {
       if (participantId.toString() !== senderId.toString()) {
-        const currentUnread = conversation.unreadCount.get(participantId.toString()) || 0;
-        conversation.unreadCount.set(participantId.toString(), currentUnread + 1);
+        const currentUnread =
+          conversation.unreadCount.get(participantId.toString()) || 0;
+        conversation.unreadCount.set(
+          participantId.toString(),
+          currentUnread + 1,
+        );
       } else {
         conversation.unreadCount.set(participantId.toString(), 0);
         // Update sender's readAt timestamp
@@ -148,15 +169,21 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       ...populatedMessage.toObject(),
       conversation: conversation._id,
       // For backward compatibility, add recipient field for direct messages
-      ...(recipients.length === 1 && !conversation.isGroup && {
-        recipient: await User.findById(recipients[0]).select('firstName lastName userName')
-      })
+      ...(recipients.length === 1 &&
+        !conversation.isGroup && {
+          recipient: await User.findById(recipients[0]).select(
+            'firstName lastName userName',
+          ),
+        }),
     };
 
     // Send WebSocket notification to all participants except sender
     conversation.participants.forEach((participantId: any) => {
       if (participantId.toString() !== senderId.toString()) {
-        WebSocketManager.sendMessageNotification(participantId.toString(), responseMessage);
+        WebSocketManager.sendMessageNotification(
+          participantId.toString(),
+          responseMessage,
+        );
       }
     });
 
@@ -183,7 +210,9 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
     // Check if user is participant in conversation
     const conversation = await Conversation.findById(conversationId);
     if (!conversation || !conversation.participants.includes(currentUserId)) {
-      return res.status(403).json({ message: 'Not authorized to view this conversation' });
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to view this conversation' });
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -221,7 +250,10 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 // Legacy endpoint for direct messages - for backward compatibility
-export const getDirectMessages = async (req: AuthenticatedRequest, res: Response) => {
+export const getDirectMessages = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user?._id;
@@ -272,7 +304,7 @@ export const getConversations = async (
     const formattedConversations = conversations.map((conv) => {
       // Convert readAt Map to object for JSON serialization
       const readAtObject: Record<string, string> = {};
-      
+
       try {
         if (conv.readAt && conv.readAt instanceof Map) {
           // Handle Map objects (when not using .lean())
@@ -291,7 +323,11 @@ export const getConversations = async (
         }
         // If readAt doesn't exist or is invalid, readAtObject remains empty
       } catch (error) {
-        console.error('Error processing readAt for conversation:', conv._id, error);
+        console.error(
+          'Error processing readAt for conversation:',
+          conv._id,
+          error,
+        );
         // readAtObject remains empty object
       }
 
@@ -344,7 +380,9 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
     // Find and update the conversation
     const conversation = await Conversation.findById(conversationId);
     if (!conversation || !conversation.participants.includes(userId)) {
-      return res.status(403).json({ message: 'Not authorized to mark conversation as read' });
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to mark conversation as read' });
     }
 
     // Initialize readAt if it doesn't exist
@@ -359,13 +397,15 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
 
     // Notify other participants via WebSocket
     const otherParticipants = conversation.participants.filter(
-      p => p.toString() !== userId.toString()
+      (p) => p.toString() !== userId.toString(),
     );
 
     // Get user info for notifications
-    const user = await User.findById(userId).select('firstName lastName userName');
-    
-    otherParticipants.forEach(participantId => {
+    const user = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
+
+    otherParticipants.forEach((participantId) => {
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'conversation_read',
         conversationId: conversation._id,
@@ -376,13 +416,13 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
           lastName: user?.lastName,
         },
         readAt: conversation.readAt.get(userId.toString()),
-        isGroup: conversation.isGroup
+        isGroup: conversation.isGroup,
       });
     });
 
-    res.json({ 
+    res.json({
       message: 'Conversation marked as read',
-      readAt: conversation.readAt.get(userId.toString())
+      readAt: conversation.readAt.get(userId.toString()),
     });
   } catch (error) {
     console.error('Error marking conversation as read:', error);
@@ -391,7 +431,10 @@ export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 // Migration endpoint - remove this after migration is complete
-export const migrateConversations = async (req: AuthenticatedRequest, res: Response) => {
+export const migrateConversations = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
   try {
     const result = await migrateConversationsToReadAt();
     res.json(result);
@@ -400,4 +443,3 @@ export const migrateConversations = async (req: AuthenticatedRequest, res: Respo
     res.status(500).json({ message: 'Migration failed' });
   }
 };
-

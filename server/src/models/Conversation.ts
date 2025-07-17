@@ -16,7 +16,7 @@ const conversationSchema = new Schema<IConversation>(
     },
     groupName: {
       type: String,
-      required: function() { return this.isGroup; },
+      default: null,
     },
     groupAdmin: {
       type: Schema.Types.ObjectId,
@@ -69,7 +69,7 @@ conversationSchema.statics.findBetweenUsers = function (
 // Static method to create group conversation
 conversationSchema.statics.createGroup = function (
   participants: string[],
-  groupName: string,
+  groupName: string | null,
   groupAdmin: string,
 ) {
   return this.create({
