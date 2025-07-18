@@ -25,6 +25,7 @@ export default function MessageSender() {
   const [pendingImageUrls, setPendingImageUrls] = useState<string[]>([]);
   const [pendingMessageType, setPendingMessageType] = useState<string>("text");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -224,6 +225,11 @@ export default function MessageSender() {
   ]);
 
   const onSubmit = async (data: MessageFormData) => {
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      return;
+    }
+
     // Allow sending if there's either text or images
     const hasText = data.message && data.message.trim().length > 0;
     const hasImages = selectedImages.length > 0;
@@ -242,6 +248,8 @@ export default function MessageSender() {
     if (hasText && !validateMessage(data.message)) {
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       // Upload images first if any
@@ -271,6 +279,7 @@ export default function MessageSender() {
           setPendingImageUrls(imageUrls);
           setPendingMessageType(hasImages ? "image" : "text");
           setShowGroupModal(true);
+          setIsSubmitting(false); // Reset submitting state when showing modal
           return;
         }
 
@@ -356,6 +365,8 @@ export default function MessageSender() {
       }
     } catch (error) {
       console.error("Error sending message:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -367,12 +378,19 @@ export default function MessageSender() {
   };
 
   const handleLikeClick = () => {
+    // Prevent submission while already submitting
+    if (isSubmitting) {
+      return;
+    }
+
     const thumbsUpMessage = "👍";
 
     if (!validateMessage(thumbsUpMessage)) {
       console.error("Thumbs up message failed validation");
       return;
     }
+
+    setIsSubmitting(true);
 
     if (isNewMessage) {
       if (newMessageRecipients.length === 0) return;
@@ -383,14 +401,19 @@ export default function MessageSender() {
         setPendingImageUrls([]);
         setPendingMessageType("text");
         setShowGroupModal(true);
+        setIsSubmitting(false); // Reset submitting state when showing modal
         return;
       }
 
       // Single recipient - send directly
       const recipientIds = newMessageRecipients.map((r) => r._id);
-      sendMessage(recipientIds, thumbsUpMessage);
+      sendMessage(recipientIds, thumbsUpMessage)
+        .finally(() => setIsSubmitting(false));
     } else if (activeConversation) {
-      sendMessage([activeConversation], thumbsUpMessage);
+      sendMessage([activeConversation], thumbsUpMessage)
+        .finally(() => setIsSubmitting(false));
+    } else {
+      setIsSubmitting(false);
     }
   };
 
@@ -405,6 +428,13 @@ export default function MessageSender() {
       console.error("Pending message failed validation");
       return;
     }
+
+    // Prevent duplicate submissions during group message creation
+    if (isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const recipientIds = newMessageRecipients.map((r) => r._id);
@@ -454,6 +484,8 @@ export default function MessageSender() {
       }
     } catch (error) {
       console.error("Error sending message:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -528,17 +560,27 @@ export default function MessageSender() {
           selectedImages.length > 0 ? (
             <button
               type="submit"
-              className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className={`p-2 transition-colors ${
+                isSubmitting 
+                  ? "text-gray-400 cursor-not-allowed" 
+                  : "text-blue-500 hover:text-blue-700"
+              }`}
             >
-              <PaperAirplaneIcon className="size-6 cursor-pointer" />
+              <PaperAirplaneIcon className="size-6" />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleLikeClick}
-              className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
+              disabled={isSubmitting}
+              className={`p-2 transition-colors ${
+                isSubmitting 
+                  ? "text-gray-400 cursor-not-allowed" 
+                  : "text-blue-500 hover:text-blue-700"
+              }`}
             >
-              <HandThumbUpIcon className="size-6 cursor-pointer" />
+              <HandThumbUpIcon className="size-6" />
             </button>
           )}
         </form>
