@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ensureAuthenticated } from '../middlewares/auth.js';
+import { validateMessageContent } from '../middlewares/messageValidation.js';
 import {
   sendMessage,
   getMessages,
@@ -20,7 +21,7 @@ const router = Router();
 router.use(ensureAuthenticated);
 
 // Send a message
-router.post('/send', sendMessage);
+router.post('/send', ...validateMessageContent, sendMessage);
 
 // Get messages for a conversation
 router.get('/conversation/:conversationId', getMessages);

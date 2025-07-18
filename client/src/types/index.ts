@@ -26,9 +26,6 @@ export interface MessageTabProps {
   onClick?: () => void;
 }
 
-export interface MessageFormData {
-  message: string;
-}
 
 export interface User {
   _id: string;

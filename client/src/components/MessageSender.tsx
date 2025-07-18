@@ -1,9 +1,10 @@
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import { HandThumbUpIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useForm } from "react-hook-form";
+import { notifications } from "@mantine/notifications";
 import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
-import { type MessageFormData } from "../types";
+import { messageSchema, type MessageFormData } from "../schemas/messageSchema";
 import FormField from "./ui/FormField";
 import GroupNameModal from "./GroupNameModal";
 
@@ -21,6 +22,23 @@ export default function MessageSender() {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string>("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const validateMessage = (message: string): boolean => {
+    try {
+      messageSchema.parse({ message });
+      return true;
+    } catch (error: any) {
+      // Zod error structure: error.issues[0].message
+      const errorMessage = error.issues?.[0]?.message || 'Invalid message';
+      notifications.show({
+        title: 'Message Validation Error',
+        message: errorMessage,
+        color: 'red',
+        autoClose: 3000,
+      });
+      return false;
+    }
+  };
 
   const {
     register,
@@ -97,19 +115,22 @@ export default function MessageSender() {
   ]);
 
   const onSubmit = async (data: MessageFormData) => {
-    if (!data.message.trim()) return;
+    // Manually validate and show notification if invalid
+    if (!validateMessage(data.message)) {
+      return;
+    }
 
     try {
       if (isNewMessage) {
         if (newMessageRecipients.length === 0) return;
-        
+
         // If multiple recipients, show group modal first
         if (newMessageRecipients.length > 1) {
           setPendingMessage(data.message.trim());
           setShowGroupModal(true);
           return;
         }
-        
+
         // Single recipient - send directly
         const recipientIds = newMessageRecipients.map((r) => r._id);
         await sendMessage(recipientIds, data.message.trim());
@@ -147,31 +168,43 @@ export default function MessageSender() {
   };
 
   const handleLikeClick = () => {
+    const thumbsUpMessage = "👍";
+
+    if (!validateMessage(thumbsUpMessage)) {
+      console.error("Thumbs up message failed validation");
+      return;
+    }
+
     if (isNewMessage) {
       if (newMessageRecipients.length === 0) return;
-      
+
       // If multiple recipients, show group modal first
       if (newMessageRecipients.length > 1) {
-        setPendingMessage("👍");
+        setPendingMessage(thumbsUpMessage);
         setShowGroupModal(true);
         return;
       }
-      
+
       // Single recipient - send directly
       const recipientIds = newMessageRecipients.map((r) => r._id);
-      sendMessage(recipientIds, "👍");
+      sendMessage(recipientIds, thumbsUpMessage);
     } else if (activeConversation) {
-      sendMessage([activeConversation], "👍");
+      sendMessage([activeConversation], thumbsUpMessage);
     }
   };
 
   const handleGroupNameConfirm = async (groupName: string) => {
     if (!pendingMessage || newMessageRecipients.length === 0) return;
 
+    if (!validateMessage(pendingMessage)) {
+      console.error("Pending message failed validation");
+      return;
+    }
+
     try {
       const recipientIds = newMessageRecipients.map((r) => r._id);
       await sendMessage(recipientIds, pendingMessage, groupName);
-      
+
       reset();
       setPendingMessage("");
 
@@ -211,7 +244,10 @@ export default function MessageSender() {
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 bg-white p-4" onClick={handleMessageSenderClick}>
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-white p-4"
+        onClick={handleMessageSenderClick}
+      >
         <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
           <PhotoIcon className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors" />
 
@@ -252,7 +288,9 @@ export default function MessageSender() {
         opened={showGroupModal}
         onClose={handleGroupModalClose}
         onConfirm={handleGroupNameConfirm}
-        participantNames={newMessageRecipients.map(r => r.firstName + " " + r.lastName)}
+        participantNames={newMessageRecipients.map(
+          (r) => r.firstName + " " + r.lastName
+        )}
       />
     </>
   );
