@@ -203,7 +203,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 50, before } = req.query;
     const currentUserId = req.user?._id;
 
     if (!currentUserId) {
@@ -218,32 +218,42 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
         .json({ message: 'Not authorized to view this conversation' });
     }
 
-    const skip = (Number(page) - 1) * Number(limit);
+    // Build query for cursor-based pagination
+    let messageQuery: any = { conversation: conversationId };
+    
+    // If 'before' cursor is provided, get messages before that timestamp
+    if (before) {
+      messageQuery.createdAt = { $lt: new Date(before as string) };
+    }
 
-    const messages = await Message.find({
-      conversation: conversationId,
-    })
+    const messages = await Message.find(messageQuery)
       .sort({ createdAt: -1 })
-      .skip(skip)
       .limit(Number(limit))
       .populate('sender', 'firstName lastName userName');
 
-    // Initialize readAt if it doesn't exist
-    if (!conversation.readAt) {
-      conversation.readAt = new Map();
+    // Only update read status for initial load (page 1 and no before cursor)
+    if (Number(page) === 1 && !before) {
+      // Initialize readAt if it doesn't exist
+      if (!conversation.readAt) {
+        conversation.readAt = new Map();
+      }
+
+      // Update conversation read timestamp and unread count
+      conversation.readAt.set(currentUserId.toString(), new Date());
+      conversation.unreadCount.set(currentUserId.toString(), 0);
+      await conversation.save();
     }
 
-    // Update conversation read timestamp and unread count
-    conversation.readAt.set(currentUserId.toString(), new Date());
-    conversation.unreadCount.set(currentUserId.toString(), 0);
-    await conversation.save();
+    const hasMore = messages.length === Number(limit);
+    const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
 
     res.json({
-      messages: messages.reverse(),
+      messages: messages.reverse(), // Reverse to show oldest first
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        hasMore: messages.length === Number(limit),
+        hasMore,
+        nextCursor: hasMore ? nextCursor : null,
       },
     });
   } catch (error) {
