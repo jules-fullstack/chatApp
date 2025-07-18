@@ -34,6 +34,9 @@ export default function ConversationDetails() {
     leaveGroup,
     changeGroupAdmin,
     removeMemberFromGroup,
+    setActiveConversation,
+    setFallbackParticipant,
+    setShowConversationDetails,
   } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
@@ -181,6 +184,31 @@ export default function ConversationDetails() {
     }
   };
 
+  const handleMessageUser = (participant: Participant) => {
+    setFallbackParticipant({
+      _id: participant._id,
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+      userName: participant.userName,
+    });
+
+    // Try to find existing conversation with this user
+    const existingConversation = conversations.find(
+      (conv) => !conv.isGroup && conv.participant?._id === participant._id
+    );
+
+    if (existingConversation) {
+      setActiveConversation(existingConversation._id);
+    } else {
+      // For new conversations, we'll use a special format that the frontend can handle
+      // The backend will create the conversation when the first message is sent
+      setActiveConversation(`user:${participant._id}`);
+    }
+
+    // Close the conversation details panel
+    setShowConversationDetails(false);
+  };
+
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
@@ -277,6 +305,7 @@ export default function ConversationDetails() {
                                     <ChatBubbleOvalLeftIcon className="size-4" />
                                   </div>
                                 }
+                                onClick={() => handleMessageUser(participant)}
                               >
                                 <span className="font-medium">Message</span>
                               </Menu.Item>
