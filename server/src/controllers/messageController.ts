@@ -800,6 +800,133 @@ export const changeGroupAdmin = async (
   }
 };
 
+export const removeMemberFromGroup = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { conversationId } = req.params;
+    const { userToRemoveId } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    if (!userToRemoveId) {
+      return res.status(400).json({ message: 'User to remove ID is required' });
+    }
+
+    // Find the conversation and verify it's a group conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to remove members from this conversation' });
+    }
+
+    if (!conversation.isGroup) {
+      return res
+        .status(400)
+        .json({ message: 'Cannot remove members from a direct message conversation' });
+    }
+
+    // Verify that the user is the group admin
+    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: 'Only group admin can remove members' });
+    }
+
+    // Verify that the user to remove is a participant in the group
+    if (!conversation.participants.some((p: any) => p.toString() === userToRemoveId)) {
+      return res
+        .status(400)
+        .json({ message: 'User is not a member of this group' });
+    }
+
+    // Prevent admin from removing themselves
+    if (userToRemoveId === userId.toString()) {
+      return res
+        .status(400)
+        .json({ message: 'Admin cannot remove themselves. Use leave group instead' });
+    }
+
+    // Get user info before removing
+    const removedUser = await User.findById(userToRemoveId).select('firstName lastName userName');
+    if (!removedUser) {
+      return res.status(404).json({ message: 'User to remove not found' });
+    }
+
+    // Remove user from participants
+    conversation.participants = conversation.participants.filter(
+      (participant: any) => participant.toString() !== userToRemoveId
+    );
+
+    // Remove user from unread counts and readAt
+    conversation.unreadCount.delete(userToRemoveId);
+    conversation.readAt.delete(userToRemoveId);
+
+    await conversation.save();
+
+    // Get updated conversation with populated participants
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate('participants', 'firstName lastName userName')
+      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('lastMessage')
+      .lean();
+
+    // Get admin info for notifications
+    const admin = await User.findById(userId).select('firstName lastName userName');
+
+    // Notify the removed user
+    WebSocketManager.sendMessage(userToRemoveId, {
+      type: 'removed_from_group',
+      conversationId: conversation._id,
+      removedBy: {
+        userId: userId.toString(),
+        userName: admin?.userName,
+        firstName: admin?.firstName,
+        lastName: admin?.lastName,
+      },
+    });
+
+    // Notify remaining participants via WebSocket
+    conversation.participants.forEach((participantId: any) => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'member_removed_from_group',
+        conversationId: conversation._id,
+        removedUser: {
+          userId: userToRemoveId,
+          userName: removedUser.userName,
+          firstName: removedUser.firstName,
+          lastName: removedUser.lastName,
+        },
+        removedBy: {
+          userId: userId.toString(),
+          userName: admin?.userName,
+          firstName: admin?.firstName,
+          lastName: admin?.lastName,
+        },
+        conversation: updatedConversation,
+      });
+    });
+
+    res.json({
+      message: 'Member removed successfully',
+      removedUser: {
+        _id: removedUser._id,
+        userName: removedUser.userName,
+        firstName: removedUser.firstName,
+        lastName: removedUser.lastName,
+      },
+    });
+  } catch (error) {
+    console.error('Error removing member from group:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 // Migration endpoint - remove this after migration is complete
 export const migrateConversations = async (

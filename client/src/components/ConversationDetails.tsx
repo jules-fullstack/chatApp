@@ -23,6 +23,7 @@ import GroupNameModal from "./GroupNameModal";
 import LeaveGroupModal from "./LeaveGroupModal";
 import AddPeopleModal from "./AddPeopleModal";
 import PromoteUserModal from "./PromoteUserModal";
+import RemoveUserModal from "./RemoveUserModal";
 
 export default function ConversationDetails() {
   const {
@@ -32,6 +33,7 @@ export default function ConversationDetails() {
     fallbackParticipant,
     leaveGroup,
     changeGroupAdmin,
+    removeMemberFromGroup,
   } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
@@ -41,6 +43,9 @@ export default function ConversationDetails() {
   const [isPromoteUserModalOpen, setIsPromoteUserModalOpen] = useState(false);
   const [userToPromote, setUserToPromote] = useState<Participant | null>(null);
   const [isPromotingUser, setIsPromotingUser] = useState(false);
+  const [isRemoveUserModalOpen, setIsRemoveUserModalOpen] = useState(false);
+  const [userToRemove, setUserToRemove] = useState<Participant | null>(null);
+  const [isRemovingUser, setIsRemovingUser] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -149,6 +154,30 @@ export default function ConversationDetails() {
       console.error("Failed to change group admin:", error);
     } finally {
       setIsPromotingUser(false);
+    }
+  };
+
+  const handleOpenRemoveUserModal = (participant: Participant) => {
+    setUserToRemove(participant);
+    setIsRemoveUserModalOpen(true);
+  };
+
+  const handleCloseRemoveUserModal = () => {
+    setIsRemoveUserModalOpen(false);
+    setUserToRemove(null);
+  };
+
+  const handleRemoveUser = async () => {
+    if (!conversation || !activeConversation || !userToRemove) return;
+
+    setIsRemovingUser(true);
+    try {
+      await removeMemberFromGroup(activeConversation, userToRemove._id);
+      handleCloseRemoveUserModal();
+    } catch (error) {
+      console.error("Failed to remove user from group:", error);
+    } finally {
+      setIsRemovingUser(false);
     }
   };
 
@@ -286,6 +315,7 @@ export default function ConversationDetails() {
                                       <XMarkIcon className="size-4" />
                                     </div>
                                   }
+                                  onClick={() => handleOpenRemoveUserModal(participant)}
                                 >
                                   <span className="font-medium">
                                     Remove from group
@@ -388,6 +418,16 @@ export default function ConversationDetails() {
           onConfirm={handlePromoteUser}
           isLoading={isPromotingUser}
           userName={userToPromote.userName}
+        />
+      )}
+
+      {userToRemove && (
+        <RemoveUserModal
+          opened={isRemoveUserModalOpen}
+          onClose={handleCloseRemoveUserModal}
+          onConfirm={handleRemoveUser}
+          isLoading={isRemovingUser}
+          userName={userToRemove.userName}
         />
       )}
     </Container>

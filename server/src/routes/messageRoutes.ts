@@ -11,6 +11,7 @@ import {
   leaveGroup,
   addMembersToGroup,
   changeGroupAdmin,
+  removeMemberFromGroup,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -44,6 +45,9 @@ router.post('/conversation/:conversationId/add-members', addMembersToGroup);
 
 // Change group admin
 router.patch('/conversation/:conversationId/change-admin', changeGroupAdmin);
+
+// Remove member from group
+router.post('/conversation/:conversationId/remove-member', removeMemberFromGroup);
 
 // Migration endpoint - remove this after migration is complete
 router.post('/migrate', migrateConversations);

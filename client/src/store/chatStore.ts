@@ -83,6 +83,12 @@ interface ChatState {
     newAdminId: string
   ) => Promise<void>;
   handleGroupAdminChanged: (data: unknown) => void;
+  removeMemberFromGroup: (
+    conversationId: string,
+    userToRemoveId: string
+  ) => Promise<void>;
+  handleMemberRemovedFromGroup: (data: unknown) => void;
+  handleRemovedFromGroup: (data: unknown) => void;
 
   // UI actions
   setShowConversationDetails: (show: boolean) => void;
@@ -211,6 +217,12 @@ export const useChatStore = create<ChatState>()(
               break;
             case "group_admin_changed":
               get().handleGroupAdminChanged(data);
+              break;
+            case "member_removed_from_group":
+              get().handleMemberRemovedFromGroup(data);
+              break;
+            case "removed_from_group":
+              get().handleRemovedFromGroup(data);
               break;
             default:
               console.log("Unknown WebSocket message:", data);
@@ -827,6 +839,104 @@ export const useChatStore = create<ChatState>()(
             }
             return conv;
           }),
+        }));
+      },
+
+      removeMemberFromGroup: async (
+        conversationId: string,
+        userToRemoveId: string
+      ) => {
+        try {
+          const response = await fetch(
+            `${API_BASE}/messages/conversation/${conversationId}/remove-member`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({ userToRemoveId }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to remove member from group");
+          }
+
+          await response.json();
+
+          // Update local state immediately
+          set((state) => ({
+            conversations: state.conversations.map((conv) => {
+              if (conv._id === conversationId) {
+                return {
+                  ...conv,
+                  participants: conv.participants?.filter(
+                    (p) => p._id !== userToRemoveId
+                  ),
+                };
+              }
+              return conv;
+            }),
+          }));
+        } catch (error) {
+          console.error("Error removing member from group:", error);
+          throw error;
+        }
+      },
+
+      handleMemberRemovedFromGroup: (data: unknown) => {
+        const { conversationId, removedUser, conversation } = data as {
+          conversationId: string;
+          removedUser: {
+            userId: string;
+            userName: string;
+            firstName: string;
+            lastName: string;
+          };
+          conversation: Conversation;
+        };
+
+        // Update conversation in local state by removing the user from participants
+        set((state) => ({
+          conversations: state.conversations.map((conv) => {
+            if (conv._id === conversationId) {
+              return {
+                ...conv,
+                participants: conversation.participants || conv.participants?.filter(
+                  (p) => p._id !== removedUser.userId
+                ),
+              };
+            }
+            return conv;
+          }),
+        }));
+      },
+
+      handleRemovedFromGroup: (data: unknown) => {
+        const { conversationId } = data as {
+          conversationId: string;
+          removedBy: {
+            userId: string;
+            userName: string;
+            firstName: string;
+            lastName: string;
+          };
+        };
+
+        // Remove conversation from local state since the user was removed
+        set((state) => ({
+          conversations: state.conversations.filter(
+            (conv) => conv._id !== conversationId
+          ),
+          // If this was the active conversation, clear it
+          activeConversation:
+            state.activeConversation === conversationId
+              ? null
+              : state.activeConversation,
+          messages:
+            state.activeConversation === conversationId ? [] : state.messages,
+          showConversationDetails: false,
         }));
       },
 
