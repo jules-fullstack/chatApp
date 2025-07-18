@@ -45,6 +45,7 @@ class ConversationService {
         : new Error("An unexpected error occurred");
     }
   }
+
 }
 
 export default new ConversationService();

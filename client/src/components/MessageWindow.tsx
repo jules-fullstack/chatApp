@@ -213,7 +213,7 @@ export default function MessageWindow() {
 
     const usersWhoLastReadEachMessage = getUsersWhoLastReadEachMessage();
 
-    const renderedElements: JSX.Element[] = [];
+    const renderedElements: React.ReactElement[] = [];
 
     messages.forEach((message, index) => {
       const isLast = index === messages.length - 1;

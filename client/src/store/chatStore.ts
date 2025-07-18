@@ -78,6 +78,11 @@ interface ChatState {
   leaveGroup: (conversationId: string) => Promise<void>;
   handleUserLeftGroup: (data: unknown) => void;
   handleMembersAddedToGroup: (data: unknown) => void;
+  changeGroupAdmin: (
+    conversationId: string,
+    newAdminId: string
+  ) => Promise<void>;
+  handleGroupAdminChanged: (data: unknown) => void;
 
   // UI actions
   setShowConversationDetails: (show: boolean) => void;
@@ -203,6 +208,9 @@ export const useChatStore = create<ChatState>()(
               break;
             case "members_added_to_group":
               get().handleMembersAddedToGroup(data);
+              break;
+            case "group_admin_changed":
+              get().handleGroupAdminChanged(data);
               break;
             default:
               console.log("Unknown WebSocket message:", data);
@@ -700,12 +708,17 @@ export const useChatStore = create<ChatState>()(
       handleMembersAddedToGroup: (data: unknown) => {
         const { conversationId, addedMembers, conversation } = data as {
           conversationId: string;
-          addedMembers: Participant[];
+          addedMembers: Array<{
+            userId: string;
+            userName: string;
+            firstName: string;
+            lastName: string;
+          }>;
           conversation: Conversation;
         };
 
-        const currentUserId = userStore.getState().user?._id;
-        
+        const currentUserId = userStore.getState().user?.id;
+
         set((state) => {
           const existingConversation = state.conversations.find(
             (conv) => conv._id === conversationId
@@ -727,18 +740,94 @@ export const useChatStore = create<ChatState>()(
           } else {
             // Add new conversation for newly added members
             const isNewMember = addedMembers.some(
-              (member) => member._id === currentUserId
+              (member) => member.userId === currentUserId
             );
-            
+
             if (isNewMember) {
               return {
                 conversations: [...state.conversations, conversation],
               };
             }
-            
+
             return state;
           }
         });
+      },
+
+      changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
+        try {
+          const response = await fetch(
+            `${API_BASE}/messages/conversation/${conversationId}/change-admin`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({ newAdminId }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to change group admin");
+          }
+
+          await response.json();
+
+          // Update local state immediately
+          set((state) => ({
+            conversations: state.conversations.map((conv) => {
+              if (conv._id === conversationId) {
+                const newAdminUser = conv.participants?.find(
+                  (p) => p._id === newAdminId
+                );
+                return {
+                  ...conv,
+                  groupAdmin: newAdminUser,
+                };
+              }
+              return conv;
+            }),
+          }));
+        } catch (error) {
+          console.error("Error changing group admin:", error);
+          throw error;
+        }
+      },
+
+      handleGroupAdminChanged: (data: unknown) => {
+        const { conversationId, newAdmin, conversation } = data as {
+          conversationId: string;
+          newAdmin: {
+            userId: string;
+            userName: string;
+            firstName: string;
+            lastName: string;
+          };
+          conversation: Conversation;
+        };
+
+        // Update conversation in local state with new admin
+        set((state) => ({
+          conversations: state.conversations.map((conv) => {
+            if (conv._id === conversationId) {
+              return {
+                ...conv,
+                groupAdmin: conversation.groupAdmin || {
+                  _id: newAdmin.userId,
+                  userName: newAdmin.userName,
+                  firstName: newAdmin.firstName,
+                  lastName: newAdmin.lastName,
+                  email: "", // Add required email field
+                  role: "user" as const, // Add required role field
+                },
+                // Update with any other fields from the populated conversation
+                participants: conversation.participants || conv.participants,
+              };
+            }
+            return conv;
+          }),
+        }));
       },
 
       setShowConversationDetails: (show: boolean) => {

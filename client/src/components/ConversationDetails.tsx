@@ -17,10 +17,12 @@ import { Accordion, Menu } from "@mantine/core";
 import { useState } from "react";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
+import { type Participant } from "../types";
 import Container from "./ui/Container";
 import GroupNameModal from "./GroupNameModal";
 import LeaveGroupModal from "./LeaveGroupModal";
 import AddPeopleModal from "./AddPeopleModal";
+import PromoteUserModal from "./PromoteUserModal";
 
 export default function ConversationDetails() {
   const {
@@ -29,12 +31,16 @@ export default function ConversationDetails() {
     updateGroupName,
     fallbackParticipant,
     leaveGroup,
+    changeGroupAdmin,
   } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
   const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);
   const [isLeavingGroup, setIsLeavingGroup] = useState(false);
   const [isAddPeopleModalOpen, setIsAddPeopleModalOpen] = useState(false);
+  const [isPromoteUserModalOpen, setIsPromoteUserModalOpen] = useState(false);
+  const [userToPromote, setUserToPromote] = useState<Participant | null>(null);
+  const [isPromotingUser, setIsPromotingUser] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -116,10 +122,34 @@ export default function ConversationDetails() {
     setIsAddPeopleModalOpen(false);
   };
 
-  const handleMembersAdded = (newMembers: any) => {
+  const handleMembersAdded = (newMembers: Participant[]) => {
     // The WebSocket will handle updating the conversation
     // We could add additional logic here if needed
     console.log("Members added:", newMembers);
+  };
+
+  const handleOpenPromoteUserModal = (participant: Participant) => {
+    setUserToPromote(participant);
+    setIsPromoteUserModalOpen(true);
+  };
+
+  const handleClosePromoteUserModal = () => {
+    setIsPromoteUserModalOpen(false);
+    setUserToPromote(null);
+  };
+
+  const handlePromoteUser = async () => {
+    if (!conversation || !activeConversation || !userToPromote) return;
+
+    setIsPromotingUser(true);
+    try {
+      await changeGroupAdmin(activeConversation, userToPromote._id);
+      handleClosePromoteUserModal();
+    } catch (error) {
+      console.error("Failed to change group admin:", error);
+    } finally {
+      setIsPromotingUser(false);
+    }
   };
 
   return (
@@ -229,6 +259,9 @@ export default function ConversationDetails() {
                                       <UserIcon className="size-4" />
                                     </div>
                                   }
+                                  onClick={() =>
+                                    handleOpenPromoteUserModal(participant)
+                                  }
                                 >
                                   <span className="font-medium">
                                     Make admin
@@ -270,7 +303,7 @@ export default function ConversationDetails() {
             ))}
 
             {isGroupAdmin && (
-              <div 
+              <div
                 className="cursor-pointer hover:bg-gray-50"
                 onClick={handleOpenAddPeopleModal}
               >
@@ -345,6 +378,16 @@ export default function ConversationDetails() {
           conversationId={conversation._id}
           existingParticipants={conversation.participants || []}
           onMembersAdded={handleMembersAdded}
+        />
+      )}
+
+      {userToPromote && (
+        <PromoteUserModal
+          opened={isPromoteUserModalOpen}
+          onClose={handleClosePromoteUserModal}
+          onConfirm={handlePromoteUser}
+          isLoading={isPromotingUser}
+          userName={userToPromote.userName}
         />
       )}
     </Container>

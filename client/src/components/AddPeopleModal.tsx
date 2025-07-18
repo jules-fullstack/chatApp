@@ -77,6 +77,19 @@ export default function AddPeopleModal({
     searchUsers(debouncedSearchQuery);
   }, [debouncedSearchQuery]);
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (opened) {
+      reset();
+      setSelectedUsers([]);
+      setSearchResults([]);
+      setSearchError(null);
+      setError(null);
+      setIsLoading(false);
+      setIsSearching(false);
+    }
+  }, [opened, reset]);
+
   // Filter out existing participants from search results
   const filteredSearchResults = (searchResults || []).filter(
     (user) =>
@@ -132,12 +145,14 @@ export default function AddPeopleModal({
   };
 
   const handleModalClose = () => {
-    onClose();
     reset();
     setSelectedUsers([]);
     setSearchResults([]);
     setSearchError(null);
     setError(null);
+    setIsLoading(false);
+    setIsSearching(false);
+    onClose();
   };
 
   const showClearButton = searchQuery.trim().length > 0;

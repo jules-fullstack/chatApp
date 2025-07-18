@@ -467,6 +467,7 @@ export const updateGroupName = async (
     const updatedConversation = await Conversation.findById(conversationId)
       .populate('participants', 'firstName lastName userName')
       .populate('groupAdmin', 'firstName lastName userName')
+      .populate('lastMessage')
       .lean();
 
     // Notify all participants via WebSocket
@@ -651,6 +652,7 @@ export const addMembersToGroup = async (
     const updatedConversation = await Conversation.findById(conversationId)
       .populate('participants', 'firstName lastName userName')
       .populate('groupAdmin', 'firstName lastName userName')
+      .populate('lastMessage')
       .lean();
 
     // Get user info for notifications
@@ -697,6 +699,107 @@ export const addMembersToGroup = async (
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const changeGroupAdmin = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const { conversationId } = req.params;
+    const { newAdminId } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    if (!newAdminId) {
+      return res.status(400).json({ message: 'New admin ID is required' });
+    }
+
+    // Find the conversation and verify it's a group conversation
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation || !conversation.participants.includes(userId)) {
+      return res
+        .status(403)
+        .json({ message: 'Not authorized to change admin of this conversation' });
+    }
+
+    if (!conversation.isGroup) {
+      return res
+        .status(400)
+        .json({ message: 'Cannot change admin of a direct message conversation' });
+    }
+
+    // Verify that the user is the current group admin
+    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+      return res
+        .status(403)
+        .json({ message: 'Only current group admin can change admin' });
+    }
+
+    // Verify that the new admin is a participant in the group
+    if (!conversation.participants.some((p: any) => p.toString() === newAdminId)) {
+      return res
+        .status(400)
+        .json({ message: 'New admin must be a member of the group' });
+    }
+
+    // Verify the new admin user exists
+    const newAdmin = await User.findById(newAdminId).select('firstName lastName userName');
+    if (!newAdmin) {
+      return res.status(404).json({ message: 'New admin user not found' });
+    }
+
+    const currentAdmin = await User.findById(userId).select('firstName lastName userName');
+
+    // Change the group admin
+    conversation.groupAdmin = newAdminId;
+    await conversation.save();
+
+    // Get updated conversation with populated participants
+    const updatedConversation = await Conversation.findById(conversationId)
+      .populate('participants', 'firstName lastName userName')
+      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('lastMessage')
+      .lean();
+
+    // Notify all participants via WebSocket
+    conversation.participants.forEach((participantId: any) => {
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'group_admin_changed',
+        conversationId: conversation._id,
+        newAdmin: {
+          userId: newAdminId,
+          userName: newAdmin.userName,
+          firstName: newAdmin.firstName,
+          lastName: newAdmin.lastName,
+        },
+        previousAdmin: {
+          userId: userId.toString(),
+          userName: currentAdmin?.userName,
+          firstName: currentAdmin?.firstName,
+          lastName: currentAdmin?.lastName,
+        },
+        conversation: updatedConversation,
+      });
+    });
+
+    res.json({
+      message: 'Group admin changed successfully',
+      newAdmin: {
+        _id: newAdmin._id,
+        userName: newAdmin.userName,
+        firstName: newAdmin.firstName,
+        lastName: newAdmin.lastName,
+      },
+    });
+  } catch (error) {
+    console.error('Error changing group admin:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 
 // Migration endpoint - remove this after migration is complete
 export const migrateConversations = async (
