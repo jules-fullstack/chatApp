@@ -5,9 +5,11 @@ import User from '../models/User.js';
 import { IUser } from '../types/index.js';
 import WebSocketManager from '../config/websocket.js';
 import { migrateConversationsToReadAt } from '../utils/migrateConversations.js';
+import { uploadMultipleImages } from '../services/s3Service.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
+  files?: Express.Multer.File[];
 }
 
 export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
@@ -18,11 +20,12 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       content,
       messageType = 'text',
       groupName,
+      images,
     } = req.body;
     const senderId = req.user?._id;
 
-    if (!senderId || !content) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    if (!senderId || (!content && (!images || images.length === 0))) {
+      return res.status(400).json({ message: 'Missing required fields: must have either content or images' });
     }
 
     let conversation: any;
@@ -128,6 +131,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       sender: senderId,
       content,
       messageType,
+      images: images || [],
     });
 
     await message.save();
@@ -298,7 +302,13 @@ export const getConversations = async (
       .sort({ lastMessageAt: -1 })
       .populate('participants', 'firstName lastName userName')
       .populate('groupAdmin', 'firstName lastName userName')
-      .populate('lastMessage')
+      .populate({
+        path: 'lastMessage',
+        populate: {
+          path: 'sender',
+          select: 'firstName lastName userName'
+        }
+      })
       .lean();
 
     const formattedConversations = conversations.map((conv) => {
@@ -939,5 +949,34 @@ export const migrateConversations = async (
   } catch (error) {
     console.error('Migration endpoint error:', error);
     res.status(500).json({ message: 'Migration failed' });
+  }
+};
+
+export const uploadImages = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const files = req.files;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'No files provided' });
+      return;
+    }
+
+    const uploadResults = await uploadMultipleImages(files, userId.toString());
+    const imageUrls = uploadResults.map(result => result.url);
+
+    res.status(200).json({ 
+      success: true, 
+      images: imageUrls,
+      count: imageUrls.length 
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ error: 'Failed to upload images' });
   }
 };

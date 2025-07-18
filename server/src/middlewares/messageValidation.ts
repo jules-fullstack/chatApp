@@ -16,9 +16,15 @@ const validationMiddleware: RequestHandler = (req: Request, res: Response, next:
 export const validateMessageContent: (ValidationChain | RequestHandler)[] = [
   body('content')
     .trim()
-    .isLength({ min: 1, max: 2000 })
-    .withMessage('Message content must be between 1 and 2000 characters')
-    .notEmpty()
-    .withMessage('Message content cannot be empty'),
+    .isLength({ max: 2000 })
+    .withMessage('Message content must be no more than 2000 characters')
+    .custom((value, { req }) => {
+      // Allow empty content if images are provided
+      const images = req.body.images;
+      if (!value && (!images || images.length === 0)) {
+        throw new Error('Message must have either content or images');
+      }
+      return true;
+    }),
   validationMiddleware,
 ];

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ensureAuthenticated } from '../middlewares/auth.js';
 import { validateMessageContent } from '../middlewares/messageValidation.js';
+import { imageUpload, validateImageBatch } from '../middleware/imageValidation.js';
 import {
   sendMessage,
   getMessages,
@@ -13,6 +14,7 @@ import {
   addMembersToGroup,
   changeGroupAdmin,
   removeMemberFromGroup,
+  uploadImages,
 } from '../controllers/messageController.js';
 
 const router = Router();
@@ -22,6 +24,9 @@ router.use(ensureAuthenticated);
 
 // Send a message
 router.post('/send', ...validateMessageContent, sendMessage);
+
+// Upload images
+router.post('/upload-images', imageUpload.array('images'), validateImageBatch, uploadImages);
 
 // Get messages for a conversation
 router.get('/conversation/:conversationId', getMessages);

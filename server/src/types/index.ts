@@ -80,6 +80,7 @@ export interface IMessage extends Document {
   sender: Types.ObjectId;
   content: string;
   messageType: 'text' | 'image' | 'file';
+  images?: string[];
   isEdited: boolean;
   editedAt: Date | null;
   createdAt: Date;

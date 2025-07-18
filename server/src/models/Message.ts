@@ -15,13 +15,19 @@ const messageSchema = new Schema<IMessage>(
     },
     content: {
       type: String,
-      required: true,
+      required: function() {
+        return !this.images || this.images.length === 0;
+      },
       trim: true,
     },
     messageType: {
       type: String,
       enum: ['text', 'image', 'file'],
       default: 'text',
+    },
+    images: {
+      type: [String],
+      default: [],
     },
     isEdited: {
       type: Boolean,
