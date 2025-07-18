@@ -4,6 +4,7 @@ import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { Loader } from "@mantine/core";
 import { useEffect } from "react";
+import { type Message } from "../types";
 
 export default function Inbox() {
   const { searchedUsers, isSearching, isSearchActive, error, searchQuery } =
@@ -111,6 +112,26 @@ export default function Inbox() {
     ));
   };
 
+  const getLastMessageText = (
+    lastMessage: Message | undefined,
+    currentUserId: string | undefined
+  ) => {
+    if (!lastMessage) return "No messages yet";
+
+    // Check if the message has images
+    if (lastMessage.images && lastMessage.images.length > 0) {
+      const isOwnMessage = currentUserId === lastMessage.sender._id;
+      if (isOwnMessage) {
+        return "You sent an image";
+      } else {
+        return "Sent an image";
+      }
+    }
+
+    // Return the text content or fallback
+    return lastMessage.content || "No messages yet";
+  };
+
   const renderConversations = () => {
     const conversationsList = [];
 
@@ -167,7 +188,10 @@ export default function Inbox() {
             key={conversation._id}
             type="default"
             username={displayName}
-            lastMessage={conversation.lastMessage?.content || "No messages yet"}
+            lastMessage={getLastMessageText(
+              conversation.lastMessage,
+              currentUser?.id
+            )}
             unreadCount={conversation.unreadCount}
             isActive={!isNewMessage && activeConversation === conversation._id}
             onClick={() => {

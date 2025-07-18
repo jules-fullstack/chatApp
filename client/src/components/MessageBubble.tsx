@@ -1,6 +1,8 @@
 import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { userStore } from "../store/userStore";
 import { type Message, type Conversation } from "../types";
+import { useState } from "react";
+import ImageModal from "./ImageModal";
 
 interface MessageBubbleProps {
   message: Message;
@@ -17,6 +19,13 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const currentUser = userStore.getState().user;
   const isOwnMessage = currentUser?.id === message.sender._id;
+  const [modalOpened, setModalOpened] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+    setModalOpened(true);
+  };
 
   // Get read status - only show avatars for users who last read this specific message
   const getReadStatus = () => {
@@ -72,7 +81,22 @@ export default function MessageBubble({
               : "bg-gray-200 text-gray-900 rounded-bl-md"
           } ${isLast ? "mb-2" : ""}`}
         >
-          <p className="text-sm break-words">{message.content}</p>
+          {message.content && message.content.trim() && (
+            <p className="text-sm break-words">{message.content}</p>
+          )}
+          {message.images && message.images.length > 0 && (
+            <div className="mb-2 space-y-1">
+              {message.images.map((imageUrl, index) => (
+                <img
+                  key={index}
+                  src={imageUrl}
+                  alt={`Image ${index + 1}`}
+                  className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => handleImageClick(index)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {/* Read status with user avatars - only show for users who last read this specific message */}
@@ -93,6 +117,16 @@ export default function MessageBubble({
             )}
           </div>
         </div>
+      )}
+
+      {/* Image Modal */}
+      {message.images && message.images.length > 0 && (
+        <ImageModal
+          opened={modalOpened}
+          onClose={() => setModalOpened(false)}
+          images={message.images}
+          initialIndex={selectedImageIndex}
+        />
       )}
     </>
   );

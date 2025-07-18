@@ -21,6 +21,9 @@ interface ChatState {
   // Messages
   messages: Message[];
   conversations: Conversation[];
+  hasMoreMessages: boolean;
+  messagesNextCursor: string | null;
+  isLoadingOlderMessages: boolean;
 
   // UI state
   isTyping: boolean;
@@ -51,9 +54,12 @@ interface ChatState {
   sendMessage: (
     recipientIds: string[],
     content: string,
-    groupName?: string
+    groupName?: string,
+    messageType?: string,
+    images?: string[]
   ) => Promise<void>;
   loadMessages: (userId: string) => Promise<void>;
+  loadOlderMessages: (conversationId: string) => Promise<void>;
   loadConversations: () => Promise<void>;
 
   // Real-time actions
@@ -107,6 +113,9 @@ export const useChatStore = create<ChatState>()(
       activeConversation: null,
       messages: [],
       conversations: [],
+      hasMoreMessages: false,
+      messagesNextCursor: null,
+      isLoadingOlderMessages: false,
       isTyping: false,
       typingUsers: new Map(),
       showConversationDetails: false,
@@ -251,6 +260,8 @@ export const useChatStore = create<ChatState>()(
         set({
           activeConversation: conversationId,
           messages: [],
+          hasMoreMessages: false,
+          messagesNextCursor: null,
           isNewMessage: false,
           newMessageRecipients: [],
         });
@@ -265,7 +276,9 @@ export const useChatStore = create<ChatState>()(
       sendMessage: async (
         targets: string[],
         content: string,
-        groupName?: string
+        groupName?: string,
+        messageType?: string,
+        images?: string[]
       ) => {
         try {
           const { isNewMessage, activeConversation } = get();
@@ -276,8 +289,9 @@ export const useChatStore = create<ChatState>()(
             requestBody = {
               recipientIds: targets,
               content,
-              messageType: "text",
+              messageType: messageType || "text",
               ...(groupName !== undefined && { groupName }),
+              ...(images && images.length > 0 && { images }),
             };
           } else if (activeConversation?.startsWith("user:")) {
             // Direct message to a user (new conversation)
@@ -285,14 +299,16 @@ export const useChatStore = create<ChatState>()(
             requestBody = {
               recipientIds: [userId],
               content,
-              messageType: "text",
+              messageType: messageType || "text",
+              ...(images && images.length > 0 && { images }),
             };
           } else {
             // Existing conversation - send to conversation
             requestBody = {
               conversationId: activeConversation,
               content,
-              messageType: "text",
+              messageType: messageType || "text",
+              ...(images && images.length > 0 && { images }),
             };
           }
 
@@ -332,10 +348,10 @@ export const useChatStore = create<ChatState>()(
           if (conversationId.startsWith("user:")) {
             // Direct message to a user - use legacy endpoint
             const userId = conversationId.replace("user:", "");
-            url = `${API_BASE}/messages/conversation/user/${userId}`;
+            url = `${API_BASE}/messages/conversation/user/${userId}?limit=50`;
           } else {
-            // Existing conversation
-            url = `${API_BASE}/messages/conversation/${conversationId}`;
+            // Existing conversation - load most recent 50 messages
+            url = `${API_BASE}/messages/conversation/${conversationId}?limit=50`;
           }
 
           const response = await fetch(url, {
@@ -345,19 +361,73 @@ export const useChatStore = create<ChatState>()(
           if (!response.ok) {
             // If conversation doesn't exist yet, that's okay
             if (response.status === 403 || response.status === 404) {
-              set({ messages: [] });
+              set({ 
+                messages: [], 
+                hasMoreMessages: false, 
+                messagesNextCursor: null 
+              });
               return;
             }
             throw new Error("Failed to load messages");
           }
 
           const result = await response.json();
-          set({ messages: result.messages || [] });
+          set({ 
+            messages: result.messages || [], 
+            hasMoreMessages: result.pagination?.hasMore || false,
+            messagesNextCursor: result.pagination?.nextCursor || null
+          });
         } catch (error) {
           console.error("Error loading messages:", error);
-          set({ messages: [] });
+          set({ 
+            messages: [], 
+            hasMoreMessages: false, 
+            messagesNextCursor: null 
+          });
         } finally {
           set({ isMessagesLoading: false });
+        }
+      },
+
+      loadOlderMessages: async (conversationId: string) => {
+        const { isLoadingOlderMessages, messagesNextCursor, hasMoreMessages } = get();
+        
+        if (isLoadingOlderMessages || !hasMoreMessages || !messagesNextCursor) {
+          return;
+        }
+
+        set({ isLoadingOlderMessages: true });
+        try {
+          let url;
+          if (conversationId.startsWith("user:")) {
+            // Direct message to a user - use legacy endpoint
+            const userId = conversationId.replace("user:", "");
+            url = `${API_BASE}/messages/conversation/user/${userId}?limit=50&before=${messagesNextCursor}`;
+          } else {
+            // Existing conversation
+            url = `${API_BASE}/messages/conversation/${conversationId}?limit=50&before=${messagesNextCursor}`;
+          }
+
+          const response = await fetch(url, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to load older messages");
+          }
+
+          const result = await response.json();
+          const olderMessages = result.messages || [];
+          
+          set((state) => ({
+            messages: [...olderMessages, ...state.messages],
+            hasMoreMessages: result.pagination?.hasMore || false,
+            messagesNextCursor: result.pagination?.nextCursor || null
+          }));
+        } catch (error) {
+          console.error("Error loading older messages:", error);
+        } finally {
+          set({ isLoadingOlderMessages: false });
         }
       },
 
@@ -955,6 +1025,9 @@ export const useChatStore = create<ChatState>()(
           activeConversation: null,
           messages: [],
           conversations: [],
+          hasMoreMessages: false,
+          messagesNextCursor: null,
+          isLoadingOlderMessages: false,
           isTyping: false,
           typingUsers: new Map(),
           showConversationDetails: false,

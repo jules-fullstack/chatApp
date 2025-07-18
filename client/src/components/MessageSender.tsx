@@ -7,6 +7,7 @@ import { useChatStore } from "../store/chatStore";
 import { messageSchema, type MessageFormData } from "../schemas/messageSchema";
 import FormField from "./ui/FormField";
 import GroupNameModal from "./GroupNameModal";
+import ImagePreview from "./ImagePreview";
 
 export default function MessageSender() {
   const {
@@ -21,23 +22,131 @@ export default function MessageSender() {
   const [isTyping, setIsTyping] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string>("");
+  const [pendingImageUrls, setPendingImageUrls] = useState<string[]>([]);
+  const [pendingMessageType, setPendingMessageType] = useState<string>("text");
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_FILES = 10;
+  const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ];
 
   const validateMessage = (message: string): boolean => {
     try {
       messageSchema.parse({ message });
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Zod error structure: error.issues[0].message
-      const errorMessage = error.issues?.[0]?.message || 'Invalid message';
+      const errorMessage =
+        (error as { issues?: { message: string }[] })?.issues?.[0]?.message ||
+        "Invalid message";
       notifications.show({
-        title: 'Message Validation Error',
+        title: "Message Validation Error",
         message: errorMessage,
-        color: 'red',
+        color: "red",
         autoClose: 3000,
       });
       return false;
     }
+  };
+
+  const validateImages = (files: File[]): boolean => {
+    const currentTotal = selectedImages.length;
+    const newTotal = currentTotal + files.length;
+
+    if (newTotal > MAX_FILES) {
+      notifications.show({
+        title: "Too Many Files",
+        message: `Maximum ${MAX_FILES} images allowed. You can add ${MAX_FILES - currentTotal} more.`,
+        color: "red",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        notifications.show({
+          title: "Invalid File Type",
+          message: `Only JPEG, PNG, GIF, and WebP images are allowed.`,
+          color: "red",
+          autoClose: 3000,
+        });
+        return false;
+      }
+    }
+
+    const currentSize = selectedImages.reduce(
+      (total, img) => total + img.size,
+      0
+    );
+    const newSize = files.reduce((total, file) => total + file.size, 0);
+    const totalSize = currentSize + newSize;
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      notifications.show({
+        title: "Files Too Large",
+        message: `Total file size cannot exceed 5MB.`,
+        color: "red",
+        autoClose: 3000,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handlePhotoClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0 && validateImages(files)) {
+      setSelectedImages((prev) => [...prev, ...files]);
+    }
+    // Reset the input value so the same file can be selected again
+    e.target.value = "";
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddImages = (files: File[]) => {
+    if (validateImages(files)) {
+      setSelectedImages((prev) => [...prev, ...files]);
+    }
+  };
+
+  const uploadImages = async (images: File[]): Promise<string[]> => {
+    const formData = new FormData();
+    images.forEach((image) => {
+      formData.append("images", image);
+    });
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_BASE_URL}/api/messages/upload-images`,
+      {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to upload images");
+    }
+
+    const result = await response.json();
+    return result.images;
   };
 
   const {
@@ -115,34 +224,124 @@ export default function MessageSender() {
   ]);
 
   const onSubmit = async (data: MessageFormData) => {
-    // Manually validate and show notification if invalid
-    if (!validateMessage(data.message)) {
+    // Allow sending if there's either text or images
+    const hasText = data.message && data.message.trim().length > 0;
+    const hasImages = selectedImages.length > 0;
+
+    if (!hasText && !hasImages) {
+      notifications.show({
+        title: "Empty Message",
+        message: "Please enter a message or select images to send.",
+        color: "orange",
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    // Validate text if present
+    if (hasText && !validateMessage(data.message)) {
       return;
     }
 
     try {
+      // Upload images first if any
+      let imageUrls: string[] = [];
+      if (hasImages) {
+        try {
+          imageUrls = await uploadImages(selectedImages);
+        } catch {
+          notifications.show({
+            title: "Upload Failed",
+            message: "Failed to upload images. Please try again.",
+            color: "red",
+            autoClose: 3000,
+          });
+          return;
+        }
+      }
+
+      const messageContent = hasText ? data.message.trim() : "";
+
       if (isNewMessage) {
         if (newMessageRecipients.length === 0) return;
 
         // If multiple recipients, show group modal first
         if (newMessageRecipients.length > 1) {
-          setPendingMessage(data.message.trim());
+          setPendingMessage(messageContent);
+          setPendingImageUrls(imageUrls);
+          setPendingMessageType(hasImages ? "image" : "text");
           setShowGroupModal(true);
           return;
         }
 
         // Single recipient - send directly
         const recipientIds = newMessageRecipients.map((r) => r._id);
-        await sendMessage(recipientIds, data.message.trim());
+        
+        if (hasText && hasImages) {
+          // Send text message first
+          await sendMessage(
+            recipientIds,
+            messageContent,
+            undefined,
+            "text",
+            []
+          );
+          // Send image message second
+          await sendMessage(
+            recipientIds,
+            "",
+            undefined,
+            "image",
+            imageUrls
+          );
+        } else {
+          // Send single message (either text or image)
+          const messageType = hasImages ? "image" : "text";
+          await sendMessage(
+            recipientIds,
+            messageContent,
+            undefined,
+            messageType,
+            imageUrls
+          );
+        }
       } else if (activeConversation) {
         // For existing conversations,
         // Send to the conversation endpoint with conversationId
-        await sendMessage([activeConversation], data.message.trim());
+        if (hasText && hasImages) {
+          // Send text message first
+          await sendMessage(
+            [activeConversation],
+            messageContent,
+            undefined,
+            "text",
+            []
+          );
+          // Send image message second
+          await sendMessage(
+            [activeConversation],
+            "",
+            undefined,
+            "image",
+            imageUrls
+          );
+        } else {
+          // Send single message (either text or image)
+          const messageType = hasImages ? "image" : "text";
+          await sendMessage(
+            [activeConversation],
+            messageContent,
+            undefined,
+            messageType,
+            imageUrls
+          );
+        }
       } else {
         return;
       }
 
-      reset();
+      reset({ message: "" });
+      setSelectedImages([]);
 
       // Stop typing indicator
       if (isTyping) {
@@ -181,6 +380,8 @@ export default function MessageSender() {
       // If multiple recipients, show group modal first
       if (newMessageRecipients.length > 1) {
         setPendingMessage(thumbsUpMessage);
+        setPendingImageUrls([]);
+        setPendingMessageType("text");
         setShowGroupModal(true);
         return;
       }
@@ -194,19 +395,55 @@ export default function MessageSender() {
   };
 
   const handleGroupNameConfirm = async (groupName: string) => {
-    if (!pendingMessage || newMessageRecipients.length === 0) return;
+    if (
+      (!pendingMessage && pendingImageUrls.length === 0) ||
+      newMessageRecipients.length === 0
+    )
+      return;
 
-    if (!validateMessage(pendingMessage)) {
+    if (pendingMessage && !validateMessage(pendingMessage)) {
       console.error("Pending message failed validation");
       return;
     }
 
     try {
       const recipientIds = newMessageRecipients.map((r) => r._id);
-      await sendMessage(recipientIds, pendingMessage, groupName);
+      const hasText = pendingMessage && pendingMessage.trim().length > 0;
+      const hasImages = pendingImageUrls.length > 0;
+      
+      if (hasText && hasImages) {
+        // Send text message first
+        await sendMessage(
+          recipientIds,
+          pendingMessage,
+          groupName,
+          "text",
+          []
+        );
+        // Send image message second
+        await sendMessage(
+          recipientIds,
+          "",
+          undefined, // Don't set group name again for second message
+          "image",
+          pendingImageUrls
+        );
+      } else {
+        // Send single message (either text or image)
+        await sendMessage(
+          recipientIds,
+          pendingMessage,
+          groupName,
+          pendingMessageType,
+          pendingImageUrls
+        );
+      }
 
       reset();
       setPendingMessage("");
+      setPendingImageUrls([]);
+      setPendingMessageType("text");
+      setSelectedImages([]);
 
       // Stop typing indicator
       if (isTyping) {
@@ -223,6 +460,8 @@ export default function MessageSender() {
   const handleGroupModalClose = () => {
     setShowGroupModal(false);
     setPendingMessage("");
+    setPendingImageUrls([]);
+    setPendingMessageType("text");
   };
 
   const handleMessageSenderClick = () => {
@@ -248,8 +487,28 @@ export default function MessageSender() {
         className="absolute bottom-0 left-0 right-0 bg-white p-4"
         onClick={handleMessageSenderClick}
       >
+        <ImagePreview
+          images={selectedImages}
+          onRemoveImage={handleRemoveImage}
+          onAddImages={handleAddImages}
+          maxFiles={MAX_FILES}
+          maxTotalSize={MAX_TOTAL_SIZE}
+        />
+
         <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
-          <PhotoIcon className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors" />
+          <PhotoIcon
+            className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors"
+            onClick={handlePhotoClick}
+          />
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+          />
 
           <div className="flex-1 mr-4">
             <FormField
@@ -265,12 +524,13 @@ export default function MessageSender() {
             />
           </div>
 
-          {messageValue && messageValue.trim() ? (
+          {(messageValue && messageValue.trim()) ||
+          selectedImages.length > 0 ? (
             <button
               type="submit"
               className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
             >
-              <PaperAirplaneIcon className="size-6" />
+              <PaperAirplaneIcon className="size-6 cursor-pointer" />
             </button>
           ) : (
             <button
@@ -278,7 +538,7 @@ export default function MessageSender() {
               onClick={handleLikeClick}
               className="p-2 text-blue-500 hover:text-blue-700 transition-colors"
             >
-              <HandThumbUpIcon className="size-6" />
+              <HandThumbUpIcon className="size-6 cursor-pointer" />
             </button>
           )}
         </form>

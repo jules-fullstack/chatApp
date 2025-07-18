@@ -42,6 +42,7 @@ export interface Message {
   sender: User;
   content: string;
   messageType: "text" | "image" | "file";
+  images?: string[];
   createdAt: string;
   updatedAt: string;
 }

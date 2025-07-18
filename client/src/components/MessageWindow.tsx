@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import ConversationHeader from "./ConversationHeader";
 import MessageSender from "./MessageSender";
 import MessageBubble from "./MessageBubble";
@@ -9,6 +9,7 @@ import { userStore } from "../store/userStore";
 import { useConversationRead } from "../hooks/useMessageRead";
 import { shouldShowTimeSeparator } from "../utils/dateUtils";
 import { Loader } from "@mantine/core";
+import { useIntersectionObserverCallback } from "../hooks/useIntersectionObserver";
 
 export default function MessageWindow() {
   const {
@@ -19,9 +20,16 @@ export default function MessageWindow() {
     isNewMessage,
     newMessageRecipients,
     isMessagesLoading,
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
     getTypingUsersForConversation,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(messages.length);
+  const shouldAutoScrollRef = useRef(true);
 
   // Use intersection observer to mark conversation as read when visible
   const { ref: conversationRef } = useConversationRead(
@@ -29,13 +37,103 @@ export default function MessageWindow() {
     !!activeConversation
   );
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!messagesEndRef.current) return;
+
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: smooth ? "smooth" : "instant",
+        block: "end",
+      });
+    });
+  }, []);
+
+  const scrollToBottomInstant = useCallback(() => {
+    scrollToBottom(false);
+  }, [scrollToBottom]);
+
+  // Load older messages when user scrolls to top
+  const handleLoadOlderMessages = useCallback(() => {
+    if (activeConversation && hasMoreMessages && !isLoadingOlderMessages) {
+      loadOlderMessages(activeConversation);
+    }
+  }, [
+    activeConversation,
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
+  ]);
+
+  // Use intersection observer to trigger loading more messages
+  useIntersectionObserverCallback({
+    target: loadMoreTriggerRef,
+    onIntersect: handleLoadOlderMessages,
+    enabled: hasMoreMessages && !isLoadingOlderMessages,
+  });
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      if (shouldAutoScrollRef.current) {
+        scrollToBottom(false);
+      }
+    });
+
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [scrollToBottom]);
+
+  // Auto-scroll logic
+  useEffect(() => {
+    const currentMessageCount = messages.length;
+    const previousMessageCount = previousMessageCountRef.current;
+
+    // If this is the first load (messages went from 0 to some number)
+    if (previousMessageCount === 0 && currentMessageCount > 0) {
+      // Scroll to bottom instantly on initial load - use multiple timeouts to ensure it works
+      setTimeout(() => scrollToBottomInstant(), 0);
+      shouldAutoScrollRef.current = true;
+    }
+    // If new messages were added (not older messages loaded)
+    else if (currentMessageCount > previousMessageCount) {
+      const container = messagesContainerRef.current;
+      if (container && shouldAutoScrollRef.current) {
+        // Check if user is near the bottom before auto-scrolling
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+        if (isNearBottom) {
+          setTimeout(() => scrollToBottom(true), 0);
+        }
+      }
+    }
+
+    previousMessageCountRef.current = currentMessageCount;
+  }, [messages.length, scrollToBottom, scrollToBottomInstant]);
+
+  // Monitor scroll position to determine auto-scroll behavior
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      shouldAutoScrollRef.current = isNearBottom;
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Reset auto-scroll when switching conversations
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
+    previousMessageCountRef.current = 0;
+  }, [activeConversation]);
 
   // Find the active conversation details
   const activeConversationData =
@@ -215,6 +313,30 @@ export default function MessageWindow() {
 
     const renderedElements: React.ReactElement[] = [];
 
+    // Add load more trigger at the top if there are more messages
+    if (hasMoreMessages) {
+      renderedElements.push(
+        <div
+          key="load-more-trigger"
+          ref={loadMoreTriggerRef}
+          className="flex justify-center py-4"
+        >
+          {isLoadingOlderMessages ? (
+            <div className="flex items-center space-x-2">
+              <Loader size={16} color="gray" />
+              <span className="text-gray-500 text-sm">
+                Loading older messages...
+              </span>
+            </div>
+          ) : (
+            <div className="text-gray-400 text-sm">
+              Scroll up to load older messages
+            </div>
+          )}
+        </div>
+      );
+    }
+
     messages.forEach((message, index) => {
       const isLast = index === messages.length - 1;
       const previousMessage = index > 0 ? messages[index - 1] : null;
@@ -286,31 +408,36 @@ export default function MessageWindow() {
         isTyping={isTyping}
       />
 
-      <div ref={conversationRef} className="flex-1 overflow-y-auto p-4 pb-20">
-        {renderMessages()}
-        {isTyping && (
-          <div className="flex justify-start mb-2">
-            <div className="flex flex-col items-start">
-              <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-2xl rounded-bl-md">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 pb-20"
+      >
+        <div ref={conversationRef}>
+          {renderMessages()}
+          {isTyping && (
+            <div className="flex justify-start mb-2">
+              <div className="flex flex-col items-start">
+                <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-2xl rounded-bl-md">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 ml-2">
+                  {getTypingMessage()}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 mt-1 ml-2">
-                {getTypingMessage()}
-              </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <MessageSender />
