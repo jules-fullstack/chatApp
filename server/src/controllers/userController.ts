@@ -154,3 +154,75 @@ export const uploadAvatar = async (
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const getAllUsers = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = req.user;
+
+    if (!user || user.role !== 'superAdmin') {
+      res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      return;
+    }
+
+    // Parse pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    // Filter for users with role 'user' only
+    const filter = { role: 'user' };
+
+    // Get total count for pagination
+    const total = await User.countDocuments(filter);
+
+    const users = await User.find(filter, {
+      password: 0,
+      otp: 0,
+      otpExpiry: 0
+    })
+    .populate({
+      path: 'avatar',
+      match: { isDeleted: false },
+      select: 'url filename originalName mimeType metadata',
+    })
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+    const userData = users.map(user => ({
+      id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.userName,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified,
+      avatar: user.avatar,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }));
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    res.json({ 
+      users: userData,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNext,
+        hasPrev
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching all users:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
