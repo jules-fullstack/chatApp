@@ -365,7 +365,7 @@ export default function UserDashboard() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploadingAvatar}
-                className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white p-2 rounded-full shadow-lg transition-colors"
+                className="absolute bottom-0 right-0 bg-blue-500 cursor-pointer hover:bg-blue-600 disabled:bg-gray-400 text-white p-2 rounded-full shadow-lg transition-colors"
               >
                 <CameraIcon className="w-4 h-4" />
               </button>
@@ -502,15 +502,19 @@ export default function UserDashboard() {
       <Menu position="top">
         <Menu.Target>
           <div className="place-self-end mb-8 ml-4 mr-4 cursor-pointer">
-            <Avatar 
-              user={user ? {
-                _id: user.id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                userName: user.userName,
-                avatar: user.avatar
-              } : null} 
-              size="lg" 
+            <Avatar
+              user={
+                user
+                  ? {
+                      _id: user.id,
+                      firstName: user.firstName,
+                      lastName: user.lastName,
+                      userName: user.userName,
+                      avatar: user.avatar,
+                    }
+                  : null
+              }
+              size="lg"
             />
           </div>
         </Menu.Target>

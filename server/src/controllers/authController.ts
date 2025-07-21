@@ -218,8 +218,12 @@ export const getCurrentUser = (req: Request, res: Response): void => {
     res.json({
       user: {
         id: req.user._id.toString(),
+        firstName: req.user.firstName,
+        lastName: req.user.lastName,
+        userName: req.user.userName,
         email: req.user.email,
         role: req.user.role,
+        avatar: req.user.avatar,
       },
     });
   } else {

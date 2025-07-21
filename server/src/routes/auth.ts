@@ -26,4 +26,14 @@ router.post('/logout', ensureAuthenticated, logout);
 
 router.get('/user', ensureAuthenticated, getCurrentUser);
 
+router.get('/check', getCurrentUser);
+
+router.get('/check-pending', (req, res) => {
+  if (req.session.pendingUser) {
+    res.status(200).json({ pending: true, email: req.session.pendingUser.email });
+  } else {
+    res.status(404).json({ pending: false });
+  }
+});
+
 export default router;
