@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
-import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
+import { useLogout } from "../hooks/useLogout";
 import {
   ArrowRightStartOnRectangleIcon,
   Cog6ToothIcon,
@@ -91,14 +91,12 @@ const profileUpdateSchema = z
 type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 
 export default function UserDashboard() {
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isOpen, { open, close }] = useDisclosure(false);
+  const { logout, isLoggingOut } = useLogout();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
   const user = userStore((state) => state.user);
-  const clearUser = userStore((state) => state.clearUser);
   const setUser = userStore((state) => state.setUser);
 
   const {
@@ -126,45 +124,6 @@ export default function UserDashboard() {
       confirmPassword: "",
     },
   });
-
-  const { resetStore: resetChatStore } = useChatStore.getState();
-
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-
-    try {
-      const response = await fetch("http://localhost:3000/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        clearUser();
-        resetChatStore();
-        localStorage.removeItem("auth-storage");
-        navigate({ to: "/login", replace: true });
-      } else {
-        console.error("Logout failed");
-        notifications.show({
-          title: "Logout Failed",
-          message: "Logout failed. Please try again.",
-          color: "red",
-        });
-      }
-    } catch (error) {
-      console.error("Error during logout:", error);
-      notifications.show({
-        title: "Error",
-        message: "An error occurred during logout. Please try again.",
-        color: "red",
-      });
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
 
   const handleProfileUpdate = async (data: ProfileUpdateForm) => {
     setIsUpdating(true);
@@ -265,14 +224,11 @@ export default function UserDashboard() {
       formData.append("parentId", user!.id);
       formData.append("usage", "avatar");
 
-      const response = await fetch(
-        "http://localhost:3000/api/media/upload",
-        {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        }
-      );
+      const response = await fetch("http://localhost:3000/api/media/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
 
       if (response.ok) {
         const result = await response.json();
@@ -535,7 +491,7 @@ export default function UserDashboard() {
           </Menu.Item>
           <Menu.Item
             leftSection={<ArrowRightStartOnRectangleIcon className="size-6" />}
-            onClick={handleLogout}
+            onClick={logout}
             disabled={isLoggingOut}
           >
             {isLoggingOut ? "Logging out..." : "Logout"}
