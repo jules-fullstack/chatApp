@@ -13,6 +13,7 @@ export interface IUser extends Document {
   otpExpiry?: Date;
   isEmailVerified: boolean;
   role: 'user' | 'superAdmin';
+  isBlocked: boolean;
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateOTP(): string;
   verifyOTP(inputOTP: string): boolean;

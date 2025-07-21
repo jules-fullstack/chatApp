@@ -109,6 +109,68 @@ class AdminService {
         : new Error("An unexpected error occurred");
     }
   }
+
+  async blockUser(userId: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/users/admin/block/${userId}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to block user";
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          // fallback to default message
+        }
+
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Block user error:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("An unexpected error occurred");
+    }
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/users/admin/unblock/${userId}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to unblock user";
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          // fallback to default message
+        }
+
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Unblock user error:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("An unexpected error occurred");
+    }
+  }
 }
 
 export default new AdminService();

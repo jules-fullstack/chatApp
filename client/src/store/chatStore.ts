@@ -233,6 +233,32 @@ export const useChatStore = create<ChatState>()(
             case "removed_from_group":
               get().handleRemovedFromGroup(data);
               break;
+            case "account_blocked":
+              // Handle account blocking - perform logout sequence
+              (async () => {
+                try {
+                  await fetch("http://localhost:3000/api/auth/logout", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                  });
+                } catch (error) {
+                  console.error("Error during logout:", error);
+                }
+                
+                // Clear user and reset stores
+                userStore.getState().clearUser();
+                get().resetStore();
+                
+                // Show blocking message
+                alert(data.message || "Your account has been blocked from the platform.");
+                
+                // Redirect to login page
+                window.location.href = "/login";
+              })();
+              break;
             default:
               console.log("Unknown WebSocket message:", data);
           }

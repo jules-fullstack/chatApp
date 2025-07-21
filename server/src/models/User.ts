@@ -51,6 +51,10 @@ const userSchema = new Schema<IUser>(
       enum: ['user', 'superAdmin'],
       default: 'user',
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

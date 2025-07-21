@@ -8,6 +8,7 @@ export interface AdminUser {
   email: string;
   role: "user" | "superAdmin";
   isEmailVerified: boolean;
+  isBlocked: boolean;
   avatar?: Media | string;
   createdAt: string;
   updatedAt: string;

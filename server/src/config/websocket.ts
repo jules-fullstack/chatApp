@@ -292,6 +292,27 @@ class WebSocketManager {
   getConnectedUsers(): string[] {
     return Array.from(this.connectedUsers.keys());
   }
+
+  // Method to notify user about account blocking and force logout
+  notifyUserBlocked(userId: string) {
+    const userConnection = this.connectedUsers.get(userId);
+    
+    if (userConnection) {
+      userConnection.ws.send(
+        JSON.stringify({
+          type: 'account_blocked',
+          message: 'Your account has been blocked from the platform.',
+        }),
+      );
+      
+      // Close the connection after sending the message
+      setTimeout(() => {
+        if (userConnection.ws.readyState === userConnection.ws.OPEN) {
+          userConnection.ws.close(1008, 'Account blocked');
+        }
+      }, 1000);
+    }
+  }
 }
 
 export default new WebSocketManager();

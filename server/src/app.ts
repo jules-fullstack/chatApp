@@ -36,12 +36,14 @@ const sessionMiddleware = session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI as string,
     mongoOptions: {},
+    touchAfter: 24 * 3600 // lazy session update
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 1000 * 60 * 60 * 24,
   },
+  rolling: true, // reset session expiry on activity
 });
 
 app.use(sessionMiddleware);

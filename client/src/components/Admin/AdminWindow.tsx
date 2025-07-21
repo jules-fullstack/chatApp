@@ -17,7 +17,7 @@ import type {
   AdminGroupConversation,
   PaginationInfo,
 } from "../../types/admin";
-import { NoSymbolIcon } from "@heroicons/react/24/outline";
+import { NoSymbolIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 
 interface AdminWindowProps {
   activeTab: AdminTab;
@@ -36,6 +36,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     setCurrentPage(1); // Reset page when tab changes
@@ -72,6 +73,42 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
     fetchData();
   }, [activeTab, currentPage]);
 
+  const handleBlockUser = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      await adminService.blockUser(userId);
+      // Refresh the data
+      const response = await adminService.getAllUsers({
+        page: currentPage,
+        limit: 10,
+      });
+      setUsers(response.users);
+      setUsersPagination(response.pagination);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to block user");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleUnblockUser = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      await adminService.unblockUser(userId);
+      // Refresh the data
+      const response = await adminService.getAllUsers({
+        page: currentPage,
+        limit: 10,
+      });
+      setUsers(response.users);
+      setUsersPagination(response.pagination);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unblock user");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const renderUsersTable = () => {
     if (loading) return <Loader size="lg" className="mx-auto" />;
     if (error) return <Alert color="red">{error}</Alert>;
@@ -84,7 +121,19 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         <Table.Td>{user.lastName}</Table.Td>
         <Table.Td>{user.email}</Table.Td>
         <Table.Td>
-          <NoSymbolIcon className="size-6 text-red-500 cursor-pointer" />
+          {user.isBlocked ? (
+            <LockOpenIcon 
+              className={`size-6 text-green-500 cursor-pointer ${actionLoading === user.id ? 'opacity-50' : ''}`}
+              onClick={() => handleUnblockUser(user.id)}
+              title="Unblock user"
+            />
+          ) : (
+            <NoSymbolIcon 
+              className={`size-6 text-red-500 cursor-pointer ${actionLoading === user.id ? 'opacity-50' : ''}`}
+              onClick={() => handleBlockUser(user.id)}
+              title="Block user"
+            />
+          )}
         </Table.Td>
       </Table.Tr>
     ));

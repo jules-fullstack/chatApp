@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import { IUser } from '../types/index.js';
 import { updateProfileSchema } from '../schemas/validations.js';
 import { populateUserWithAvatar } from '../utils/mediaQueries.js';
+import WebSocketManager from '../config/websocket.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -200,6 +201,7 @@ export const getAllUsers = async (
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
+      isBlocked: user.isBlocked,
       avatar: user.avatar,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -223,6 +225,105 @@ export const getAllUsers = async (
     });
   } catch (error) {
     console.error('Error fetching all users:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const blockUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const admin = req.user;
+    const { userId } = req.params;
+
+    if (!admin || admin.role !== 'superAdmin') {
+      res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required.' });
+      return;
+    }
+
+    const userToBlock = await User.findById(userId);
+    if (!userToBlock) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (userToBlock.role === 'superAdmin') {
+      res.status(400).json({ message: 'Cannot block admin users.' });
+      return;
+    }
+
+    if (userToBlock.isBlocked) {
+      res.status(400).json({ message: 'User is already blocked.' });
+      return;
+    }
+
+    userToBlock.isBlocked = true;
+    await userToBlock.save();
+
+    // Send response first before WebSocket notification
+    res.json({ 
+      message: 'User blocked successfully.',
+      userId: userToBlock._id.toString()
+    });
+
+    // Send WebSocket notification asynchronously after response
+    setImmediate(() => {
+      try {
+        WebSocketManager.notifyUserBlocked(userToBlock._id.toString());
+      } catch (wsError) {
+        console.error('Error sending WebSocket notification:', wsError);
+      }
+    });
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const unblockUser = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const admin = req.user;
+    const { userId } = req.params;
+
+    if (!admin || admin.role !== 'superAdmin') {
+      res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required.' });
+      return;
+    }
+
+    const userToUnblock = await User.findById(userId);
+    if (!userToUnblock) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    if (!userToUnblock.isBlocked) {
+      res.status(400).json({ message: 'User is not blocked.' });
+      return;
+    }
+
+    userToUnblock.isBlocked = false;
+    await userToUnblock.save();
+
+    res.json({ 
+      message: 'User unblocked successfully.',
+      userId: userToUnblock._id.toString()
+    });
+  } catch (error) {
+    console.error('Error unblocking user:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

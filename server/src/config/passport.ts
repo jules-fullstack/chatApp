@@ -14,6 +14,10 @@ export default function (passport: PassportStatic): void {
             return done(null, false, { message: 'Invalid email or password' });
           }
 
+          if (user.isBlocked) {
+            return done(null, false, { message: 'Your account has been blocked from the platform.' });
+          }
+
           const isMatch = await user.comparePassword(password);
 
           if (!isMatch) {
@@ -35,6 +39,9 @@ export default function (passport: PassportStatic): void {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await User.findById(id);
+      if (!user) {
+        return done(null, false);
+      }
       done(null, user);
     } catch (error) {
       done(error);
