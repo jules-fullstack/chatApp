@@ -1,12 +1,14 @@
 // client/src/store/userSearchStore.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
+import type { Media } from "../types";
 
 interface SearchedUser {
   _id: string;
   userName: string;
   firstName: string;
   lastName: string;
+  avatar?: Media | string;
 }
 
 interface UserSearchState {

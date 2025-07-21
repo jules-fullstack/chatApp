@@ -1,9 +1,24 @@
+export interface Media {
+  _id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  metadata: {
+    width?: number;
+    height?: number;
+    blurhash?: string;
+    alt?: string;
+  };
+}
+
 export interface Participant {
   _id: string;
   firstName: string;
   lastName: string;
   userName: string;
-  avatar?: string;
+  avatar?: Media | string;
 }
 
 export interface SearchedUser {
@@ -11,7 +26,7 @@ export interface SearchedUser {
   userName: string;
   firstName: string;
   lastName: string;
-  avatar?: string;
+  avatar?: Media | string;
 }
 
 export interface SearchResponse {
@@ -24,7 +39,7 @@ export interface AvatarUser {
   firstName: string;
   lastName: string;
   userName: string;
-  avatar?: string;
+  avatar?: Media | string;
 }
 
 export interface MessageTabProps {
@@ -39,14 +54,14 @@ export interface MessageTabProps {
     firstName?: string;
     lastName?: string;
     userName?: string;
-    avatar?: string;
+    avatar?: Media | string;
   } | null;
   groupParticipants?: {
     _id: string;
     firstName?: string;
     lastName?: string;
     userName?: string;
-    avatar?: string;
+    avatar?: Media | string;
   }[];
 }
 
@@ -58,7 +73,7 @@ export interface User {
   userName: string;
   email: string;
   role: "user" | "superAdmin";
-  avatar?: string;
+  avatar?: Media | string;
 }
 
 export interface Message {
@@ -67,7 +82,7 @@ export interface Message {
   sender: User;
   content: string;
   messageType: "text" | "image" | "file";
-  images?: string[];
+  attachments?: Media[];
   createdAt: string;
   updatedAt: string;
 }

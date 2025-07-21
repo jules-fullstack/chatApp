@@ -1,4 +1,4 @@
-import { UserCircleIcon } from "@heroicons/react/24/outline";
+import type { Media } from '../../types';
 
 interface AvatarProps {
   user?: {
@@ -6,7 +6,7 @@ interface AvatarProps {
     firstName?: string;
     lastName?: string;
     userName?: string;
-    avatar?: string;
+    avatar?: Media | string;
   } | null;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
@@ -19,20 +19,26 @@ const sizeClasses = {
   xl: "w-16 h-16", // size-16
 };
 
+const defaultAvatarUrl = "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg";
+
 export default function Avatar({ user, size = "md", className = "" }: AvatarProps) {
   const sizeClass = sizeClasses[size];
   
-  if (user?.avatar) {
-    return (
-      <img
-        src={user.avatar}
-        alt={`${user.firstName || ''} ${user.lastName || ''}`}
-        className={`${sizeClass} rounded-full object-cover border border-gray-300 ${className}`}
-      />
-    );
-  }
-
+  // Handle both Media object and string URL
+  const avatarUrl = user?.avatar 
+    ? typeof user.avatar === 'string' 
+      ? user.avatar 
+      : user.avatar.url
+    : defaultAvatarUrl;
+    
+  const altText = (user?.avatar && typeof user.avatar === 'object' && user.avatar.metadata?.alt) || 
+    (user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.userName || 'User' : 'Default Avatar');
+  
   return (
-    <UserCircleIcon className={`${sizeClass} text-gray-400 ${className}`} />
+    <img
+      src={avatarUrl}
+      alt={altText}
+      className={`${sizeClass} rounded-full object-cover border border-gray-300 ${className}`}
+    />
   );
 }

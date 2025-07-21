@@ -2,10 +2,15 @@ import { Request, Response } from 'express';
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
 import User from '../models/User.js';
+import Media from '../models/Media.js';
 import { IUser } from '../types/index.js';
 import WebSocketManager from '../config/websocket.js';
 import { migrateConversationsToReadAt } from '../utils/migrateConversations.js';
-import { uploadMultipleImages } from '../services/s3Service.js';
+import {
+  getMessagesByConversationWithMedia,
+  populateUsersWithAvatars,
+} from '../utils/mediaQueries.js';
+import { uploadImageToS3 } from '../services/s3Service.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -20,12 +25,23 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       content,
       messageType = 'text',
       groupName,
-      images,
+      attachmentIds,
+      images, // Backward compatibility
     } = req.body;
     const senderId = req.user?._id;
 
-    if (!senderId || (!content && (!images || images.length === 0))) {
-      return res.status(400).json({ message: 'Missing required fields: must have either content or images' });
+    if (
+      !senderId ||
+      (!content &&
+        (!attachmentIds || attachmentIds.length === 0) &&
+        (!images || images.length === 0))
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            'Missing required fields: must have either content or attachments',
+        });
     }
 
     let conversation: any;
@@ -125,16 +141,63 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
-    // Create message
-    const message = new Message({
-      conversation: conversation._id,
-      sender: senderId,
-      content,
-      messageType,
-      images: images || [],
-    });
+    let message;
 
-    await message.save();
+    // Handle backward compatibility: convert images URLs to Media objects
+    if (images && images.length > 0) {
+      // For image messages, we need to create Media objects first
+      // Create message with validation bypassed for now
+      message = new Message();
+      message.conversation = conversation._id;
+      message.sender = senderId;
+      message.content = content || '';
+      message.messageType = messageType;
+      message.attachments = [];
+
+      // Save with validation disabled temporarily
+      await message.save({ validateBeforeSave: false });
+
+      const mediaIds = [];
+      for (const imageUrl of images) {
+        // Create Media object for each image URL
+        const filename = imageUrl.split('/').pop() || 'image.jpg';
+        const media = new Media({
+          filename,
+          originalName: filename,
+          mimeType: 'image/jpeg', // Assume JPEG for uploaded images
+          size: 0, // Unknown size for existing URLs
+          url: imageUrl,
+          storageKey: imageUrl.replace(
+            'https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/',
+            '',
+          ),
+          parentType: 'Message',
+          parentId: message._id,
+          usage: 'attachment',
+          metadata: {
+            alt: `Image attachment`,
+          },
+        });
+
+        await media.save();
+        mediaIds.push(media._id);
+      }
+
+      // Update message with media IDs and save with validation
+      message.attachments = mediaIds;
+      await message.save();
+    } else {
+      // Create message normally for text-only or with existing attachments
+      message = new Message({
+        conversation: conversation._id,
+        sender: senderId,
+        content: content || '',
+        messageType,
+        attachments: attachmentIds || [],
+      });
+
+      await message.save();
+    }
 
     // Update conversation
     conversation.lastMessage = message._id;
@@ -160,7 +223,20 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 
     // Populate message for response
     const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'firstName lastName userName avatar')
+      .populate('sender', 'firstName lastName userName')
+      .populate({
+        path: 'sender',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'attachments',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType size metadata usage',
+      })
       .populate('conversation');
 
     if (!populatedMessage) {
@@ -220,7 +296,7 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
 
     // Build query for cursor-based pagination
     let messageQuery: any = { conversation: conversationId };
-    
+
     // If 'before' cursor is provided, get messages before that timestamp
     if (before) {
       messageQuery.createdAt = { $lt: new Date(before as string) };
@@ -229,7 +305,20 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
     const messages = await Message.find(messageQuery)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .populate('sender', 'firstName lastName userName avatar');
+      .populate('sender', 'firstName lastName userName')
+      .populate({
+        path: 'sender',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'attachments',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType size metadata usage',
+      });
 
     // Only update read status for initial load (page 1 and no before cursor)
     if (Number(page) === 1 && !before) {
@@ -245,7 +334,10 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const hasMore = messages.length === Number(limit);
-    const nextCursor = messages.length > 0 ? messages[messages.length - 1].createdAt.toISOString() : null;
+    const nextCursor =
+      messages.length > 0
+        ? messages[messages.length - 1].createdAt.toISOString()
+        : null;
 
     res.json({
       messages: messages.reverse(), // Reverse to show oldest first
@@ -310,14 +402,30 @@ export const getConversations = async (
       isActive: true,
     })
       .sort({ lastMessageAt: -1 })
-      .populate('participants', 'firstName lastName userName avatar')
-      .populate('groupAdmin', 'firstName lastName userName avatar')
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate({
         path: 'lastMessage',
         populate: {
           path: 'sender',
-          select: 'firstName lastName userName'
-        }
+          select: 'firstName lastName userName',
+        },
       })
       .lean();
 
@@ -485,8 +593,24 @@ export const updateGroupName = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName avatar')
-      .populate('groupAdmin', 'firstName lastName userName avatar')
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate('lastMessage')
       .lean();
 
@@ -520,10 +644,7 @@ export const updateGroupName = async (
   }
 };
 
-export const leaveGroup = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
+export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user?._id;
@@ -548,7 +669,7 @@ export const leaveGroup = async (
 
     // Remove user from participants
     conversation.participants = conversation.participants.filter(
-      (participant: any) => participant.toString() !== userId.toString()
+      (participant: any) => participant.toString() !== userId.toString(),
     );
 
     // Remove user from unread counts and readAt
@@ -558,7 +679,9 @@ export const leaveGroup = async (
     // If the user was the admin, assign a new admin randomly
     if (conversation.groupAdmin?.toString() === userId.toString()) {
       if (conversation.participants.length > 0) {
-        const randomIndex = Math.floor(Math.random() * conversation.participants.length);
+        const randomIndex = Math.floor(
+          Math.random() * conversation.participants.length,
+        );
         conversation.groupAdmin = conversation.participants[randomIndex];
       } else {
         // If no participants left, mark conversation as inactive
@@ -621,13 +744,17 @@ export const addMembersToGroup = async (
     if (!conversation || !conversation.participants.includes(userId)) {
       return res
         .status(403)
-        .json({ message: 'Not authorized to add members to this conversation' });
+        .json({
+          message: 'Not authorized to add members to this conversation',
+        });
     }
 
     if (!conversation.isGroup) {
       return res
         .status(400)
-        .json({ message: 'Cannot add members to a direct message conversation' });
+        .json({
+          message: 'Cannot add members to a direct message conversation',
+        });
     }
 
     // Verify that the user is the group admin
@@ -640,15 +767,15 @@ export const addMembersToGroup = async (
     // Verify that all users exist
     const users = await User.find({ _id: { $in: userIds } });
     if (users.length !== userIds.length) {
-      return res
-        .status(404)
-        .json({ message: 'One or more users not found' });
+      return res.status(404).json({ message: 'One or more users not found' });
     }
 
     // Filter out users who are already participants
-    const existingParticipantIds = conversation.participants.map((p: any) => p.toString());
+    const existingParticipantIds = conversation.participants.map((p: any) =>
+      p.toString(),
+    );
     const newUserIds = userIds.filter(
-      (id: string) => !existingParticipantIds.includes(id)
+      (id: string) => !existingParticipantIds.includes(id),
     );
 
     if (newUserIds.length === 0) {
@@ -670,8 +797,24 @@ export const addMembersToGroup = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName avatar')
-      .populate('groupAdmin', 'firstName lastName userName avatar')
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate('lastMessage')
       .lean();
 
@@ -742,13 +885,17 @@ export const changeGroupAdmin = async (
     if (!conversation || !conversation.participants.includes(userId)) {
       return res
         .status(403)
-        .json({ message: 'Not authorized to change admin of this conversation' });
+        .json({
+          message: 'Not authorized to change admin of this conversation',
+        });
     }
 
     if (!conversation.isGroup) {
       return res
         .status(400)
-        .json({ message: 'Cannot change admin of a direct message conversation' });
+        .json({
+          message: 'Cannot change admin of a direct message conversation',
+        });
     }
 
     // Verify that the user is the current group admin
@@ -759,19 +906,25 @@ export const changeGroupAdmin = async (
     }
 
     // Verify that the new admin is a participant in the group
-    if (!conversation.participants.some((p: any) => p.toString() === newAdminId)) {
+    if (
+      !conversation.participants.some((p: any) => p.toString() === newAdminId)
+    ) {
       return res
         .status(400)
         .json({ message: 'New admin must be a member of the group' });
     }
 
     // Verify the new admin user exists
-    const newAdmin = await User.findById(newAdminId).select('firstName lastName userName');
+    const newAdmin = await User.findById(newAdminId).select(
+      'firstName lastName userName',
+    );
     if (!newAdmin) {
       return res.status(404).json({ message: 'New admin user not found' });
     }
 
-    const currentAdmin = await User.findById(userId).select('firstName lastName userName');
+    const currentAdmin = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
 
     // Change the group admin
     conversation.groupAdmin = newAdminId;
@@ -779,8 +932,24 @@ export const changeGroupAdmin = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName avatar')
-      .populate('groupAdmin', 'firstName lastName userName avatar')
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate('lastMessage')
       .lean();
 
@@ -842,13 +1011,17 @@ export const removeMemberFromGroup = async (
     if (!conversation || !conversation.participants.includes(userId)) {
       return res
         .status(403)
-        .json({ message: 'Not authorized to remove members from this conversation' });
+        .json({
+          message: 'Not authorized to remove members from this conversation',
+        });
     }
 
     if (!conversation.isGroup) {
       return res
         .status(400)
-        .json({ message: 'Cannot remove members from a direct message conversation' });
+        .json({
+          message: 'Cannot remove members from a direct message conversation',
+        });
     }
 
     // Verify that the user is the group admin
@@ -859,7 +1032,11 @@ export const removeMemberFromGroup = async (
     }
 
     // Verify that the user to remove is a participant in the group
-    if (!conversation.participants.some((p: any) => p.toString() === userToRemoveId)) {
+    if (
+      !conversation.participants.some(
+        (p: any) => p.toString() === userToRemoveId,
+      )
+    ) {
       return res
         .status(400)
         .json({ message: 'User is not a member of this group' });
@@ -869,18 +1046,22 @@ export const removeMemberFromGroup = async (
     if (userToRemoveId === userId.toString()) {
       return res
         .status(400)
-        .json({ message: 'Admin cannot remove themselves. Use leave group instead' });
+        .json({
+          message: 'Admin cannot remove themselves. Use leave group instead',
+        });
     }
 
     // Get user info before removing
-    const removedUser = await User.findById(userToRemoveId).select('firstName lastName userName');
+    const removedUser = await User.findById(userToRemoveId).select(
+      'firstName lastName userName',
+    );
     if (!removedUser) {
       return res.status(404).json({ message: 'User to remove not found' });
     }
 
     // Remove user from participants
     conversation.participants = conversation.participants.filter(
-      (participant: any) => participant.toString() !== userToRemoveId
+      (participant: any) => participant.toString() !== userToRemoveId,
     );
 
     // Remove user from unread counts and readAt
@@ -891,13 +1072,31 @@ export const removeMemberFromGroup = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName avatar')
-      .populate('groupAdmin', 'firstName lastName userName avatar')
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate('lastMessage')
       .lean();
 
     // Get admin info for notifications
-    const admin = await User.findById(userId).select('firstName lastName userName');
+    const admin = await User.findById(userId).select(
+      'firstName lastName userName',
+    );
 
     // Notify the removed user
     WebSocketManager.sendMessage(userToRemoveId, {
@@ -947,7 +1146,6 @@ export const removeMemberFromGroup = async (
   }
 };
 
-
 // Migration endpoint - remove this after migration is complete
 export const migrateConversations = async (
   req: AuthenticatedRequest,
@@ -962,7 +1160,10 @@ export const migrateConversations = async (
   }
 };
 
-export const uploadImages = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const uploadImages = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
   try {
     const files = req.files;
     const userId = req.user?._id;
@@ -977,13 +1178,23 @@ export const uploadImages = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
-    const uploadResults = await uploadMultipleImages(files, userId.toString());
-    const imageUrls = uploadResults.map(result => result.url);
+    // Upload images to S3 and get URLs for backward compatibility
+    const imageUrls: string[] = [];
 
-    res.status(200).json({ 
-      success: true, 
+    for (const file of files) {
+      try {
+        const uploadResult = await uploadImageToS3(file, userId.toString());
+        imageUrls.push(uploadResult.url);
+      } catch (error) {
+        console.error('Error uploading file:', file.originalname, error);
+        throw new Error(`Failed to upload ${file.originalname}`);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
       images: imageUrls,
-      count: imageUrls.length 
+      count: imageUrls.length,
     });
   } catch (error) {
     console.error('Image upload error:', error);

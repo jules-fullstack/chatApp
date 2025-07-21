@@ -1,4 +1,5 @@
-import { UserCircleIcon } from "@heroicons/react/24/outline";
+import Avatar from "./Avatar";
+import type { Media } from "../../types";
 
 interface GroupAvatarProps {
   participants: {
@@ -6,7 +7,7 @@ interface GroupAvatarProps {
     firstName?: string;
     lastName?: string;
     userName?: string;
-    avatar?: string;
+    avatar?: Media | string;
   }[];
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
@@ -36,7 +37,7 @@ export default function GroupAvatar({ participants, size = "md", className = "" 
   if (displayParticipants.length === 0) {
     return (
       <div className={`${sizeClass} ${className}`}>
-        <UserCircleIcon className={`${sizeClass} text-gray-400`} />
+        <Avatar user={null} size={size} />
       </div>
     );
   }
@@ -45,15 +46,7 @@ export default function GroupAvatar({ participants, size = "md", className = "" 
     const participant = displayParticipants[0];
     return (
       <div className={`${sizeClass} ${className}`}>
-        {participant.avatar ? (
-          <img
-            src={participant.avatar}
-            alt={`${participant.firstName || ''} ${participant.lastName || ''}`}
-            className={`${sizeClass} rounded-full object-cover border border-gray-300`}
-          />
-        ) : (
-          <UserCircleIcon className={`${sizeClass} text-gray-400`} />
-        )}
+        <Avatar user={participant} size={size} />
       </div>
     );
   }
@@ -67,15 +60,11 @@ export default function GroupAvatar({ participants, size = "md", className = "" 
           className={`absolute ${sizeClass} ${index > 0 ? offsetClass : ''}`}
           style={{ zIndex: displayParticipants.length - index }}
         >
-          {participant.avatar ? (
-            <img
-              src={participant.avatar}
-              alt={`${participant.firstName || ''} ${participant.lastName || ''}`}
-              className={`${sizeClass} rounded-full object-cover border-2 border-white`}
-            />
-          ) : (
-            <UserCircleIcon className={`${sizeClass} text-gray-400 bg-white rounded-full border-2 border-white`} />
-          )}
+          <Avatar 
+            user={participant} 
+            size={size} 
+            className="border-2 border-white"
+          />
         </div>
       ))}
     </div>

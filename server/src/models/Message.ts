@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from 'mongoose';
+import { Schema, model } from 'mongoose';
 import { IMessage } from '../types/index.js';
 
 const messageSchema = new Schema<IMessage>(
@@ -16,7 +16,9 @@ const messageSchema = new Schema<IMessage>(
     content: {
       type: String,
       required: function() {
-        return !this.images || this.images.length === 0;
+        // Content is required only if there are no attachments
+        const attachments = this.attachments || [];
+        return attachments.length === 0;
       },
       trim: true,
     },
@@ -25,8 +27,9 @@ const messageSchema = new Schema<IMessage>(
       enum: ['text', 'image', 'file'],
       default: 'text',
     },
-    images: {
-      type: [String],
+    attachments: {
+      type: [Schema.Types.ObjectId],
+      ref: 'Media',
       default: [],
     },
     isEdited: {

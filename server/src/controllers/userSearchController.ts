@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import User from '../models/User.js';
 import { AuthRequest } from '../types/index.js';
+import { populateUsersWithAvatars } from '../utils/mediaQueries.js';
 
 export const searchUsers = async (
   req: AuthRequest & { query: { query?: string } },
@@ -37,6 +38,11 @@ export const searchUsers = async (
       },
     })
       .select('_id userName firstName lastName avatar')
+      .populate({
+        path: 'avatar',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
       .limit(10)
       .lean();
 

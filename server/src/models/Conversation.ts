@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from 'mongoose';
+import { Schema, model } from 'mongoose';
 import { IConversation } from '../types/index.js';
 
 const conversationSchema = new Schema<IConversation>(
@@ -62,7 +62,15 @@ conversationSchema.statics.findBetweenUsers = function (
     isGroup: false,
     isActive: true,
   })
-    .populate('participants', 'firstName lastName userName')
+    .populate({
+      path: 'participants',
+      select: 'firstName lastName userName',
+      populate: {
+        path: 'avatar',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      },
+    })
     .populate('lastMessage');
 };
 

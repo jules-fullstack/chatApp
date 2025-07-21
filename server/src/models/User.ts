@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from 'mongoose';
+import { Schema, model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUser } from '../types/index.js';
 
@@ -42,7 +42,8 @@ const userSchema = new Schema<IUser>(
       default: false,
     },
     avatar: {
-      type: String,
+      type: Schema.Types.ObjectId,
+      ref: 'Media',
       default: null,
     },
     role: {

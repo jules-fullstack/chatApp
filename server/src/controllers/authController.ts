@@ -9,6 +9,7 @@ import {
 } from '../types/index.js';
 import { sendOTPEmail } from '../services/emailService.js';
 import { rateLimitService } from '../services/rateLimitService.js';
+import { populateUserWithAvatar } from '../utils/mediaQueries.js';
 
 export const register = async (
   req: Request<{}, AuthResponse, RegisterRequest>,
@@ -79,7 +80,7 @@ export const login = (
         message:
           'Login credentials verified. Please check your email for OTP verification.',
       });
-    } catch (error) {
+    } catch {
       res.status(500).json({ message: 'Error sending OTP' });
     }
   })(req, res, next);
@@ -116,7 +117,7 @@ export const verifyOTP = async (
     await user.save();
 
     // Log the user in
-    req.login(user, (err) => {
+    req.login(user, async (err) => {
       if (err) {
         res
           .status(500)
@@ -127,6 +128,10 @@ export const verifyOTP = async (
       // Clear pending user from session
       delete req.session.pendingUser;
 
+      // Get user with populated avatar
+      const userWithAvatar = await populateUserWithAvatar(user._id);
+      const avatarUrl = (userWithAvatar?.avatar as any)?.url || null;
+
       res.json({
         message: 'OTP verified successfully',
         user: {
@@ -136,7 +141,7 @@ export const verifyOTP = async (
           userName: user.userName,
           email: user.email,
           role: user.role,
-          avatar: user.avatar,
+          avatar: avatarUrl,
         },
       });
     });
@@ -168,7 +173,7 @@ export const logout = (req: Request, res: Response): void => {
 
 export const resendOTP = async (
   req: Request<{}, AuthResponse, { email: string }>,
-  res: Response<AuthResponse>
+  res: Response<AuthResponse>,
 ): Promise<void> => {
   try {
     const { email } = req.body;
@@ -180,9 +185,9 @@ export const resendOTP = async (
 
     const rateLimit = rateLimitService.checkRateLimit(email);
     if (!rateLimit.allowed) {
-      res.status(429).json({ 
+      res.status(429).json({
         message: `Too many OTP requests. Please try again in ${Math.ceil(rateLimit.timeUntilReset! / 60)} minutes.`,
-        timeUntilReset: rateLimit.timeUntilReset
+        timeUntilReset: rateLimit.timeUntilReset,
       });
       return;
     }
@@ -203,29 +208,42 @@ export const resendOTP = async (
 
     res.json({
       message: 'OTP resent successfully. Please check your email.',
-      remainingAttempts
+      remainingAttempts,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
-      message: `Server error: ${errorMessage}`
+      message: `Server error: ${errorMessage}`,
     });
   }
 };
 
-export const getCurrentUser = (req: Request, res: Response): void => {
+export const getCurrentUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   if (req.user) {
-    res.json({
-      user: {
-        id: req.user._id.toString(),
-        firstName: req.user.firstName,
-        lastName: req.user.lastName,
-        userName: req.user.userName,
-        email: req.user.email,
-        role: req.user.role,
-        avatar: req.user.avatar,
-      },
-    });
+    try {
+      // Get user with populated avatar
+      const userWithAvatar = await populateUserWithAvatar(req.user._id);
+      const avatarUrl = (userWithAvatar?.avatar as any)?.url || null;
+
+      res.json({
+        user: {
+          id: req.user._id.toString(),
+          firstName: req.user.firstName,
+          lastName: req.user.lastName,
+          userName: req.user.userName,
+          email: req.user.email,
+          role: req.user.role,
+          avatar: avatarUrl,
+        },
+      });
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      res.status(500).json({ message: 'Error fetching user data' });
+    }
   } else {
     res.status(401).json({ message: 'Not authenticated' });
   }

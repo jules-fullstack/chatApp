@@ -207,6 +207,7 @@ export default function ConversationDetails() {
       firstName: participant.firstName,
       lastName: participant.lastName,
       userName: participant.userName,
+      avatar: participant.avatar,
     });
 
     // Try to find existing conversation with this user

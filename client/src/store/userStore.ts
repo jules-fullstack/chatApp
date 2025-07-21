@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Media } from "../types";
 
 interface User {
   id: string;
@@ -7,7 +8,7 @@ interface User {
   userName: string;
   email: string;
   role: "user" | "superAdmin";
-  avatar?: string;
+  avatar?: Media | string;
 }
 
 interface AuthState {
@@ -31,7 +32,7 @@ export const userStore = create<AuthState>()((set) => ({
         method: "GET",
         credentials: "include",
       });
-      
+
       if (response.ok) {
         const userData = await response.json();
         set({ user: userData.user, isLoading: false });

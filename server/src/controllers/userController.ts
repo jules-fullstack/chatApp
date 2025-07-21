@@ -2,20 +2,13 @@ import { Request, Response } from 'express';
 import User from '../models/User.js';
 import { IUser } from '../types/index.js';
 import { updateProfileSchema } from '../schemas/validations.js';
-import { uploadImageToS3 } from '../services/s3Service.js';
+import { populateUserWithAvatar } from '../utils/mediaQueries.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
   file?: Express.Multer.File;
 }
 
-interface UpdateProfileRequest {
-  firstName?: string;
-  lastName?: string;
-  userName?: string;
-  currentPassword?: string;
-  newPassword?: string;
-}
 
 export const updateProfile = async (
   req: AuthenticatedRequest,
@@ -83,15 +76,18 @@ export const updateProfile = async (
     // Save the updated user
     await user.save();
 
+    // Get updated user with populated avatar
+    const updatedUserWithAvatar = await populateUserWithAvatar(user._id);
+    
     // Return updated user data (excluding password)
     const updatedUser = {
-      id: user._id.toString(),
-      firstName: user.firstName,
-      lastName: user.lastName,
-      userName: user.userName,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
+      id: updatedUserWithAvatar!._id.toString(),
+      firstName: updatedUserWithAvatar!.firstName,
+      lastName: updatedUserWithAvatar!.lastName,
+      userName: updatedUserWithAvatar!.userName,
+      email: updatedUserWithAvatar!.email,
+      role: updatedUserWithAvatar!.role,
+      avatar: updatedUserWithAvatar!.avatar,
     };
 
     res.json({
@@ -116,13 +112,15 @@ export const getProfile = async (
       return;
     }
 
-    const user = await User.findById(userId).select(
-      '-password -otp -otpExpiry',
-    );
+    const user = await populateUserWithAvatar(userId);
     if (!user) {
       res.status(404).json({ message: 'User not found' });
       return;
     }
+    
+    (user as any).password = undefined;
+    (user as any).otp = undefined;
+    (user as any).otpExpiry = undefined;
 
     const userData = {
       id: user._id.toString(),
@@ -147,38 +145,12 @@ export const uploadAvatar = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const file = req.file;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      res.status(401).json({ message: 'Not authenticated' });
-      return;
-    }
-
-    if (!file) {
-      res.status(400).json({ message: 'No file provided' });
-      return;
-    }
-
-    // Upload to S3
-    const uploadResult = await uploadImageToS3(file, userId.toString());
-    
-    // Update user's avatar field
-    const user = await User.findById(userId);
-    if (!user) {
-      res.status(404).json({ message: 'User not found' });
-      return;
-    }
-
-    user.avatar = uploadResult.url;
-    await user.save();
-
-    res.json({
-      message: 'Avatar uploaded successfully',
-      avatar: uploadResult.url,
+    res.status(410).json({ 
+      message: 'This endpoint has been deprecated. Please use /api/media/upload with parentType=User and usage=avatar instead.',
+      newEndpoint: '/api/media/upload'
     });
   } catch (error) {
-    console.error('Error uploading avatar:', error);
+    console.error('Error in deprecated uploadAvatar:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

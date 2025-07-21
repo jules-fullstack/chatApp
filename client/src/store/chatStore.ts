@@ -885,6 +885,7 @@ export const useChatStore = create<ChatState>()(
             userName: string;
             firstName: string;
             lastName: string;
+            avatar?: string;
           };
           conversation: Conversation;
         };
@@ -902,6 +903,7 @@ export const useChatStore = create<ChatState>()(
                   lastName: newAdmin.lastName,
                   email: "", // Add required email field
                   role: "user" as const, // Add required role field
+                  avatar: newAdmin.avatar || "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg",
                 },
                 // Update with any other fields from the populated conversation
                 participants: conversation.participants || conv.participants,

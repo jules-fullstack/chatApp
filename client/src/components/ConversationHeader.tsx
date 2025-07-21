@@ -1,6 +1,6 @@
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { type Participant, type SearchedUser } from "../types";
+import { type Participant, type SearchedUser, type User } from "../types";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { useForm } from "react-hook-form";
@@ -199,7 +199,7 @@ export default function ConversationHeader({
   // For group chats, use conversation data
   const isGroupChat = conversation?.isGroup;
   const groupName = conversation?.groupName;
-  const groupParticipants = conversation?.participants || [];
+  const groupParticipants = conversation?.participants || [] as User[];
 
   // Get participant names for unnamed groups (excluding current user)
   const getGroupDisplayName = () => {

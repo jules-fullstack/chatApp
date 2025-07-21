@@ -4,7 +4,7 @@ import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { Loader } from "@mantine/core";
 import { useEffect } from "react";
-import { type Message } from "../types";
+import { type Message, type Media } from "../types";
 
 export default function Inbox() {
   const { searchedUsers, isSearching, isSearchActive, error, searchQuery } =
@@ -35,6 +35,7 @@ export default function Inbox() {
         firstName: user.firstName,
         lastName: user.lastName,
         userName: user.userName,
+        avatar: user.avatar,
       });
     }
 
@@ -60,6 +61,7 @@ export default function Inbox() {
       lastName: string;
       userName: string;
       email: string;
+      avatar?: Media | string;
     }
   ) => {
     if (participant) {
@@ -68,6 +70,7 @@ export default function Inbox() {
         firstName: participant.firstName,
         lastName: participant.lastName,
         userName: participant.userName,
+        avatar: participant.avatar,
       });
     } else {
       setFallbackParticipant(null);
@@ -119,8 +122,8 @@ export default function Inbox() {
   ) => {
     if (!lastMessage) return "No messages yet";
 
-    // Check if the message has images
-    if (lastMessage.images && lastMessage.images.length > 0) {
+    // Check if the message has attachments
+    if (lastMessage.attachments && lastMessage.attachments.length > 0) {
       const isOwnMessage = currentUserId === lastMessage.sender._id;
       if (isOwnMessage) {
         return "You sent an image";

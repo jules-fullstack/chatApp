@@ -34,7 +34,7 @@ export default function MessageBubble({
 
     const readByUsers: {
       userId: string;
-      user: { _id: string; userName?: string; firstName?: string };
+      user: { _id: string; userName?: string; firstName?: string; avatar?: import('../types').Media | string };
     }[] = [];
 
     if (conversation.isGroup) {
@@ -84,13 +84,13 @@ export default function MessageBubble({
           {message.content && message.content.trim() && (
             <p className="text-sm break-words">{message.content}</p>
           )}
-          {message.images && message.images.length > 0 && (
+          {message.attachments && message.attachments.length > 0 && (
             <div className="mb-2 space-y-1">
-              {message.images.map((imageUrl, index) => (
+              {message.attachments.filter(attachment => attachment.mimeType.startsWith('image/')).map((attachment, index) => (
                 <img
-                  key={index}
-                  src={imageUrl}
-                  alt={`Image ${index + 1}`}
+                  key={attachment._id}
+                  src={attachment.url}
+                  alt={attachment.metadata?.alt || `Image ${index + 1}`}
                   className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => handleImageClick(index)}
                 />
@@ -121,11 +121,11 @@ export default function MessageBubble({
       )}
 
       {/* Image Modal */}
-      {message.images && message.images.length > 0 && (
+      {message.attachments && message.attachments.length > 0 && (
         <ImageModal
           opened={modalOpened}
           onClose={() => setModalOpened(false)}
-          images={message.images}
+          images={message.attachments.filter(attachment => attachment.mimeType.startsWith('image/')).map(attachment => attachment.url)}
           initialIndex={selectedImageIndex}
         />
       )}

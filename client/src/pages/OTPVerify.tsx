@@ -15,6 +15,7 @@ interface ApiResponse {
     userName: string;
     email: string;
     role: "user" | "superAdmin";
+    avatar?: string;
   };
   remainingAttempts?: number;
   timeUntilReset?: number;

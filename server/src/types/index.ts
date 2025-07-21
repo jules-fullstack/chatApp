@@ -8,7 +8,7 @@ export interface IUser extends Document {
   userName: string;
   email: string;
   password: string;
-  avatar?: string;
+  avatar?: Types.ObjectId;
   otp?: string;
   otpExpiry?: Date;
   isEmailVerified: boolean;
@@ -55,7 +55,7 @@ export interface AuthResponse {
     userName: string;
     email: string;
     role: 'user' | 'superAdmin';
-    avatar?: string;
+    avatar?: string | null;
   };
   remainingAttempts?: number;
   timeUntilReset?: number;
@@ -76,13 +76,35 @@ export interface IConversation extends Document {
   updatedAt: Date;
 }
 
+export interface IMedia extends Document {
+  _id: Types.ObjectId;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  storageKey: string;
+  parentType: 'User' | 'Message';
+  parentId: Types.ObjectId;
+  usage: 'avatar' | 'attachment';
+  metadata: {
+    width?: number;
+    height?: number;
+    blurhash?: string;
+    alt?: string;
+  };
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IMessage extends Document {
   _id: Types.ObjectId;
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   content: string;
   messageType: 'text' | 'image' | 'file';
-  images?: string[];
+  attachments?: Types.ObjectId[];
   isEdited: boolean;
   editedAt: Date | null;
   createdAt: Date;

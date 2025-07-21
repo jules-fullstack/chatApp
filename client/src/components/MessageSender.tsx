@@ -22,7 +22,7 @@ export default function MessageSender() {
   const [isTyping, setIsTyping] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string>("");
-  const [pendingImageUrls, setPendingImageUrls] = useState<string[]>([]);
+  const [pendingImageUrls, setPendingAttachmentIds] = useState<string[]>([]);
   const [pendingMessageType, setPendingMessageType] = useState<string>("text");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -276,7 +276,7 @@ export default function MessageSender() {
         // If multiple recipients, show group modal first
         if (newMessageRecipients.length > 1) {
           setPendingMessage(messageContent);
-          setPendingImageUrls(imageUrls);
+          setPendingAttachmentIds(imageUrls);
           setPendingMessageType(hasImages ? "image" : "text");
           setShowGroupModal(true);
           setIsSubmitting(false); // Reset submitting state when showing modal
@@ -285,7 +285,7 @@ export default function MessageSender() {
 
         // Single recipient - send directly
         const recipientIds = newMessageRecipients.map((r) => r._id);
-        
+
         if (hasText && hasImages) {
           // Send text message first
           await sendMessage(
@@ -296,13 +296,7 @@ export default function MessageSender() {
             []
           );
           // Send image message second
-          await sendMessage(
-            recipientIds,
-            "",
-            undefined,
-            "image",
-            imageUrls
-          );
+          await sendMessage(recipientIds, "", undefined, "image", imageUrls);
         } else {
           // Send single message (either text or image)
           const messageType = hasImages ? "image" : "text";
@@ -398,7 +392,7 @@ export default function MessageSender() {
       // If multiple recipients, show group modal first
       if (newMessageRecipients.length > 1) {
         setPendingMessage(thumbsUpMessage);
-        setPendingImageUrls([]);
+        setPendingAttachmentIds([]);
         setPendingMessageType("text");
         setShowGroupModal(true);
         setIsSubmitting(false); // Reset submitting state when showing modal
@@ -407,11 +401,13 @@ export default function MessageSender() {
 
       // Single recipient - send directly
       const recipientIds = newMessageRecipients.map((r) => r._id);
-      sendMessage(recipientIds, thumbsUpMessage)
-        .finally(() => setIsSubmitting(false));
+      sendMessage(recipientIds, thumbsUpMessage).finally(() =>
+        setIsSubmitting(false)
+      );
     } else if (activeConversation) {
-      sendMessage([activeConversation], thumbsUpMessage)
-        .finally(() => setIsSubmitting(false));
+      sendMessage([activeConversation], thumbsUpMessage).finally(() =>
+        setIsSubmitting(false)
+      );
     } else {
       setIsSubmitting(false);
     }
@@ -440,16 +436,10 @@ export default function MessageSender() {
       const recipientIds = newMessageRecipients.map((r) => r._id);
       const hasText = pendingMessage && pendingMessage.trim().length > 0;
       const hasImages = pendingImageUrls.length > 0;
-      
+
       if (hasText && hasImages) {
         // Send text message first
-        await sendMessage(
-          recipientIds,
-          pendingMessage,
-          groupName,
-          "text",
-          []
-        );
+        await sendMessage(recipientIds, pendingMessage, groupName, "text", []);
         // Send image message second
         await sendMessage(
           recipientIds,
@@ -471,7 +461,7 @@ export default function MessageSender() {
 
       reset();
       setPendingMessage("");
-      setPendingImageUrls([]);
+      setPendingAttachmentIds([]);
       setPendingMessageType("text");
       setSelectedImages([]);
 
@@ -492,7 +482,7 @@ export default function MessageSender() {
   const handleGroupModalClose = () => {
     setShowGroupModal(false);
     setPendingMessage("");
-    setPendingImageUrls([]);
+    setPendingAttachmentIds([]);
     setPendingMessageType("text");
   };
 
@@ -562,12 +552,12 @@ export default function MessageSender() {
               type="submit"
               disabled={isSubmitting}
               className={`p-2 transition-colors ${
-                isSubmitting 
-                  ? "text-gray-400 cursor-not-allowed" 
+                isSubmitting
+                  ? "text-gray-400 cursor-not-allowed"
                   : "text-blue-500 hover:text-blue-700"
               }`}
             >
-              <PaperAirplaneIcon className="size-6" />
+              <PaperAirplaneIcon className="size-6 cursor-pointer" />
             </button>
           ) : (
             <button
@@ -575,12 +565,12 @@ export default function MessageSender() {
               onClick={handleLikeClick}
               disabled={isSubmitting}
               className={`p-2 transition-colors ${
-                isSubmitting 
-                  ? "text-gray-400 cursor-not-allowed" 
+                isSubmitting
+                  ? "text-gray-400 cursor-not-allowed"
                   : "text-blue-500 hover:text-blue-700"
               }`}
             >
-              <HandThumbUpIcon className="size-6" />
+              <HandThumbUpIcon className="size-6 cursor-pointer" />
             </button>
           )}
         </form>

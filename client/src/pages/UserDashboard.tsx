@@ -3,7 +3,6 @@ import { useChatStore } from "../store/chatStore";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
 import {
-  UserCircleIcon,
   ArrowRightStartOnRectangleIcon,
   Cog6ToothIcon,
   CameraIcon,
@@ -261,10 +260,13 @@ export default function UserDashboard() {
 
     try {
       const formData = new FormData();
-      formData.append("avatar", file);
+      formData.append("file", file);
+      formData.append("parentType", "User");
+      formData.append("parentId", user!.id);
+      formData.append("usage", "avatar");
 
       const response = await fetch(
-        "http://localhost:3000/api/users/upload-avatar",
+        "http://localhost:3000/api/media/upload",
         {
           method: "POST",
           credentials: "include",
@@ -274,8 +276,8 @@ export default function UserDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        // Update user with new avatar
-        setUser({ ...user!, avatar: result.avatar });
+        // Update user with new avatar Media object
+        setUser({ ...user!, avatar: result.media });
         notifications.show({
           title: "Success",
           message: "Avatar uploaded successfully!",
@@ -352,15 +354,21 @@ export default function UserDashboard() {
           {/* Avatar Upload Section */}
           <div className="flex flex-col items-center mb-6">
             <div className="relative">
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt="Profile"
-                  className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
-                />
-              ) : (
-                <UserCircleIcon className="w-20 h-20 text-gray-400" />
-              )}
+              <Avatar
+                user={
+                  user
+                    ? {
+                        _id: user.id,
+                        firstName: user.firstName,
+                        lastName: user.lastName,
+                        userName: user.userName,
+                        avatar: user.avatar,
+                      }
+                    : null
+                }
+                size="xl"
+                className="border-4 border-gray-200"
+              />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
