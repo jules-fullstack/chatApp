@@ -3,7 +3,6 @@ import { Modal, Button, Checkbox, ScrollArea } from "@mantine/core";
 import {
   MagnifyingGlassIcon,
   XMarkIcon,
-  UserCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useForm } from "react-hook-form";
 import FormField from "./ui/FormField";
@@ -11,6 +10,7 @@ import useDebounce from "../hooks/useDebounce";
 import conversationService from "../services/conversationService";
 import userSearchService from "../services/userSearchService";
 import { type SearchedUser, type Participant } from "../types/index";
+import Avatar from "./ui/Avatar";
 
 interface SearchFormData {
   search: string;
@@ -208,7 +208,7 @@ export default function AddPeopleModal({
                       <XMarkIcon className="size-3" />
                     </button>
                     <div className="flex flex-col items-center w-16">
-                      <UserCircleIcon className="size-12 text-gray-400" />
+                      <Avatar user={user} size="lg" />
                       <span className="text-xs text-gray-600 mt-1 truncate w-full">
                         {user.userName}
                       </span>
@@ -251,7 +251,7 @@ export default function AddPeopleModal({
                           handleUserSelect(user, event.currentTarget.checked)
                         }
                       />
-                      <UserCircleIcon className="size-10 text-gray-400" />
+                      <Avatar user={user} size="md" />
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">
                           {user.firstName} {user.lastName}

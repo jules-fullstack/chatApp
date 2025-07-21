@@ -41,6 +41,10 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    avatar: {
+      type: String,
+      default: null,
+    },
     role: {
       type: String,
       enum: ['user', 'superAdmin'],

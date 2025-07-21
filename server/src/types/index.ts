@@ -8,6 +8,7 @@ export interface IUser extends Document {
   userName: string;
   email: string;
   password: string;
+  avatar?: string;
   otp?: string;
   otpExpiry?: Date;
   isEmailVerified: boolean;
@@ -54,6 +55,7 @@ export interface AuthResponse {
     userName: string;
     email: string;
     role: 'user' | 'superAdmin';
+    avatar?: string;
   };
   remainingAttempts?: number;
   timeUntilReset?: number;

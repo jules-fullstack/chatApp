@@ -8,6 +8,7 @@ interface User {
   userName: string;
   email: string;
   role: "user" | "superAdmin";
+  avatar?: string;
 }
 
 interface AuthState {

@@ -160,7 +160,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 
     // Populate message for response
     const populatedMessage = await Message.findById(message._id)
-      .populate('sender', 'firstName lastName userName')
+      .populate('sender', 'firstName lastName userName avatar')
       .populate('conversation');
 
     if (!populatedMessage) {
@@ -229,7 +229,7 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
     const messages = await Message.find(messageQuery)
       .sort({ createdAt: -1 })
       .limit(Number(limit))
-      .populate('sender', 'firstName lastName userName');
+      .populate('sender', 'firstName lastName userName avatar');
 
     // Only update read status for initial load (page 1 and no before cursor)
     if (Number(page) === 1 && !before) {
@@ -310,8 +310,8 @@ export const getConversations = async (
       isActive: true,
     })
       .sort({ lastMessageAt: -1 })
-      .populate('participants', 'firstName lastName userName')
-      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('participants', 'firstName lastName userName avatar')
+      .populate('groupAdmin', 'firstName lastName userName avatar')
       .populate({
         path: 'lastMessage',
         populate: {
@@ -485,8 +485,8 @@ export const updateGroupName = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName')
-      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('participants', 'firstName lastName userName avatar')
+      .populate('groupAdmin', 'firstName lastName userName avatar')
       .populate('lastMessage')
       .lean();
 
@@ -670,8 +670,8 @@ export const addMembersToGroup = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName')
-      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('participants', 'firstName lastName userName avatar')
+      .populate('groupAdmin', 'firstName lastName userName avatar')
       .populate('lastMessage')
       .lean();
 
@@ -779,8 +779,8 @@ export const changeGroupAdmin = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName')
-      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('participants', 'firstName lastName userName avatar')
+      .populate('groupAdmin', 'firstName lastName userName avatar')
       .populate('lastMessage')
       .lean();
 
@@ -891,8 +891,8 @@ export const removeMemberFromGroup = async (
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
-      .populate('participants', 'firstName lastName userName')
-      .populate('groupAdmin', 'firstName lastName userName')
+      .populate('participants', 'firstName lastName userName avatar')
+      .populate('groupAdmin', 'firstName lastName userName avatar')
       .populate('lastMessage')
       .lean();
 

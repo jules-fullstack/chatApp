@@ -1,5 +1,6 @@
-import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { type MessageTabProps } from "../types";
+import Avatar from "./ui/Avatar";
+import GroupAvatar from "./ui/GroupAvatar";
 
 export default function MessageTab({
   type = "default",
@@ -8,6 +9,8 @@ export default function MessageTab({
   unreadCount = 0,
   isActive = false,
   onClick,
+  user,
+  groupParticipants,
 }: MessageTabProps) {
   const isDefault = type === "default";
 
@@ -27,9 +30,19 @@ export default function MessageTab({
       }}
     >
       <div className="relative">
-        <UserCircleIcon
-          className={`${isDefault ? "size-16" : "size-12"} text-gray-400`}
-        />
+        {groupParticipants && groupParticipants.length > 0 ? (
+          <GroupAvatar
+            participants={groupParticipants}
+            size={isDefault ? "xl" : "lg"}
+            className={isDefault ? "!w-16 !h-16" : ""}
+          />
+        ) : (
+          <Avatar
+            user={user}
+            size={isDefault ? "xl" : "lg"}
+            className={isDefault ? "!w-16 !h-16" : ""}
+          />
+        )}
         {unreadCount > 0 && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full min-w-5 h-5 flex items-center justify-center text-xs font-semibold">
             {unreadCount > 99 ? "99+" : unreadCount}

@@ -136,6 +136,7 @@ export const verifyOTP = async (
           userName: user.userName,
           email: user.email,
           role: user.role,
+          avatar: user.avatar,
         },
       });
     });

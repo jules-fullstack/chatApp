@@ -3,6 +3,7 @@ export interface Participant {
   firstName: string;
   lastName: string;
   userName: string;
+  avatar?: string;
 }
 
 export interface SearchedUser {
@@ -10,11 +11,20 @@ export interface SearchedUser {
   userName: string;
   firstName: string;
   lastName: string;
+  avatar?: string;
 }
 
 export interface SearchResponse {
   success: boolean;
   users: SearchedUser[];
+}
+
+export interface AvatarUser {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  avatar?: string;
 }
 
 export interface MessageTabProps {
@@ -24,6 +34,20 @@ export interface MessageTabProps {
   unreadCount?: number;
   isActive?: boolean;
   onClick?: () => void;
+  user?: {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    userName?: string;
+    avatar?: string;
+  } | null;
+  groupParticipants?: {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    userName?: string;
+    avatar?: string;
+  }[];
 }
 
 
@@ -34,6 +58,7 @@ export interface User {
   userName: string;
   email: string;
   role: "user" | "superAdmin";
+  avatar?: string;
 }
 
 export interface Message {

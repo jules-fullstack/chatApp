@@ -108,6 +108,7 @@ export default function Inbox() {
         username={user.userName}
         isActive={activeConversation === user._id}
         onClick={() => handleUserClick(user._id)}
+        user={user}
       />
     ));
   };
@@ -200,6 +201,8 @@ export default function Inbox() {
                 conversation.isGroup ? undefined : conversation.participant
               );
             }}
+            user={conversation.isGroup ? null : conversation.participant}
+            groupParticipants={conversation.isGroup ? conversation.participants : undefined}
           />
         );
       });

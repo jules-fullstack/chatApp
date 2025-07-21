@@ -1,8 +1,8 @@
-import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { userStore } from "../store/userStore";
 import { type Message, type Conversation } from "../types";
 import { useState } from "react";
 import ImageModal from "./ImageModal";
+import Avatar from "./ui/Avatar";
 
 interface MessageBubbleProps {
   message: Message;
@@ -104,10 +104,11 @@ export default function MessageBubble({
         <div className="flex justify-end mb-1">
           <div className="flex items-center space-x-1">
             {readByUsers.slice(0, 3).map(({ userId, user }) => (
-              <UserCircleIcon
+              <Avatar
                 key={userId}
-                className="size-4 text-gray-400"
-                title={`Read by ${user.userName}`}
+                user={user}
+                size="sm"
+                className="!w-4 !h-4"
               />
             ))}
             {readByUsers.length > 3 && (

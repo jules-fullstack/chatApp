@@ -36,7 +36,7 @@ export const searchUsers = async (
         $options: 'i',
       },
     })
-      .select('_id userName firstName lastName')
+      .select('_id userName firstName lastName avatar')
       .limit(10)
       .lean();
 
@@ -47,6 +47,7 @@ export const searchUsers = async (
         userName: user.userName,
         firstName: user.firstName,
         lastName: user.lastName,
+        avatar: user.avatar,
       })),
     });
   } catch (error) {

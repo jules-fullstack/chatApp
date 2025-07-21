@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
@@ -6,6 +6,7 @@ import {
   UserCircleIcon,
   ArrowRightStartOnRectangleIcon,
   Cog6ToothIcon,
+  CameraIcon,
 } from "@heroicons/react/24/outline";
 import Sidebar from "../components/Sidebar";
 import MessageWindow from "../components/MessageWindow";
@@ -17,6 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import FormField from "../components/ui/FormField";
 import ConversationDetails from "../components/ConversationDetails";
+import Avatar from "../components/ui/Avatar";
 
 // Zod schema for profile update
 const profileUpdateSchema = z
@@ -92,7 +94,9 @@ type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 export default function UserDashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isOpen, { open, close }] = useDisclosure(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const user = userStore((state) => state.user);
   const clearUser = userStore((state) => state.clearUser);
@@ -227,6 +231,81 @@ export default function UserDashboard() {
     }
   };
 
+  const handleAvatarUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      notifications.show({
+        title: "Invalid File",
+        message: "Please select an image file.",
+        color: "red",
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      notifications.show({
+        title: "File Too Large",
+        message: "Image must be less than 5MB.",
+        color: "red",
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const response = await fetch(
+        "http://localhost:3000/api/users/upload-avatar",
+        {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        // Update user with new avatar
+        setUser({ ...user!, avatar: result.avatar });
+        notifications.show({
+          title: "Success",
+          message: "Avatar uploaded successfully!",
+          color: "green",
+        });
+      } else {
+        const errorData = await response.json();
+        notifications.show({
+          title: "Upload Failed",
+          message:
+            errorData.message || "Avatar upload failed. Please try again.",
+          color: "red",
+        });
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      notifications.show({
+        title: "Error",
+        message: "An error occurred while uploading. Please try again.",
+        color: "red",
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleModalOpen = () => {
     // Reset form with current user data when opening modal
     reset({
@@ -268,7 +347,41 @@ export default function UserDashboard() {
     <div className="bg-gray-100 h-screen flex items-center relative">
       <Modal opened={isOpen} onClose={close} title="Profile Settings" size="md">
         <div className="relative">
-          <LoadingOverlay visible={isUpdating} />
+          <LoadingOverlay visible={isUpdating || isUploadingAvatar} />
+
+          {/* Avatar Upload Section */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="relative">
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt="Profile"
+                  className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
+                />
+              ) : (
+                <UserCircleIcon className="w-20 h-20 text-gray-400" />
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white p-2 rounded-full shadow-lg transition-colors"
+              >
+                <CameraIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mt-2">
+              Click the camera icon to upload a new avatar
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
+
           <form
             onSubmit={handleSubmit(handleProfileUpdate)}
             className="space-y-4"
@@ -388,7 +501,18 @@ export default function UserDashboard() {
 
       <Menu position="top">
         <Menu.Target>
-          <UserCircleIcon className="size-12 place-self-end mb-8 ml-4 mr-4 cursor-pointer" />
+          <div className="place-self-end mb-8 ml-4 mr-4 cursor-pointer">
+            <Avatar 
+              user={user ? {
+                _id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                userName: user.userName,
+                avatar: user.avatar
+              } : null} 
+              size="lg" 
+            />
+          </div>
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item

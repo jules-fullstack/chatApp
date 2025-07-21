@@ -2,9 +2,11 @@ import { Request, Response } from 'express';
 import User from '../models/User.js';
 import { IUser } from '../types/index.js';
 import { updateProfileSchema } from '../schemas/validations.js';
+import { uploadImageToS3 } from '../services/s3Service.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
+  file?: Express.Multer.File;
 }
 
 interface UpdateProfileRequest {
@@ -89,6 +91,7 @@ export const updateProfile = async (
       userName: user.userName,
       email: user.email,
       role: user.role,
+      avatar: user.avatar,
     };
 
     res.json({
@@ -128,12 +131,54 @@ export const getProfile = async (
       userName: user.userName,
       email: user.email,
       role: user.role,
+      avatar: user.avatar,
       isEmailVerified: user.isEmailVerified,
     };
 
     res.json({ user: userData });
   } catch (error) {
     console.error('Error fetching profile:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const uploadAvatar = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const file = req.file;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    if (!file) {
+      res.status(400).json({ message: 'No file provided' });
+      return;
+    }
+
+    // Upload to S3
+    const uploadResult = await uploadImageToS3(file, userId.toString());
+    
+    // Update user's avatar field
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    user.avatar = uploadResult.url;
+    await user.save();
+
+    res.json({
+      message: 'Avatar uploaded successfully',
+      avatar: uploadResult.url,
+    });
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

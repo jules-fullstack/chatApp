@@ -1,4 +1,3 @@
-import { UserCircleIcon } from "@heroicons/react/24/outline";
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Participant, type SearchedUser } from "../types";
@@ -8,6 +7,8 @@ import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
 import userSearchService from "../services/userSearchService";
 import { Badge } from "@mantine/core";
+import Avatar from "./ui/Avatar";
+import GroupAvatar from "./ui/GroupAvatar";
 
 interface ConversationHeaderProps {
   participant?: Participant;
@@ -101,8 +102,8 @@ export default function ConversationHeader({
     return (
       <div className="flex justify-between items-center shadow-xs p-2">
         <div className="flex">
-          <UserCircleIcon className="size-12" />
-          <div className="grid grid-rows-2 h-12 place-self-center">
+          <Avatar user={null} size="lg" />
+          <div className="grid grid-rows-2 h-12 place-self-center ml-2">
             <h3 className="font-semibold">Select a conversation</h3>
             <p className="text-gray-500 text-xs">Choose someone to chat with</p>
           </div>
@@ -165,7 +166,7 @@ export default function ConversationHeader({
                   className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                   onClick={() => handleUserSelect(user)}
                 >
-                  <UserCircleIcon className="size-10 text-gray-400 mr-3" />
+                  <Avatar user={user} size="md" className="mr-3" />
                   <div>
                     <div className="font-medium text-gray-900">
                       {user.userName}
@@ -218,7 +219,11 @@ export default function ConversationHeader({
   return (
     <div className="flex justify-between items-center shadow-xs p-2">
       <div className="flex">
-        <UserCircleIcon className="size-12 text-gray-400" />
+        {isGroupChat ? (
+          <GroupAvatar participants={groupParticipants} size="lg" />
+        ) : (
+          <Avatar user={displayParticipant} size="lg" />
+        )}
         <div className="grid grid-rows-2 h-12 place-self-center ml-2">
           <h3 className="font-semibold">
             {isNewMessage && newMessageRecipients.length > 0

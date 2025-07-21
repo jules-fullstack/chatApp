@@ -1,5 +1,4 @@
 import {
-  UserCircleIcon,
   ChevronRightIcon,
   ArrowRightStartOnRectangleIcon,
   XMarkIcon,
@@ -24,6 +23,8 @@ import LeaveGroupModal from "./LeaveGroupModal";
 import AddPeopleModal from "./AddPeopleModal";
 import PromoteUserModal from "./PromoteUserModal";
 import RemoveUserModal from "./RemoveUserModal";
+import Avatar from "./ui/Avatar";
+import GroupAvatar from "./ui/GroupAvatar";
 
 export default function ConversationDetails() {
   const {
@@ -80,6 +81,22 @@ export default function ConversationDetails() {
     } else {
       // For direct messages, show the other participant's username
       return conversation.participant?.userName || "";
+    }
+  };
+
+  const getAvatarUser = () => {
+    if (!conversation && fallbackParticipant) {
+      return fallbackParticipant;
+    }
+
+    if (!conversation) return null;
+
+    if (isGroup) {
+      // For group chats, return null to show group avatar placeholder
+      return null;
+    } else {
+      // For direct messages, show the other participant's avatar
+      return conversation.participant || null;
     }
   };
 
@@ -212,7 +229,19 @@ export default function ConversationDetails() {
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
-        <UserCircleIcon className="size-28 text-gray-400 mt-2" />
+        {isGroup ? (
+          <div className="mt-2">
+            <GroupAvatar 
+              participants={conversation?.participants || []} 
+              size="xl" 
+              className="!w-28 !h-28" 
+            />
+          </div>
+        ) : (
+          <div className="mt-2">
+            <Avatar user={getAvatarUser()} size="xl" className="!w-28 !h-28" />
+          </div>
+        )}
         <p className={`font-semibold ${!isGroup ? "text-blue-500" : ""}`}>
           {getConversationTitle()}
         </p>
@@ -277,7 +306,7 @@ export default function ConversationDetails() {
                 <Accordion.Panel>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex gap-1 items-center">
-                      <UserCircleIcon className="size-12 text-gray-400" />
+                      <Avatar user={participant} size="lg" />
                       <p className="font-medium">{participant.userName}</p>
                     </div>
                     <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1">
@@ -344,7 +373,9 @@ export default function ConversationDetails() {
                                       <XMarkIcon className="size-4" />
                                     </div>
                                   }
-                                  onClick={() => handleOpenRemoveUserModal(participant)}
+                                  onClick={() =>
+                                    handleOpenRemoveUserModal(participant)
+                                  }
                                 >
                                   <span className="font-medium">
                                     Remove from group
@@ -384,34 +415,25 @@ export default function ConversationDetails() {
             <p className="font-semibold">Privacy & support</p>
           </Accordion.Control>
 
-          {!isGroup && (
-            <div className="cursor-pointer hover:bg-gray-50">
-              <Accordion.Panel>
-                <div className="flex items-center gap-2">
-                  <div className="bg-gray-200 rounded-full p-2">
-                    <NoSymbolIcon className="size-4" />
-                  </div>
-                  <p className="font-medium">Block</p>
-                </div>
-              </Accordion.Panel>
-            </div>
-          )}
-
-          {isGroup && (
-            <div
-              className="cursor-pointer hover:bg-gray-50"
-              onClick={handleOpenLeaveGroupModal}
-            >
-              <Accordion.Panel>
-                <div className="flex items-center gap-2">
-                  <div className="bg-gray-200 rounded-full p-2">
+          <div
+            className="cursor-pointer hover:bg-gray-50"
+            onClick={isGroup ? handleOpenLeaveGroupModal : undefined}
+          >
+            <Accordion.Panel>
+              <div className="flex items-center gap-2">
+                <div className="bg-gray-200 rounded-full p-2">
+                  {isGroup ? (
                     <ArrowRightStartOnRectangleIcon className="size-4" />
-                  </div>
-                  <p className="font-medium">Leave group</p>
+                  ) : (
+                    <NoSymbolIcon className="size-4" />
+                  )}
                 </div>
-              </Accordion.Panel>
-            </div>
-          )}
+                <p className="font-medium">
+                  {isGroup ? "Leave Group" : "Block"}
+                </p>
+              </div>
+            </Accordion.Panel>
+          </div>
         </Accordion.Item>
       </Accordion>
 
