@@ -206,6 +206,7 @@ export default function Inbox() {
             }}
             user={conversation.isGroup ? null : conversation.participant}
             groupParticipants={conversation.isGroup ? conversation.participants : undefined}
+            groupPhoto={conversation.isGroup ? conversation.groupPhoto : undefined}
           />
         );
       });

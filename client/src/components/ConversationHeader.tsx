@@ -16,6 +16,20 @@ interface ConversationHeaderProps {
   conversation?: {
     isGroup: boolean;
     groupName?: string;
+    groupPhoto?: {
+      _id: string;
+      url: string;
+      filename: string;
+      originalName: string;
+      mimeType: string;
+      size: number;
+      metadata: {
+        width?: number;
+        height?: number;
+        blurhash?: string;
+        alt?: string;
+      };
+    };
     participants?: Array<{
       _id: string;
       firstName: string;
@@ -228,7 +242,11 @@ export default function ConversationHeader({
     <div className="flex justify-between items-center shadow-xs p-2">
       <div className="flex">
         {isGroupChat ? (
-          <GroupAvatar participants={groupParticipants} size="lg" />
+          <GroupAvatar 
+            participants={groupParticipants} 
+            size="lg" 
+            groupPhoto={conversation?.groupPhoto}
+          />
         ) : (
           <Avatar 
             user={displayParticipant} 

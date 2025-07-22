@@ -23,6 +23,11 @@ const conversationSchema = new Schema<IConversation>(
       ref: 'User',
       required: function() { return this.isGroup; },
     },
+    groupPhoto: {
+      type: Schema.Types.ObjectId,
+      ref: 'Media',
+      default: null,
+    },
     lastMessage: {
       type: Schema.Types.ObjectId,
       ref: 'Message',
@@ -71,7 +76,12 @@ conversationSchema.statics.findBetweenUsers = function (
         select: 'url filename originalName mimeType metadata',
       },
     })
-    .populate('lastMessage');
+    .populate('lastMessage')
+    .populate({
+      path: 'groupPhoto',
+      match: { isDeleted: false },
+      select: 'url filename originalName mimeType metadata',
+    });
 };
 
 // Static method to create group conversation

@@ -31,6 +31,15 @@ export const imageUpload = multer({
   }
 });
 
+export const singleImageUpload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+    files: 1
+  }
+});
+
 interface MulterRequest extends Request {
   files?: Express.Multer.File[];
 }
@@ -53,6 +62,28 @@ export const validateImageBatch = (req: MulterRequest, res: any, next: any) => {
 
   if (totalSize > MAX_FILE_SIZE) {
     return res.status(400).json({ error: 'Total file size exceeds 5MB limit' });
+  }
+
+  next();
+};
+
+interface SingleFileRequest extends Request {
+  file?: Express.Multer.File;
+}
+
+export const validateSingleImage = (req: SingleFileRequest, res: any, next: any) => {
+  const file = req.file;
+  
+  if (!file) {
+    return res.status(400).json({ error: 'No file provided' });
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return res.status(400).json({ error: 'File size exceeds 5MB limit' });
+  }
+
+  if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' });
   }
 
   next();

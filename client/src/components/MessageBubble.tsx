@@ -91,7 +91,11 @@ export default function MessageBubble({
       >
         {/* Avatar for other users' messages */}
         {!isOwnMessage && showAvatar && (
-          <Avatar user={message.sender} size="sm" className="!w-8 !h-8 flex-shrink-0 mr-2" />
+          <Avatar
+            user={message.sender}
+            size="sm"
+            className="!w-8 !h-8 flex-shrink-0 mr-2"
+          />
         )}
         {/* Spacer when not showing avatar to maintain alignment */}
         {!isOwnMessage && !showAvatar && <div className="flex-shrink-0 w-10" />}

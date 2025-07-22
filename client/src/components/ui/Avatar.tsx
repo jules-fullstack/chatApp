@@ -20,10 +20,10 @@ interface AvatarProps {
 }
 
 const sizeClasses = {
-  sm: "w-6 h-6", // size-6
-  md: "w-8 h-8", // size-8
-  lg: "w-12 h-12", // size-12
-  xl: "w-16 h-16", // size-16
+  sm: "w-4 h-4 min-w-4 min-h-4",
+  md: "w-8 h-8 min-w-8 min-h-8", // size-8
+  lg: "w-12 h-12 min-w-12 min-h-12", // size-12
+  xl: "w-16 h-16 min-w-16 min-h-16", // size-16
 };
 
 const indicatorSizeClasses = {

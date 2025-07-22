@@ -70,6 +70,7 @@ export interface IConversation extends Document {
   isGroup: boolean;
   groupName?: string | null;
   groupAdmin?: Types.ObjectId;
+  groupPhoto?: Types.ObjectId;
   lastMessage?: Types.ObjectId;
   lastMessageAt: Date;
   isActive: boolean;
@@ -87,9 +88,9 @@ export interface IMedia extends Document {
   size: number;
   url: string;
   storageKey: string;
-  parentType: 'User' | 'Message';
+  parentType: 'User' | 'Message' | 'Conversation';
   parentId: Types.ObjectId;
-  usage: 'avatar' | 'attachment';
+  usage: 'avatar' | 'attachment' | 'groupPhoto';
   metadata: {
     width?: number;
     height?: number;

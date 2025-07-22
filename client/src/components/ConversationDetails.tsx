@@ -13,7 +13,7 @@ import {
   PhotoIcon,
 } from "@heroicons/react/24/solid";
 import { Accordion, Menu } from "@mantine/core";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { type Participant } from "../types";
@@ -60,6 +60,8 @@ export default function ConversationDetails() {
   const [userToBlock, setUserToBlock] = useState<Participant | null>(null);
   const [isBlockingUser, setIsBlockingUser] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -331,6 +333,72 @@ export default function ConversationDetails() {
     }
   };
 
+  const validateImageFile = (file: File): string | null => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      return 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.';
+    }
+
+    if (file.size > maxSize) {
+      return 'File size must be less than 5MB.';
+    }
+
+    return null;
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !conversation || !activeConversation) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('groupPhoto', file);
+
+      const response = await fetch(
+        `http://localhost:3000/api/conversations/${activeConversation}/photo`,
+        {
+          method: 'PUT',
+          body: formData,
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to upload group photo');
+      }
+
+      const result = await response.json();
+      
+      // The WebSocket message will handle updating the conversation state
+
+    } catch (error) {
+      console.error('Failed to upload group photo:', error);
+      alert(error instanceof Error ? error.message : 'Failed to upload group photo');
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleOpenPhotoUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
@@ -339,7 +407,8 @@ export default function ConversationDetails() {
             <GroupAvatar 
               participants={conversation?.participants || []} 
               size="xl" 
-              className="!w-28 !h-28" 
+              className="!w-28 !h-28"
+              groupPhoto={conversation?.groupPhoto}
             />
           </div>
         ) : (
@@ -383,17 +452,31 @@ export default function ConversationDetails() {
             </div>
 
             {isGroup && (
-              <div className="cursor-pointer hover:bg-gray-50">
+              <div 
+                className="cursor-pointer hover:bg-gray-50" 
+                onClick={handleOpenPhotoUpload}
+              >
                 <Accordion.Panel>
                   <div className="flex items-center gap-2">
                     <div className="bg-gray-200 rounded-full p-2">
                       <PhotoIcon className="size-4" />
                     </div>
-                    <p className="font-medium">Change photo</p>
+                    <p className="font-medium">
+                      {isUploadingPhoto ? "Uploading..." : "Change photo"}
+                    </p>
                   </div>
                 </Accordion.Panel>
               </div>
             )}
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handlePhotoUpload}
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              className="hidden"
+              disabled={isUploadingPhoto}
+            />
           </Accordion.Item>
         )}
 

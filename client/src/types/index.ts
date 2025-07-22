@@ -65,6 +65,7 @@ export interface MessageTabProps {
     userName?: string;
     avatar?: Media | string;
   }[];
+  groupPhoto?: Media;
 }
 
 export interface User {
@@ -96,6 +97,7 @@ export interface Conversation {
   participants?: User[]; // For group messages
   groupName?: string;
   groupAdmin?: User;
+  groupPhoto?: Media;
   lastMessage?: Message;
   lastMessageAt: string;
   unreadCount: number;

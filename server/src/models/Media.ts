@@ -30,7 +30,7 @@ const mediaSchema = new Schema<IMedia>(
     parentType: {
       type: String,
       required: true,
-      enum: ['User', 'Message'],
+      enum: ['User', 'Message', 'Conversation'],
     },
     parentId: {
       type: Schema.Types.ObjectId,
@@ -40,7 +40,7 @@ const mediaSchema = new Schema<IMedia>(
     usage: {
       type: String,
       required: true,
-      enum: ['avatar', 'attachment'],
+      enum: ['avatar', 'attachment', 'groupPhoto'],
     },
     metadata: {
       width: { type: Number },

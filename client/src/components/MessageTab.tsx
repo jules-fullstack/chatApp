@@ -12,6 +12,7 @@ export default function MessageTab({
   onClick,
   user,
   groupParticipants,
+  groupPhoto,
 }: MessageTabProps) {
   const isDefault = type === "default";
   const { isUserOnline } = useChatStore();
@@ -39,6 +40,7 @@ export default function MessageTab({
             participants={groupParticipants}
             size={isDefault ? "xl" : "lg"}
             className={isDefault ? "!w-16 !h-16" : ""}
+            groupPhoto={groupPhoto}
           />
         ) : (
           <Avatar

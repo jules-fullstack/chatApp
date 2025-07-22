@@ -560,6 +560,10 @@ export const getConversations = async (
           select: 'firstName lastName userName',
         },
       })
+      .populate({
+        path: 'groupPhoto',
+        select: 'url filename originalName mimeType metadata isDeleted',
+      })
       .lean();
 
     const formattedConversations = conversations.map((conv) => {
@@ -599,6 +603,7 @@ export const getConversations = async (
           isGroup: true,
           groupName: conv.groupName,
           groupAdmin: conv.groupAdmin,
+          groupPhoto: conv.groupPhoto || undefined,
           participants: conv.participants,
           lastMessage: conv.lastMessage,
           lastMessageAt: conv.lastMessageAt,
@@ -745,6 +750,11 @@ export const updateGroupName = async (
         },
       })
       .populate('lastMessage')
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
       .lean();
 
     // Notify all participants via WebSocket
@@ -952,6 +962,11 @@ export const addMembersToGroup = async (
         },
       })
       .populate('lastMessage')
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
       .lean();
 
     // Get user info for notifications
@@ -1090,6 +1105,11 @@ export const changeGroupAdmin = async (
         },
       })
       .populate('lastMessage')
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
       .lean();
 
     // Notify all participants via WebSocket
@@ -1231,6 +1251,11 @@ export const removeMemberFromGroup = async (
         },
       })
       .populate('lastMessage')
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
       .lean();
 
     // Get admin info for notifications

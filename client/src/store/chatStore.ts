@@ -88,6 +88,7 @@ interface ChatState {
   // Group management actions
   updateGroupName: (conversationId: string, groupName: string) => Promise<void>;
   handleGroupNameUpdated: (data: unknown) => void;
+  handleGroupPhotoUpdated: (data: unknown) => void;
   leaveGroup: (conversationId: string) => Promise<void>;
   handleUserLeftGroup: (data: unknown) => void;
   handleMembersAddedToGroup: (data: unknown) => void;
@@ -250,6 +251,9 @@ export const useChatStore = create<ChatState>()(
               break;
             case "group_name_updated":
               get().handleGroupNameUpdated(data);
+              break;
+            case "group_photo_updated":
+              get().handleGroupPhotoUpdated(data);
               break;
             case "user_left_group":
               get().handleUserLeftGroup(data);
@@ -842,6 +846,46 @@ export const useChatStore = create<ChatState>()(
                 // Update with any other fields from the populated conversation
                 participants: conversation.participants || conv.participants,
                 groupAdmin: conversation.groupAdmin || conv.groupAdmin,
+              };
+            }
+            return conv;
+          }),
+        }));
+      },
+
+      handleGroupPhotoUpdated: (data: unknown) => {
+        const { conversationId, groupPhoto } = data as {
+          conversationId: string;
+          groupPhoto: {
+            _id: string;
+            url: string;
+            filename: string;
+            originalName: string;
+            mimeType: string;
+            metadata: {
+              width?: number;
+              height?: number;
+              blurhash?: string;
+              alt?: string;
+            };
+          };
+        };
+
+        // Update conversation in local state with new group photo
+        set((state) => ({
+          conversations: state.conversations.map((conv) => {
+            if (conv._id === conversationId) {
+              return {
+                ...conv,
+                groupPhoto: {
+                  _id: groupPhoto._id,
+                  filename: groupPhoto.filename,
+                  originalName: groupPhoto.originalName,
+                  mimeType: groupPhoto.mimeType,
+                  size: 0, // Size not provided in WebSocket message
+                  url: groupPhoto.url,
+                  metadata: groupPhoto.metadata,
+                },
               };
             }
             return conv;
