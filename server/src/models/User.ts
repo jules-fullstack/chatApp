@@ -55,6 +55,10 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    lastActive: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,

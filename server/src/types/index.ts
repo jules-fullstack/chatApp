@@ -14,6 +14,7 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   role: 'user' | 'superAdmin';
   isBlocked: boolean;
+  lastActive: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateOTP(): string;
   verifyOTP(inputOTP: string): boolean;

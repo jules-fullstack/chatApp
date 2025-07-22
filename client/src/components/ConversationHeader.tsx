@@ -9,6 +9,7 @@ import userSearchService from "../services/userSearchService";
 import { Badge } from "@mantine/core";
 import Avatar from "./ui/Avatar";
 import GroupAvatar from "./ui/GroupAvatar";
+import { getActiveStatus } from "../utils/activeStatus";
 
 interface ConversationHeaderProps {
   participant?: Participant;
@@ -48,6 +49,7 @@ export default function ConversationHeader({
     toggleConversationDetails,
   } = useChatStore();
   const { user: currentUser } = userStore();
+  const { isUserOnline } = useChatStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
@@ -201,6 +203,12 @@ export default function ConversationHeader({
   const groupName = conversation?.groupName;
   const groupParticipants = conversation?.participants || [] as User[];
 
+  // Calculate active status for direct messages
+  const isParticipantOnline = !isGroupChat && displayParticipant ? isUserOnline(displayParticipant._id) : false;
+  const activeStatus = !isGroupChat && displayParticipant 
+    ? getActiveStatus(displayParticipant.lastActive || null, isParticipantOnline)
+    : null;
+
   // Get participant names for unnamed groups (excluding current user)
   const getGroupDisplayName = () => {
     if (groupName) return groupName;
@@ -222,7 +230,12 @@ export default function ConversationHeader({
         {isGroupChat ? (
           <GroupAvatar participants={groupParticipants} size="lg" />
         ) : (
-          <Avatar user={displayParticipant} size="lg" />
+          <Avatar 
+            user={displayParticipant} 
+            size="lg" 
+            showActiveStatus={true}
+            isConnected={isParticipantOnline}
+          />
         )}
         <div className="grid grid-rows-2 h-12 place-self-center ml-2">
           <h3 className="font-semibold">
@@ -239,6 +252,12 @@ export default function ConversationHeader({
               `@${recipientUsernames}`
             ) : isGroupChat ? (
               `${groupParticipants.length} participants`
+            ) : activeStatus ? (
+              activeStatus.isOnline ? (
+                <span className="text-green-600 font-medium">Online</span>
+              ) : (
+                <span className="text-gray-500">{activeStatus.displayText}</span>
+              )
             ) : (
               "@" + displayParticipant?.userName
             )}

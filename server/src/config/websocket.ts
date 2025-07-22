@@ -32,6 +32,12 @@ class WebSocketManager {
       // Store connected user
       this.connectedUsers.set(userId, { userId, ws });
 
+      // Update user's lastActive timestamp
+      this.updateUserLastActive(userId);
+
+      // Notify other users about online status
+      this.sendOnlineStatus(userId, true);
+
       console.log(`User ${user.userName} connected to chat`);
 
       // Send connection confirmation
@@ -42,6 +48,15 @@ class WebSocketManager {
           message: 'Connected to chat server',
         }),
       );
+
+      // Send list of currently online users to the newly connected user
+      const onlineUserIds = this.getConnectedUsers().filter(id => id !== userId);
+      if (onlineUserIds.length > 0) {
+        ws.send(JSON.stringify({
+          type: 'online_users_list',
+          userIds: onlineUserIds
+        }));
+      }
 
       // Handle incoming messages
       ws.on('message', (message: string) => {
@@ -56,6 +71,10 @@ class WebSocketManager {
       // Handle disconnect
       ws.on('close', () => {
         this.connectedUsers.delete(userId);
+        // Update user's lastActive timestamp when they disconnect
+        this.updateUserLastActive(userId);
+        // Notify other users about offline status
+        this.sendOnlineStatus(userId, false);
         console.log(`User ${user.userName} disconnected from chat`);
       });
 
@@ -63,6 +82,8 @@ class WebSocketManager {
       ws.on('error', (error) => {
         console.error('WebSocket error:', error);
         this.connectedUsers.delete(userId);
+        // Notify other users about offline status on error
+        this.sendOnlineStatus(userId, false);
       });
     });
 
@@ -311,6 +332,16 @@ class WebSocketManager {
           userConnection.ws.close(1008, 'Account blocked');
         }
       }, 1000);
+    }
+  }
+
+  // Update user's lastActive timestamp
+  private async updateUserLastActive(userId: string) {
+    try {
+      const User = (await import('../models/User.js')).default;
+      await User.findByIdAndUpdate(userId, { lastActive: new Date() });
+    } catch (error) {
+      console.error('Error updating user lastActive:', error);
     }
   }
 }

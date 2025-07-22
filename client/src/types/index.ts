@@ -19,6 +19,7 @@ export interface Participant {
   lastName: string;
   userName: string;
   avatar?: Media | string;
+  lastActive?: Date | string;
 }
 
 export interface SearchedUser {
@@ -55,6 +56,7 @@ export interface MessageTabProps {
     lastName?: string;
     userName?: string;
     avatar?: Media | string;
+    lastActive?: Date | string;
   } | null;
   groupParticipants?: {
     _id: string;
@@ -74,6 +76,7 @@ export interface User {
   email: string;
   role: "user" | "superAdmin";
   avatar?: Media | string;
+  lastActive?: Date | string;
 }
 
 export interface Message {

@@ -15,6 +15,9 @@ interface ChatState {
   ws: WebSocket | null;
   isConnected: boolean;
 
+  // Online users tracking
+  onlineUsers: Set<string>;
+
   // Active conversation
   activeConversation: string | null;
 
@@ -49,6 +52,10 @@ interface ChatState {
   disconnect: () => void;
   setActiveConversation: (userId: string) => void;
   startNewMessage: () => void;
+  
+  // Online status actions
+  isUserOnline: (userId: string) => boolean;
+  setUserOnline: (userId: string, isOnline: boolean) => void;
 
   // Message actions
   sendMessage: (
@@ -110,6 +117,7 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       ws: null,
       isConnected: false,
+      onlineUsers: new Set(),
       activeConversation: null,
       messages: [],
       conversations: [],
@@ -233,6 +241,15 @@ export const useChatStore = create<ChatState>()(
             case "removed_from_group":
               get().handleRemovedFromGroup(data);
               break;
+            case "user_status":
+              get().setUserOnline(data.userId, data.isOnline);
+              break;
+            case "online_users_list":
+              // Set initial online users when first connecting
+              data.userIds.forEach((userId: string) => {
+                get().setUserOnline(userId, true);
+              });
+              break;
             case "account_blocked":
               // Handle account blocking - perform logout sequence
               (async () => {
@@ -278,8 +295,24 @@ export const useChatStore = create<ChatState>()(
         const { ws } = get();
         if (ws) {
           ws.close();
-          set({ ws: null, isConnected: false });
+          set({ ws: null, isConnected: false, onlineUsers: new Set() });
         }
+      },
+
+      isUserOnline: (userId: string) => {
+        return get().onlineUsers.has(userId);
+      },
+
+      setUserOnline: (userId: string, isOnline: boolean) => {
+        set((state) => {
+          const newOnlineUsers = new Set(state.onlineUsers);
+          if (isOnline) {
+            newOnlineUsers.add(userId);
+          } else {
+            newOnlineUsers.delete(userId);
+          }
+          return { onlineUsers: newOnlineUsers };
+        });
       },
 
       setActiveConversation: (conversationId: string) => {
@@ -1050,6 +1083,7 @@ export const useChatStore = create<ChatState>()(
         set({
           ws: null,
           isConnected: false,
+          onlineUsers: new Set(),
           activeConversation: null,
           messages: [],
           conversations: [],
