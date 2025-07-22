@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   isLast?: boolean;
   conversation?: Conversation;
   usersWhoLastReadThisMessage?: string[]; // Array of user IDs who last read this specific message
+  showAvatar?: boolean; // Whether to show avatar for this message
 }
 
 export default function MessageBubble({
@@ -17,6 +18,7 @@ export default function MessageBubble({
   isLast = false,
   conversation,
   usersWhoLastReadThisMessage = [],
+  showAvatar = false,
 }: MessageBubbleProps) {
   const currentUser = userStore.getState().user;
   const { isUserBlockedByMe, amIBlockedByUser } = useChatStore();
@@ -85,8 +87,15 @@ export default function MessageBubble({
   return (
     <>
       <div
-        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} mb-1`}
+        className={`flex items-end ${isOwnMessage ? "justify-end" : "justify-start"} mb-1`}
       >
+        {/* Avatar for other users' messages */}
+        {!isOwnMessage && showAvatar && (
+          <Avatar user={message.sender} size="sm" className="!w-8 !h-8 flex-shrink-0 mr-2" />
+        )}
+        {/* Spacer when not showing avatar to maintain alignment */}
+        {!isOwnMessage && !showAvatar && <div className="flex-shrink-0 w-10" />}
+
         <div
           className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
             isOwnMessage

@@ -1328,6 +1328,11 @@ export const useChatStore = create<ChatState>()(
         // Reload blocking data when trigger updates and filter messages
         (async () => {
           await get().loadBlockingData();
+
+          const activeConversation = get().activeConversation;
+          if (activeConversation) {
+            await get().loadMessages(activeConversation);
+          }
           // Filter messages in real-time after blocking data is updated
           get().filterMessagesForBlocking();
         })();

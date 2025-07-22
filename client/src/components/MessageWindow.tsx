@@ -362,6 +362,9 @@ export default function MessageWindow() {
     filteredMessages.forEach((message, index) => {
       const isLast = index === filteredMessages.length - 1;
       const previousMessage = index > 0 ? filteredMessages[index - 1] : null;
+      const nextMessage = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null;
+      const currentUser = userStore.getState().user;
+      const isOwnMessage = currentUser?.id === message.sender._id;
 
       // Check if we should show a timestamp separator
       const showSeparator = shouldShowTimeSeparator(
@@ -379,6 +382,26 @@ export default function MessageWindow() {
         );
       }
 
+      // Check if there will be a timestamp separator after this message
+      const nextMessageShowsSeparator = nextMessage ? shouldShowTimeSeparator(
+        nextMessage.createdAt,
+        message.createdAt
+      ) : false;
+
+      // Determine if we should show avatar for this message
+      // Only show avatar for other users' messages (not own messages)
+      // Show avatar only if:
+      // 1. This is not the current user's message
+      // 2. This is the last message in a sequence from the same sender, which happens when:
+      //    - This is the last message overall OR
+      //    - Next message is from a different sender OR
+      //    - There will be a timestamp separator after this message (breaking the sequence)
+      const showAvatar = !isOwnMessage && (
+        isLast || // Last message overall
+        (nextMessage && nextMessage.sender._id !== message.sender._id) || // Next message from different sender
+        nextMessageShowsSeparator // Timestamp separator will break the sequence
+      );
+
       // Get the users who last read this specific message
       const usersWhoLastReadThisMessage =
         usersWhoLastReadEachMessage.get(index) || [];
@@ -395,6 +418,7 @@ export default function MessageWindow() {
               : undefined
           }
           usersWhoLastReadThisMessage={usersWhoLastReadThisMessage}
+          showAvatar={showAvatar}
         />
       );
     });
