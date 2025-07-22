@@ -18,6 +18,9 @@ export default function MessageSender() {
     isNewMessage,
     newMessageRecipients,
     markConversationAsRead,
+    conversations,
+    checkIfBlockedBy,
+    blockingUpdateTrigger,
   } = useChatStore();
   const [isTyping, setIsTyping] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -26,6 +29,8 @@ export default function MessageSender() {
   const [pendingMessageType, setPendingMessageType] = useState<string>("text");
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasBlockedUser, setHasBlockedUser] = useState(false);
+  const [isBlockedByUser, setIsBlockedByUser] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -159,6 +164,84 @@ export default function MessageSender() {
   } = useForm<MessageFormData>();
 
   const messageValue = watch("message");
+
+  // Check blocking status when conversation changes (only for direct messages)
+  useEffect(() => {
+    const checkBlockingStatus = async () => {
+      if (!activeConversation) {
+        setHasBlockedUser(false);
+        setIsBlockedByUser(false);
+        return;
+      }
+
+      try {
+        let targetUserId: string | null = null;
+        let isGroupChat = false;
+
+        if (isNewMessage && newMessageRecipients.length > 0) {
+          // New message scenario
+          if (newMessageRecipients.length === 1) {
+            // Direct message to one person
+            targetUserId = newMessageRecipients[0]._id;
+            isGroupChat = false;
+          } else {
+            // Group message
+            isGroupChat = true;
+          }
+        } else if (activeConversation.startsWith("user:")) {
+          // Direct message with user: format
+          targetUserId = activeConversation.replace("user:", "");
+          isGroupChat = false;
+        } else {
+          // Existing conversation - find it in conversations list
+          const conversation = conversations.find(
+            (c) => c._id === activeConversation
+          );
+          if (conversation) {
+            isGroupChat = conversation.isGroup;
+            if (!isGroupChat && conversation.participant) {
+              targetUserId = conversation.participant._id;
+            }
+          }
+        }
+
+        // Only check blocking for direct messages, not group chats
+        if (!isGroupChat && targetUserId) {
+          const [blockedUsers, isBlockedByOtherUser] = await Promise.all([
+            fetch("http://localhost:3000/api/users/blocked", {
+              credentials: "include",
+            })
+              .then((res) => res.json())
+              .then((data) => data.blockedUsers || []),
+            checkIfBlockedBy(targetUserId),
+          ]);
+
+          const hasBlockedOtherUser = blockedUsers.some(
+            (user: { id?: string; _id?: string }) =>
+              (user.id || user._id) === targetUserId
+          );
+
+          setHasBlockedUser(hasBlockedOtherUser);
+          setIsBlockedByUser(isBlockedByOtherUser);
+        } else {
+          // For group chats, reset blocking states (don't disable MessageSender)
+          setHasBlockedUser(false);
+          setIsBlockedByUser(false);
+        }
+      } catch (error) {
+        console.error("Error checking blocking status:", error);
+      }
+    };
+
+    checkBlockingStatus();
+  }, [
+    activeConversation,
+    conversations,
+    isNewMessage,
+    newMessageRecipients,
+    blockingUpdateTrigger,
+    checkIfBlockedBy,
+  ]);
 
   // Handle typing indicators
   useEffect(() => {
@@ -509,6 +592,30 @@ export default function MessageSender() {
         className="absolute bottom-0 left-0 right-0 bg-white p-4"
         onClick={handleMessageSenderClick}
       >
+        {hasBlockedUser && (
+          <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-orange-800 text-sm font-medium">
+              You blocked this person
+            </p>
+            <p className="text-orange-600 text-xs mt-1">
+              You won't receive messages from them and they can't see when
+              you're active.
+            </p>
+          </div>
+        )}
+
+        {isBlockedByUser && (
+          <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 text-sm font-medium">
+              You can no longer reply to this conversation
+            </p>
+            <p className="text-red-600 text-xs mt-1">
+              This person has restricted their messages. You won't be able to
+              message them.
+            </p>
+          </div>
+        )}
+
         <ImagePreview
           images={selectedImages}
           onRemoveImage={handleRemoveImage}
@@ -519,8 +626,14 @@ export default function MessageSender() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex items-center">
           <PhotoIcon
-            className="size-6 mr-4 cursor-pointer text-gray-500 hover:text-gray-700 transition-colors"
-            onClick={handlePhotoClick}
+            className={`size-6 mr-4 transition-colors ${
+              hasBlockedUser || isBlockedByUser
+                ? "cursor-not-allowed text-gray-400"
+                : "cursor-pointer text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={
+              hasBlockedUser || isBlockedByUser ? undefined : handlePhotoClick
+            }
           />
 
           <input
@@ -530,19 +643,25 @@ export default function MessageSender() {
             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
             onChange={handleFileChange}
             className="hidden"
+            disabled={hasBlockedUser || isBlockedByUser}
           />
 
           <div className="flex-1 mr-4">
             <FormField
               name="message"
               type="text"
-              placeholder="Aa"
+              placeholder={
+                hasBlockedUser || isBlockedByUser
+                  ? "You can no longer reply to this conversation"
+                  : "Aa"
+              }
               register={register}
               errors={errors}
               containerClassName="bg-gray-200 rounded-2xl"
-              inputClassName="w-full focus:outline-none p-2 bg-transparent resize-none"
+              inputClassName="w-full disabled:cursor-not-allowed focus:outline-none p-2 bg-transparent resize-none"
               showError={false}
               onKeyDown={handleKeyDown}
+              disabled={hasBlockedUser || isBlockedByUser}
             />
           </div>
 
@@ -550,9 +669,9 @@ export default function MessageSender() {
           selectedImages.length > 0 ? (
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || hasBlockedUser || isBlockedByUser}
               className={`p-2 transition-colors ${
-                isSubmitting
+                isSubmitting || hasBlockedUser || isBlockedByUser
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-blue-500 hover:text-blue-700"
               }`}
@@ -562,10 +681,12 @@ export default function MessageSender() {
           ) : (
             <button
               type="button"
-              onClick={handleLikeClick}
-              disabled={isSubmitting}
+              onClick={
+                hasBlockedUser || isBlockedByUser ? undefined : handleLikeClick
+              }
+              disabled={isSubmitting || hasBlockedUser || isBlockedByUser}
               className={`p-2 transition-colors ${
-                isSubmitting
+                isSubmitting || hasBlockedUser || isBlockedByUser
                   ? "text-gray-400 cursor-not-allowed"
                   : "text-blue-500 hover:text-blue-700"
               }`}

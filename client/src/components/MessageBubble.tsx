@@ -1,4 +1,5 @@
 import { userStore } from "../store/userStore";
+import { useChatStore } from "../store/chatStore";
 import { type Message, type Conversation } from "../types";
 import { useState } from "react";
 import ImageModal from "./ImageModal";
@@ -18,6 +19,7 @@ export default function MessageBubble({
   usersWhoLastReadThisMessage = [],
 }: MessageBubbleProps) {
   const currentUser = userStore.getState().user;
+  const { isUserBlockedByMe, amIBlockedByUser } = useChatStore();
   const isOwnMessage = currentUser?.id === message.sender._id;
   const [modalOpened, setModalOpened] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -34,15 +36,23 @@ export default function MessageBubble({
 
     const readByUsers: {
       userId: string;
-      user: { _id: string; userName?: string; firstName?: string; avatar?: import('../types').Media | string };
+      user: {
+        _id: string;
+        userName?: string;
+        firstName?: string;
+        avatar?: import("../types").Media | string;
+      };
     }[] = [];
 
     if (conversation.isGroup) {
       // For group chats, only show avatars for users who last read THIS specific message
+      // and filter out blocked users (both directions)
       conversation.participants?.forEach((participant) => {
         if (
           participant._id !== currentUser?.id &&
-          usersWhoLastReadThisMessage.includes(participant._id)
+          usersWhoLastReadThisMessage.includes(participant._id) &&
+          !isUserBlockedByMe(participant._id) && // Don't show users I've blocked
+          !amIBlockedByUser(participant._id) // Don't show users who have blocked me
         ) {
           readByUsers.push({ userId: participant._id, user: participant });
         }
@@ -50,10 +60,13 @@ export default function MessageBubble({
       return { hasBeenRead: readByUsers.length > 0, readByUsers };
     } else {
       // For direct messages, check if this is the last read message for the other participant
+      // Also check blocking status - don't show read status if either user has blocked the other
       const otherParticipant = conversation.participant;
       if (
         otherParticipant &&
-        usersWhoLastReadThisMessage.includes(otherParticipant._id)
+        usersWhoLastReadThisMessage.includes(otherParticipant._id) &&
+        !isUserBlockedByMe(otherParticipant._id) && // Don't show if I've blocked them
+        !amIBlockedByUser(otherParticipant._id) // Don't show if they've blocked me
       ) {
         return {
           hasBeenRead: true,
@@ -86,15 +99,19 @@ export default function MessageBubble({
           )}
           {message.attachments && message.attachments.length > 0 && (
             <div className="mb-2 space-y-1">
-              {message.attachments.filter(attachment => attachment.mimeType.startsWith('image/')).map((attachment, index) => (
-                <img
-                  key={attachment._id}
-                  src={attachment.url}
-                  alt={attachment.metadata?.alt || `Image ${index + 1}`}
-                  className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => handleImageClick(index)}
-                />
-              ))}
+              {message.attachments
+                .filter((attachment) =>
+                  attachment.mimeType.startsWith("image/")
+                )
+                .map((attachment, index) => (
+                  <img
+                    key={attachment._id}
+                    src={attachment.url}
+                    alt={attachment.metadata?.alt || `Image ${index + 1}`}
+                    className="max-w-full h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => handleImageClick(index)}
+                  />
+                ))}
             </div>
           )}
         </div>
@@ -125,7 +142,9 @@ export default function MessageBubble({
         <ImageModal
           opened={modalOpened}
           onClose={() => setModalOpened(false)}
-          images={message.attachments.filter(attachment => attachment.mimeType.startsWith('image/')).map(attachment => attachment.url)}
+          images={message.attachments
+            .filter((attachment) => attachment.mimeType.startsWith("image/"))
+            .map((attachment) => attachment.url)}
           initialIndex={selectedImageIndex}
         />
       )}

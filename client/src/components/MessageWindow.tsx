@@ -24,6 +24,8 @@ export default function MessageWindow() {
     isLoadingOlderMessages,
     loadOlderMessages,
     getTypingUsersForConversation,
+    isUserBlockedByMe,
+    amIBlockedByUser,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -229,7 +231,23 @@ export default function MessageWindow() {
       );
     }
 
-    if (messages.length === 0) {
+    const currentUser = userStore.getState().user;
+
+    const filteredMessagesForEmptyCheck = messages.filter((message) => {
+      // Always show current user's own messages
+      if (message.sender._id === currentUser?.id) {
+        return true;
+      }
+
+      // For other users' messages, check blocking status
+      const senderId = message.sender._id;
+      const isBlocked =
+        isUserBlockedByMe(senderId) || amIBlockedByUser(senderId);
+
+      return !isBlocked;
+    });
+
+    if (filteredMessagesForEmptyCheck.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-8">
           <div className="text-center">
@@ -258,7 +276,7 @@ export default function MessageWindow() {
     }
 
     // Helper function to determine which users last read each message
-    const getUsersWhoLastReadEachMessage = () => {
+    const getUsersWhoLastReadEachMessage = (messagesToUse: typeof messages) => {
       if (!activeConversationData || !("_id" in activeConversationData))
         return new Map();
 
@@ -281,8 +299,8 @@ export default function MessageWindow() {
 
           // Find the last message that was sent by current user before the read timestamp
           let lastReadIndex = -1;
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const message = messages[i];
+          for (let i = messagesToUse.length - 1; i >= 0; i--) {
+            const message = messagesToUse[i];
             const messageTime = new Date(message.createdAt).getTime();
 
             // Only consider messages sent by current user
@@ -308,8 +326,6 @@ export default function MessageWindow() {
 
       return messageToUsersMap;
     };
-
-    const usersWhoLastReadEachMessage = getUsersWhoLastReadEachMessage();
 
     const renderedElements: React.ReactElement[] = [];
 
@@ -337,9 +353,15 @@ export default function MessageWindow() {
       );
     }
 
-    messages.forEach((message, index) => {
-      const isLast = index === messages.length - 1;
-      const previousMessage = index > 0 ? messages[index - 1] : null;
+    // Filter messages based on blocking relationships (reuse from above)
+    const filteredMessages = filteredMessagesForEmptyCheck;
+
+    const usersWhoLastReadEachMessage =
+      getUsersWhoLastReadEachMessage(filteredMessages);
+
+    filteredMessages.forEach((message, index) => {
+      const isLast = index === filteredMessages.length - 1;
+      const previousMessage = index > 0 ? filteredMessages[index - 1] : null;
 
       // Check if we should show a timestamp separator
       const showSeparator = shouldShowTimeSeparator(

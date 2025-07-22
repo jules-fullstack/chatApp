@@ -52,7 +52,7 @@ interface ChatState {
   disconnect: () => void;
   setActiveConversation: (userId: string) => void;
   startNewMessage: () => void;
-  
+
   // Online status actions
   isUserOnline: (userId: string) => boolean;
   setUserOnline: (userId: string, isOnline: boolean) => void;
@@ -96,6 +96,7 @@ interface ChatState {
     newAdminId: string
   ) => Promise<void>;
   handleGroupAdminChanged: (data: unknown) => void;
+  handleBlockingUpdate: (data: unknown) => void;
   removeMemberFromGroup: (
     conversationId: string,
     userToRemoveId: string
@@ -106,6 +107,25 @@ interface ChatState {
   // UI actions
   setShowConversationDetails: (show: boolean) => void;
   toggleConversationDetails: () => void;
+
+  // Blocking actions
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  checkIsUserBlocked: (userId: string) => Promise<boolean>;
+  checkIfBlockedBy: (userId: string) => Promise<boolean>;
+  getBlockedUsers: () => Promise<Participant[]>;
+
+  // Blocking status refresh
+  blockingUpdateTrigger: number;
+  triggerBlockingUpdate: () => void;
+
+  // Blocking data cache
+  blockedUserIds: Set<string>;
+  usersWhoBlockedMe: Set<string>;
+  loadBlockingData: () => Promise<void>;
+  isUserBlockedByMe: (userId: string) => boolean;
+  amIBlockedByUser: (userId: string) => boolean;
+  filterMessagesForBlocking: () => void;
 
   resetStore: () => void;
 }
@@ -132,6 +152,9 @@ export const useChatStore = create<ChatState>()(
       newMessageRecipients: [],
       isConversationsLoading: false,
       isMessagesLoading: false,
+      blockingUpdateTrigger: 0,
+      blockedUserIds: new Set(),
+      usersWhoBlockedMe: new Set(),
 
       setFallbackParticipant: (participant: Participant | null) => {
         set({ fallbackParticipant: participant });
@@ -184,6 +207,8 @@ export const useChatStore = create<ChatState>()(
 
         ws.onopen = () => {
           set({ ws, isConnected: true });
+          // Load blocking data when WebSocket connects
+          get().loadBlockingData();
         };
 
         ws.onmessage = (event) => {
@@ -235,6 +260,9 @@ export const useChatStore = create<ChatState>()(
             case "group_admin_changed":
               get().handleGroupAdminChanged(data);
               break;
+            case "blocking_update":
+              get().handleBlockingUpdate(data);
+              break;
             case "member_removed_from_group":
               get().handleMemberRemovedFromGroup(data);
               break;
@@ -264,17 +292,35 @@ export const useChatStore = create<ChatState>()(
                 } catch (error) {
                   console.error("Error during logout:", error);
                 }
-                
+
                 // Clear user and reset stores
                 userStore.getState().clearUser();
                 get().resetStore();
-                
+
                 // Show blocking message
-                alert(data.message || "Your account has been blocked from the platform.");
-                
+                alert(
+                  data.message ||
+                    "Your account has been blocked from the platform."
+                );
+
                 // Redirect to login page
                 window.location.href = "/login";
               })();
+              break;
+            case "blocked_by_user":
+              // Handle being blocked by another user
+              console.log("You have been blocked by a user:", data.blockedBy);
+              // Trigger blocking status update
+              get().triggerBlockingUpdate();
+              break;
+            case "unblocked_by_user":
+              // Handle being unblocked by another user
+              console.log(
+                "You have been unblocked by a user:",
+                data.unblockedBy
+              );
+              // Trigger blocking status update
+              get().triggerBlockingUpdate();
               break;
             default:
               console.log("Unknown WebSocket message:", data);
@@ -325,6 +371,9 @@ export const useChatStore = create<ChatState>()(
           newMessageRecipients: [],
         });
         get().loadMessages(conversationId);
+
+        // Load blocking data for the new conversation
+        get().loadBlockingData();
 
         // Also mark conversation as read when switching to it (for immediate UI update)
         if (!conversationId.startsWith("user:")) {
@@ -420,10 +469,10 @@ export const useChatStore = create<ChatState>()(
           if (!response.ok) {
             // If conversation doesn't exist yet, that's okay
             if (response.status === 403 || response.status === 404) {
-              set({ 
-                messages: [], 
-                hasMoreMessages: false, 
-                messagesNextCursor: null 
+              set({
+                messages: [],
+                hasMoreMessages: false,
+                messagesNextCursor: null,
               });
               return;
             }
@@ -431,17 +480,17 @@ export const useChatStore = create<ChatState>()(
           }
 
           const result = await response.json();
-          set({ 
-            messages: result.messages || [], 
+          set({
+            messages: result.messages || [],
             hasMoreMessages: result.pagination?.hasMore || false,
-            messagesNextCursor: result.pagination?.nextCursor || null
+            messagesNextCursor: result.pagination?.nextCursor || null,
           });
         } catch (error) {
           console.error("Error loading messages:", error);
-          set({ 
-            messages: [], 
-            hasMoreMessages: false, 
-            messagesNextCursor: null 
+          set({
+            messages: [],
+            hasMoreMessages: false,
+            messagesNextCursor: null,
           });
         } finally {
           set({ isMessagesLoading: false });
@@ -449,8 +498,9 @@ export const useChatStore = create<ChatState>()(
       },
 
       loadOlderMessages: async (conversationId: string) => {
-        const { isLoadingOlderMessages, messagesNextCursor, hasMoreMessages } = get();
-        
+        const { isLoadingOlderMessages, messagesNextCursor, hasMoreMessages } =
+          get();
+
         if (isLoadingOlderMessages || !hasMoreMessages || !messagesNextCursor) {
           return;
         }
@@ -477,11 +527,11 @@ export const useChatStore = create<ChatState>()(
 
           const result = await response.json();
           const olderMessages = result.messages || [];
-          
+
           set((state) => ({
             messages: [...olderMessages, ...state.messages],
             hasMoreMessages: result.pagination?.hasMore || false,
-            messagesNextCursor: result.pagination?.nextCursor || null
+            messagesNextCursor: result.pagination?.nextCursor || null,
           }));
         } catch (error) {
           console.error("Error loading older messages:", error);
@@ -503,6 +553,9 @@ export const useChatStore = create<ChatState>()(
 
           const conversations = await response.json();
           set({ conversations });
+
+          // Load blocking data after conversations are loaded
+          get().loadBlockingData();
         } catch (error) {
           console.error("Error loading conversations:", error);
         } finally {
@@ -511,11 +564,28 @@ export const useChatStore = create<ChatState>()(
       },
 
       handleIncomingMessage: (message: Message) => {
-        const { activeConversation } = get();
+        const { activeConversation, isUserBlockedByMe, amIBlockedByUser } =
+          get();
 
         // Ensure message has required properties
         if (!message || !message.sender) {
           console.error("Invalid message received:", message);
+          return;
+        }
+
+        const senderId = message.sender._id;
+        const currentUser = userStore.getState().user;
+
+        // Don't filter out current user's own messages
+        const isOwnMessage = senderId === currentUser?.id;
+
+        // Filter out messages from blocked users or users who blocked me
+        if (
+          !isOwnMessage &&
+          (isUserBlockedByMe(senderId) || amIBlockedByUser(senderId))
+        ) {
+          // Still refresh conversations to update counts, but don't add message to chat
+          get().loadConversations();
           return;
         }
 
@@ -962,7 +1032,9 @@ export const useChatStore = create<ChatState>()(
                   lastName: newAdmin.lastName,
                   email: "", // Add required email field
                   role: "user" as const, // Add required role field
-                  avatar: newAdmin.avatar || "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg",
+                  avatar:
+                    newAdmin.avatar ||
+                    "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg",
                 },
                 // Update with any other fields from the populated conversation
                 participants: conversation.participants || conv.participants,
@@ -971,6 +1043,21 @@ export const useChatStore = create<ChatState>()(
             return conv;
           }),
         }));
+      },
+
+      handleBlockingUpdate: (data: unknown) => {
+        const { action, userId, blockedUserId } = data as {
+          action: "block" | "unblock";
+          userId: string;
+          blockedUserId: string;
+        };
+
+        console.log(
+          `Blocking update: ${action} - User ${userId} ${action}ed User ${blockedUserId}`
+        );
+
+        // Trigger blocking data reload and UI update
+        get().triggerBlockingUpdate();
       },
 
       removeMemberFromGroup: async (
@@ -1034,9 +1121,11 @@ export const useChatStore = create<ChatState>()(
             if (conv._id === conversationId) {
               return {
                 ...conv,
-                participants: conversation.participants || conv.participants?.filter(
-                  (p) => p._id !== removedUser.userId
-                ),
+                participants:
+                  conversation.participants ||
+                  conv.participants?.filter(
+                    (p) => p._id !== removedUser.userId
+                  ),
               };
             }
             return conv;
@@ -1079,6 +1168,191 @@ export const useChatStore = create<ChatState>()(
         set({ showConversationDetails: !get().showConversationDetails });
       },
 
+      blockUser: async (userId: string) => {
+        try {
+          const response = await fetch(`${API_BASE}/users/block/${userId}`, {
+            method: "POST",
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to block user");
+          }
+
+          // Trigger blocking status update for UI refresh
+          get().triggerBlockingUpdate();
+        } catch (error) {
+          console.error("Error blocking user:", error);
+          throw error;
+        }
+      },
+
+      unblockUser: async (userId: string) => {
+        try {
+          const response = await fetch(`${API_BASE}/users/unblock/${userId}`, {
+            method: "POST",
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to unblock user");
+          }
+
+          // Trigger blocking status update for UI refresh
+          get().triggerBlockingUpdate();
+        } catch (error) {
+          console.error("Error unblocking user:", error);
+          throw error;
+        }
+      },
+
+      checkIsUserBlocked: async (userId: string) => {
+        try {
+          const blockedUsers = await get().getBlockedUsers();
+          return blockedUsers.some((user) => user._id === userId);
+        } catch (error) {
+          console.error("Error checking if user is blocked:", error);
+          return false;
+        }
+      },
+
+      checkIfBlockedBy: async (userId: string) => {
+        try {
+          const response = await fetch(
+            `${API_BASE}/users/check-blocked-by/${userId}`,
+            {
+              credentials: "include",
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to check if blocked by user");
+          }
+
+          const data = await response.json();
+          return data.isBlocked || false;
+        } catch (error) {
+          console.error("Error checking if blocked by user:", error);
+          return false;
+        }
+      },
+
+      getBlockedUsers: async () => {
+        try {
+          const response = await fetch(`${API_BASE}/users/blocked`, {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch blocked users");
+          }
+
+          const data = await response.json();
+          return data.blockedUsers || [];
+        } catch (error) {
+          console.error("Error fetching blocked users:", error);
+          return [];
+        }
+      },
+
+      loadBlockingData: async () => {
+        try {
+          // Load users I've blocked
+          const blockedUsers = await get().getBlockedUsers();
+          const blockedIds = new Set(blockedUsers.map((user) => user.id));
+
+          // Load users who have blocked me from ALL conversations (more comprehensive)
+          const usersWhoBlockedMeSet = new Set<string>();
+          const { conversations } = get();
+
+          // Check all conversation participants across all conversations
+          const allParticipantIds = new Set<string>();
+          conversations.forEach((conversation) => {
+            if (conversation.participants) {
+              conversation.participants.forEach((participant) => {
+                if (participant._id !== userStore.getState().user?.id) {
+                  allParticipantIds.add(participant._id);
+                }
+              });
+            }
+            // Also check single participants for direct conversations
+            if (
+              conversation.participant &&
+              conversation.participant._id !== userStore.getState().user?.id
+            ) {
+              allParticipantIds.add(conversation.participant._id);
+            }
+          });
+
+          // Check blocking status for all unique participants
+          await Promise.all(
+            Array.from(allParticipantIds).map(async (participantId) => {
+              try {
+                const isBlockedByUser =
+                  await get().checkIfBlockedBy(participantId);
+                if (isBlockedByUser) {
+                  usersWhoBlockedMeSet.add(participantId);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking if blocked by user ${participantId}:`,
+                  error
+                );
+              }
+            })
+          );
+
+          set({
+            blockedUserIds: blockedIds,
+            usersWhoBlockedMe: usersWhoBlockedMeSet,
+          });
+        } catch (error) {
+          console.error("Error loading blocking data:", error);
+        }
+      },
+
+      isUserBlockedByMe: (userId: string) => {
+        return get().blockedUserIds.has(userId);
+      },
+
+      amIBlockedByUser: (userId: string) => {
+        return get().usersWhoBlockedMe.has(userId);
+      },
+
+      triggerBlockingUpdate: () => {
+        set((state) => ({
+          blockingUpdateTrigger: state.blockingUpdateTrigger + 1,
+        }));
+        // Reload blocking data when trigger updates and filter messages
+        (async () => {
+          await get().loadBlockingData();
+          // Filter messages in real-time after blocking data is updated
+          get().filterMessagesForBlocking();
+        })();
+      },
+
+      filterMessagesForBlocking: () => {
+        const { messages, blockedUserIds, usersWhoBlockedMe } = get();
+        const filteredMessages = messages.filter((message) => {
+          const senderId = message.sender._id;
+
+          // Don't filter out current user's own messages
+          const currentUser = userStore.getState().user;
+          if (senderId === currentUser?.id) {
+            return true;
+          }
+
+          // Filter out messages from blocked users and users who blocked me
+          return (
+            !blockedUserIds.has(senderId) && !usersWhoBlockedMe.has(senderId)
+          );
+        });
+
+        set({ messages: filteredMessages });
+      },
+
       resetStore: () => {
         set({
           ws: null,
@@ -1096,6 +1370,9 @@ export const useChatStore = create<ChatState>()(
           fallbackParticipant: null,
           isNewMessage: false,
           newMessageRecipients: [],
+          blockingUpdateTrigger: 0,
+          blockedUserIds: new Set(),
+          usersWhoBlockedMe: new Set(),
         });
       },
     }),

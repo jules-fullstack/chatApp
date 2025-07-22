@@ -18,6 +18,7 @@ interface FormFieldProps<T extends FieldValues> {
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   showError?: boolean;
+  disabled?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
@@ -33,6 +34,7 @@ export default function FormField<T extends FieldValues>({
   leftIcon,
   rightIcon,
   showError = true,
+  disabled = false,
   onKeyDown,
 }: FormFieldProps<T>) {
   const error = errors[name];
@@ -45,6 +47,7 @@ export default function FormField<T extends FieldValues>({
           type={type}
           placeholder={placeholder}
           className={inputClassName}
+          disabled={disabled}
           onKeyDown={onKeyDown}
         />
         {rightIcon && <div className="ml-2">{rightIcon}</div>}

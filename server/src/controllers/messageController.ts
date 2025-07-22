@@ -79,6 +79,67 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
           .json({ message: 'One or more recipients not found' });
       }
 
+      // Check for blocking relationships (only for direct messages, not group messages)
+      if (recipients.length === 1) {
+        const currentUser = await User.findById(senderId);
+        if (!currentUser) {
+          return res.status(404).json({ message: 'Sender not found' });
+        }
+
+        // Check if sender is blocked by any recipient or sender has blocked any recipient
+        for (const recipientId of recipients) {
+          const recipient = await User.findById(recipientId);
+          if (!recipient) continue;
+
+          // Check if sender has blocked this recipient
+          if (currentUser.blockedUsers.includes(recipient._id)) {
+            return res.status(403).json({ 
+              message: 'You have blocked this user and cannot send messages to them' 
+            });
+          }
+
+          // Check if recipient has blocked the sender
+          if (recipient.blockedUsers.includes(currentUser._id)) {
+            return res.status(403).json({ 
+              message: 'You cannot send messages to this user' 
+            });
+          }
+        }
+      }
+    } else {
+      // For existing conversations, check blocking status (only for direct messages, not group chats)
+      if (!conversation.isGroup) {
+        const currentUser = await User.findById(senderId).populate('blockedUsers');
+        if (!currentUser) {
+          return res.status(404).json({ message: 'Sender not found' });
+        }
+
+        const otherParticipants = conversation.participants.filter(
+          (p: any) => p.toString() !== senderId.toString()
+        );
+
+        for (const participantId of otherParticipants) {
+          const participant = await User.findById(participantId);
+          if (!participant) continue;
+
+          // Check if sender has blocked this participant
+          if (currentUser.blockedUsers.some((blocked: any) => blocked._id.equals(participant._id))) {
+            return res.status(403).json({ 
+              message: 'You have blocked someone in this conversation and cannot send messages' 
+            });
+          }
+
+          // Check if participant has blocked the sender
+          if (participant.blockedUsers.includes(currentUser._id)) {
+            return res.status(403).json({ 
+              message: 'You cannot send messages to this conversation' 
+            });
+          }
+        }
+      }
+    }
+
+    if (!conversationId) {
       if (recipients.length === 1) {
         // Direct message - find or create conversation
         conversation = await (Conversation as any).findBetweenUsers(
@@ -251,14 +312,43 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     };
 
     // Send WebSocket notification to all participants except sender
-    conversation.participants.forEach((participantId: any) => {
-      if (participantId.toString() !== senderId.toString()) {
-        WebSocketManager.sendMessageNotification(
-          participantId.toString(),
-          responseMessage,
-        );
+    // For group chats, filter out blocked users from receiving notifications
+    if (conversation.isGroup) {
+      const senderUser = await User.findById(senderId).select('blockedUsers');
+      
+      for (const participantId of conversation.participants) {
+        if (participantId.toString() !== senderId.toString()) {
+          const participant = await User.findById(participantId).select('blockedUsers');
+          if (!senderUser || !participant) continue;
+
+          // Check if either user has blocked the other
+          const senderHasBlockedParticipant = senderUser.blockedUsers.some((blocked: any) => 
+            blocked.toString() === participant._id.toString()
+          );
+          const participantHasBlockedSender = participant.blockedUsers.some((blocked: any) => 
+            blocked.toString() === senderUser._id.toString()
+          );
+
+          // Only send notification if neither user has blocked the other
+          if (!senderHasBlockedParticipant && !participantHasBlockedSender) {
+            WebSocketManager.sendMessageNotification(
+              participantId.toString(),
+              responseMessage,
+            );
+          }
+        }
       }
-    });
+    } else {
+      // For direct messages, send to the other participant (blocking already handled above)
+      conversation.participants.forEach((participantId: any) => {
+        if (participantId.toString() !== senderId.toString()) {
+          WebSocketManager.sendMessageNotification(
+            participantId.toString(),
+            responseMessage,
+          );
+        }
+      });
+    }
 
     res.status(201).json({
       message: 'Message sent successfully',
@@ -314,6 +404,55 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
         select: 'url filename originalName mimeType size metadata usage',
       });
 
+    // Get current user's blocked users list
+    const currentUser = await User.findById(currentUserId).select('blockedUsers');
+    const blockedUserIds = currentUser?.blockedUsers || [];
+
+    // Filter out messages based on blocking relationships
+    const filteredMessages = await Promise.all(
+      messages.map(async (message) => {
+        // Don't filter out current user's own messages
+        if (message.sender._id.toString() === currentUserId.toString()) {
+          return message;
+        }
+
+        // For group chats, check mutual blocking
+        if (conversation.isGroup) {
+          const messageSender = await User.findById(message.sender._id).select('blockedUsers');
+          if (!messageSender) return null;
+
+          // Check if current user has blocked the message sender
+          const currentUserHasBlockedSender = blockedUserIds.some((blockedId: any) => 
+            blockedId.toString() === message.sender._id.toString()
+          );
+
+          // Check if message sender has blocked the current user
+          const senderHasBlockedCurrentUser = messageSender.blockedUsers.some((blocked: any) => 
+            blocked.toString() === currentUserId.toString()
+          );
+
+          // Filter out message if either user has blocked the other
+          if (currentUserHasBlockedSender || senderHasBlockedCurrentUser) {
+            return null;
+          }
+        } else {
+          // For direct messages, only filter if current user has blocked the sender
+          const currentUserHasBlockedSender = blockedUserIds.some((blockedId: any) => 
+            blockedId.toString() === message.sender._id.toString()
+          );
+          
+          if (currentUserHasBlockedSender) {
+            return null;
+          }
+        }
+
+        return message;
+      })
+    );
+
+    // Remove null values from filtered messages
+    const finalFilteredMessages = filteredMessages.filter(message => message !== null);
+
     // Only update read status for initial load (page 1 and no before cursor)
     if (Number(page) === 1 && !before) {
       // Initialize readAt if it doesn't exist
@@ -327,14 +466,14 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
       await conversation.save();
     }
 
-    const hasMore = messages.length === Number(limit);
+    const hasMore = finalFilteredMessages.length === Number(limit);
     const nextCursor =
-      messages.length > 0
-        ? messages[messages.length - 1].createdAt.toISOString()
+      finalFilteredMessages.length > 0
+        ? finalFilteredMessages[finalFilteredMessages.length - 1].createdAt.toISOString()
         : null;
 
     res.json({
-      messages: messages.reverse(), // Reverse to show oldest first
+      messages: finalFilteredMessages.reverse(), // Reverse to show oldest first
       pagination: {
         page: Number(page),
         limit: Number(limit),

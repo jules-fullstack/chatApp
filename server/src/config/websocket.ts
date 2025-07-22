@@ -110,39 +110,74 @@ class WebSocketManager {
     const { recipientId, conversationId } = data;
 
     if (recipientId) {
-      const recipientConnection = this.connectedUsers.get(recipientId);
-      if (recipientConnection) {
-        const message = {
-          type: 'user_typing',
-          userId: senderId,
-          isTyping: true,
-          conversationId: conversationId || recipientId,
-        };
-        recipientConnection.ws.send(JSON.stringify(message));
+      // Direct message typing - check for blocking
+      try {
+        const User = (await import('../models/User.js')).default;
+        const [sender, recipient] = await Promise.all([
+          User.findById(senderId).select('blockedUsers'),
+          User.findById(recipientId).select('blockedUsers')
+        ]);
+
+        if (!sender || !recipient) return;
+
+        // Don't send typing indicator if either user has blocked the other
+        const senderHasBlockedRecipient = sender.blockedUsers.includes(recipient._id);
+        const recipientHasBlockedSender = recipient.blockedUsers.includes(sender._id);
+
+        if (senderHasBlockedRecipient || recipientHasBlockedSender) {
+          return; // Don't send typing indicator
+        }
+
+        const recipientConnection = this.connectedUsers.get(recipientId);
+        if (recipientConnection) {
+          const message = {
+            type: 'user_typing',
+            userId: senderId,
+            isTyping: true,
+            conversationId: conversationId || recipientId,
+          };
+          recipientConnection.ws.send(JSON.stringify(message));
+        }
+      } catch (error) {
+        console.error('Error checking blocking for direct typing:', error);
       }
     } else if (conversationId) {
       try {
         const Conversation = (await import('../models/Conversation.js'))
           .default;
+        const User = (await import('../models/User.js')).default;
         const conversation = await Conversation.findById(conversationId);
 
         if (conversation) {
-          conversation.participants.forEach((participantId: any) => {
+          // Get sender's blocked users list
+          const sender = await User.findById(senderId).select('blockedUsers');
+          if (!sender) return;
+
+          // For group chats, filter out blocked users from receiving typing indicators
+          for (const participantId of conversation.participants) {
             if (participantId.toString() !== senderId) {
-              const connection = this.connectedUsers.get(
-                participantId.toString(),
-              );
-              if (connection) {
-                const message = {
-                  type: 'user_typing',
-                  userId: senderId,
-                  isTyping: true,
-                  conversationId,
-                };
-                connection.ws.send(JSON.stringify(message));
+              const participant = await User.findById(participantId).select('blockedUsers');
+              if (!participant) continue;
+
+              // Check if either user has blocked the other
+              const senderHasBlockedParticipant = sender.blockedUsers.includes(participant._id);
+              const participantHasBlockedSender = participant.blockedUsers.includes(sender._id);
+
+              // Only send typing indicator if neither user has blocked the other
+              if (!senderHasBlockedParticipant && !participantHasBlockedSender) {
+                const connection = this.connectedUsers.get(participantId.toString());
+                if (connection) {
+                  const message = {
+                    type: 'user_typing',
+                    userId: senderId,
+                    isTyping: true,
+                    conversationId,
+                  };
+                  connection.ws.send(JSON.stringify(message));
+                }
               }
             }
-          });
+          }
         }
       } catch (error) {
         console.error('Error handling group typing:', error);
@@ -154,43 +189,77 @@ class WebSocketManager {
     const { recipientId, conversationId } = data;
 
     if (recipientId) {
-      // Direct message stop typing
-      const recipientConnection = this.connectedUsers.get(recipientId);
-      if (recipientConnection) {
-        recipientConnection.ws.send(
-          JSON.stringify({
-            type: 'user_typing',
-            userId: senderId,
-            isTyping: false,
-            conversationId: conversationId || recipientId,
-          }),
-        );
+      // Direct message stop typing - check for blocking
+      try {
+        const User = (await import('../models/User.js')).default;
+        const [sender, recipient] = await Promise.all([
+          User.findById(senderId).select('blockedUsers'),
+          User.findById(recipientId).select('blockedUsers')
+        ]);
+
+        if (!sender || !recipient) return;
+
+        // Don't send stop typing indicator if either user has blocked the other
+        const senderHasBlockedRecipient = sender.blockedUsers.includes(recipient._id);
+        const recipientHasBlockedSender = recipient.blockedUsers.includes(sender._id);
+
+        if (senderHasBlockedRecipient || recipientHasBlockedSender) {
+          return; // Don't send stop typing indicator
+        }
+
+        const recipientConnection = this.connectedUsers.get(recipientId);
+        if (recipientConnection) {
+          recipientConnection.ws.send(
+            JSON.stringify({
+              type: 'user_typing',
+              userId: senderId,
+              isTyping: false,
+              conversationId: conversationId || recipientId,
+            }),
+          );
+        }
+      } catch (error) {
+        console.error('Error checking blocking for direct stop typing:', error);
       }
     } else if (conversationId) {
       // Group chat stop typing
       try {
         const Conversation = (await import('../models/Conversation.js'))
           .default;
+        const User = (await import('../models/User.js')).default;
         const conversation = await Conversation.findById(conversationId);
 
         if (conversation) {
-          conversation.participants.forEach((participantId: any) => {
+          // Get sender's blocked users list
+          const sender = await User.findById(senderId).select('blockedUsers');
+          if (!sender) return;
+
+          // For group chats, filter out blocked users from receiving stop typing indicators
+          for (const participantId of conversation.participants) {
             if (participantId.toString() !== senderId) {
-              const connection = this.connectedUsers.get(
-                participantId.toString(),
-              );
-              if (connection) {
-                connection.ws.send(
-                  JSON.stringify({
-                    type: 'user_typing',
-                    userId: senderId,
-                    isTyping: false,
-                    conversationId,
-                  }),
-                );
+              const participant = await User.findById(participantId).select('blockedUsers');
+              if (!participant) continue;
+
+              // Check if either user has blocked the other
+              const senderHasBlockedParticipant = sender.blockedUsers.includes(participant._id);
+              const participantHasBlockedSender = participant.blockedUsers.includes(sender._id);
+
+              // Only send stop typing indicator if neither user has blocked the other
+              if (!senderHasBlockedParticipant && !participantHasBlockedSender) {
+                const connection = this.connectedUsers.get(participantId.toString());
+                if (connection) {
+                  connection.ws.send(
+                    JSON.stringify({
+                      type: 'user_typing',
+                      userId: senderId,
+                      isTyping: false,
+                      conversationId,
+                    }),
+                  );
+                }
               }
             }
-          });
+          }
         }
       } catch (error) {
         console.error('Error handling group stop typing:', error);
@@ -264,19 +333,42 @@ class WebSocketManager {
     }
   }
 
-  // Method to send group message notification
-  sendGroupMessageNotification(participantIds: string[], message: any) {
-    participantIds.forEach((participantId) => {
-      const connection = this.connectedUsers.get(participantId);
-      if (connection) {
-        connection.ws.send(
-          JSON.stringify({
-            type: 'new_message',
-            message,
-          }),
-        );
+  // Method to send group message notification (with blocking filter)
+  async sendGroupMessageNotification(participantIds: string[], message: any) {
+    const User = (await import('../models/User.js')).default;
+    const senderId = message.sender._id;
+    
+    // Get sender's blocked users list
+    const senderUser = await User.findById(senderId).select('blockedUsers');
+    if (!senderUser) return;
+
+    for (const participantId of participantIds) {
+      if (participantId === senderId) continue; // Don't send to sender
+      
+      const participant = await User.findById(participantId).select('blockedUsers');
+      if (!participant) continue;
+
+      // Check if either user has blocked the other
+      const senderHasBlockedParticipant = senderUser.blockedUsers.some((blocked: any) => 
+        blocked.toString() === participant._id.toString()
+      );
+      const participantHasBlockedSender = participant.blockedUsers.some((blocked: any) => 
+        blocked.toString() === senderUser._id.toString()
+      );
+
+      // Only send notification if neither user has blocked the other
+      if (!senderHasBlockedParticipant && !participantHasBlockedSender) {
+        const connection = this.connectedUsers.get(participantId);
+        if (connection) {
+          connection.ws.send(
+            JSON.stringify({
+              type: 'new_message',
+              message,
+            }),
+          );
+        }
       }
-    });
+    }
   }
 
   // Generic method to send any WebSocket message
@@ -335,6 +427,36 @@ class WebSocketManager {
     }
   }
 
+  // Method to notify user that they have been blocked by another user
+  notifyUserBlockedByUser(blockedUserId: string, blockerUserId: string) {
+    const blockedUserConnection = this.connectedUsers.get(blockedUserId);
+    
+    if (blockedUserConnection) {
+      blockedUserConnection.ws.send(
+        JSON.stringify({
+          type: 'blocked_by_user',
+          blockedBy: blockerUserId,
+          message: 'You have been blocked by another user.',
+        }),
+      );
+    }
+  }
+
+  // Method to notify user that they have been unblocked by another user
+  notifyUserUnblockedByUser(unblockedUserId: string, unblockerUserId: string) {
+    const unblockedUserConnection = this.connectedUsers.get(unblockedUserId);
+    
+    if (unblockedUserConnection) {
+      unblockedUserConnection.ws.send(
+        JSON.stringify({
+          type: 'unblocked_by_user',
+          unblockedBy: unblockerUserId,
+          message: 'You have been unblocked by another user.',
+        }),
+      );
+    }
+  }
+
   // Update user's lastActive timestamp
   private async updateUserLastActive(userId: string) {
     try {
@@ -343,6 +465,23 @@ class WebSocketManager {
     } catch (error) {
       console.error('Error updating user lastActive:', error);
     }
+  }
+
+  sendBlockingUpdate(userId: string, blockedUserId: string, action: 'block' | 'unblock') {
+    // Send notification to both users
+    const userIds = [userId, blockedUserId];
+    
+    userIds.forEach(targetUserId => {
+      const connection = this.connectedUsers.get(targetUserId);
+      if (connection) {
+        connection.ws.send(JSON.stringify({
+          type: 'blocking_update',
+          action,
+          userId,
+          blockedUserId,
+        }));
+      }
+    });
   }
 }
 

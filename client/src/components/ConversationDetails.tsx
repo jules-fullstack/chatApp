@@ -13,7 +13,7 @@ import {
   PhotoIcon,
 } from "@heroicons/react/24/solid";
 import { Accordion, Menu } from "@mantine/core";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
 import { type Participant } from "../types";
@@ -23,6 +23,8 @@ import LeaveGroupModal from "./LeaveGroupModal";
 import AddPeopleModal from "./AddPeopleModal";
 import PromoteUserModal from "./PromoteUserModal";
 import RemoveUserModal from "./RemoveUserModal";
+import BlockUserModal from "./BlockUserModal";
+import UnblockUserModal from "./UnblockUserModal";
 import Avatar from "./ui/Avatar";
 import GroupAvatar from "./ui/GroupAvatar";
 
@@ -38,6 +40,9 @@ export default function ConversationDetails() {
     setActiveConversation,
     setFallbackParticipant,
     setShowConversationDetails,
+    blockUser,
+    unblockUser,
+    blockingUpdateTrigger,
   } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
@@ -50,6 +55,11 @@ export default function ConversationDetails() {
   const [isRemoveUserModalOpen, setIsRemoveUserModalOpen] = useState(false);
   const [userToRemove, setUserToRemove] = useState<Participant | null>(null);
   const [isRemovingUser, setIsRemovingUser] = useState(false);
+  const [isBlockUserModalOpen, setIsBlockUserModalOpen] = useState(false);
+  const [isUnblockUserModalOpen, setIsUnblockUserModalOpen] = useState(false);
+  const [userToBlock, setUserToBlock] = useState<Participant | null>(null);
+  const [isBlockingUser, setIsBlockingUser] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -59,6 +69,25 @@ export default function ConversationDetails() {
   const isGroupAdmin = isGroup
     ? conversation.groupAdmin?._id === currentUser?.id
     : false;
+
+  // Load blocked users on component mount and when blocking status changes
+  useEffect(() => {
+    const loadBlockedUsers = async () => {
+      try {
+        // We need to get the full list to check each user
+        const blockedUsersList = await fetch("http://localhost:3000/api/users/blocked", {
+          credentials: "include",
+        }).then(res => res.json()).then(data => data.blockedUsers || []);
+        
+        const blockedIds = new Set<string>(blockedUsersList.map((user: { id?: string; _id?: string }) => user.id || user._id));
+        setBlockedUsers(blockedIds);
+      } catch (error) {
+        console.error("Error loading blocked users:", error);
+      }
+    };
+    
+    loadBlockedUsers();
+  }, [blockingUpdateTrigger]);
 
   const getConversationTitle = () => {
     if (!conversation && fallbackParticipant) {
@@ -227,6 +256,81 @@ export default function ConversationDetails() {
     setShowConversationDetails(false);
   };
 
+  const handleOpenBlockUserModal = (participant: Participant) => {
+    setUserToBlock(participant);
+    setIsBlockUserModalOpen(true);
+  };
+
+  const handleCloseBlockUserModal = () => {
+    setIsBlockUserModalOpen(false);
+    setUserToBlock(null);
+  };
+
+  const handleOpenUnblockUserModal = (participant: Participant) => {
+    setUserToBlock(participant);
+    setIsUnblockUserModalOpen(true);
+  };
+
+  const handleCloseUnblockUserModal = () => {
+    setIsUnblockUserModalOpen(false);
+    setUserToBlock(null);
+  };
+
+  const handleBlockUser = async () => {
+    if (!userToBlock) return;
+
+    setIsBlockingUser(true);
+    try {
+      await blockUser(userToBlock._id);
+      setBlockedUsers(prev => new Set([...prev, userToBlock._id]));
+      handleCloseBlockUserModal();
+      
+      // Force refresh of conversations list to update UI
+      setTimeout(() => {
+        setShowConversationDetails(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Failed to block user:", error);
+    } finally {
+      setIsBlockingUser(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!userToBlock) return;
+
+    setIsBlockingUser(true);
+    try {
+      await unblockUser(userToBlock._id);
+      setBlockedUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userToBlock._id);
+        return newSet;
+      });
+      handleCloseUnblockUserModal();
+      
+      // Force refresh of conversations list to update UI
+      setTimeout(() => {
+        setShowConversationDetails(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Failed to unblock user:", error);
+    } finally {
+      setIsBlockingUser(false);
+    }
+  };
+
+  const handleBlockUserInDirectMessage = () => {
+    if (!conversation?.participant) return;
+    
+    const participant = conversation.participant;
+    if (blockedUsers.has(participant._id)) {
+      handleOpenUnblockUserModal(participant);
+    } else {
+      handleOpenBlockUserModal(participant);
+    }
+  };
+
   return (
     <Container size="sm">
       <div className="flex flex-col items-center">
@@ -363,8 +467,17 @@ export default function ConversationDetails() {
                                     <NoSymbolIcon className="size-4" />
                                   </div>
                                 }
+                                onClick={() => {
+                                  if (blockedUsers.has(participant._id)) {
+                                    handleOpenUnblockUserModal(participant);
+                                  } else {
+                                    handleOpenBlockUserModal(participant);
+                                  }
+                                }}
                               >
-                                <span className="font-medium">Block</span>
+                                <span className="font-medium">
+                                  {blockedUsers.has(participant._id) ? "Unblock" : "Block"}
+                                </span>
                               </Menu.Item>
 
                               {isGroupAdmin && (
@@ -418,7 +531,7 @@ export default function ConversationDetails() {
 
           <div
             className="cursor-pointer hover:bg-gray-50"
-            onClick={isGroup ? handleOpenLeaveGroupModal : undefined}
+            onClick={isGroup ? handleOpenLeaveGroupModal : handleBlockUserInDirectMessage}
           >
             <Accordion.Panel>
               <div className="flex items-center gap-2">
@@ -430,7 +543,12 @@ export default function ConversationDetails() {
                   )}
                 </div>
                 <p className="font-medium">
-                  {isGroup ? "Leave Group" : "Block"}
+                  {isGroup 
+                    ? "Leave Group" 
+                    : conversation?.participant && blockedUsers.has(conversation.participant._id)
+                      ? "Unblock"
+                      : "Block"
+                  }
                 </p>
               </div>
             </Accordion.Panel>
@@ -480,6 +598,26 @@ export default function ConversationDetails() {
           onConfirm={handleRemoveUser}
           isLoading={isRemovingUser}
           userName={userToRemove.userName}
+        />
+      )}
+
+      {userToBlock && (
+        <BlockUserModal
+          opened={isBlockUserModalOpen}
+          onClose={handleCloseBlockUserModal}
+          onConfirm={handleBlockUser}
+          isLoading={isBlockingUser}
+          userName={userToBlock.userName}
+        />
+      )}
+
+      {userToBlock && (
+        <UnblockUserModal
+          opened={isUnblockUserModalOpen}
+          onClose={handleCloseUnblockUserModal}
+          onConfirm={handleUnblockUser}
+          isLoading={isBlockingUser}
+          userName={userToBlock.userName}
         />
       )}
     </Container>

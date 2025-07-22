@@ -327,3 +327,197 @@ export const unblockUser = async (
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+export const blockUserIndividual = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const currentUser = req.user;
+    const { userId } = req.params;
+
+    if (!currentUser) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required.' });
+      return;
+    }
+
+    if (currentUser._id.toString() === userId) {
+      res.status(400).json({ message: 'Cannot block yourself.' });
+      return;
+    }
+
+    const userToBlock = await User.findById(userId);
+    if (!userToBlock) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Check if user is already blocked
+    if (currentUser.blockedUsers.includes(userToBlock._id)) {
+      res.status(400).json({ message: 'User is already blocked.' });
+      return;
+    }
+
+    // Add user to blocked list
+    currentUser.blockedUsers.push(userToBlock._id);
+    await currentUser.save();
+
+    // Send response first before WebSocket notification
+    res.json({ 
+      message: 'User blocked successfully.',
+      blockedUserId: userToBlock._id.toString()
+    });
+
+    // Send WebSocket notification asynchronously after response
+    setImmediate(() => {
+      try {
+        WebSocketManager.sendBlockingUpdate(currentUser._id.toString(), userToBlock._id.toString(), 'block');
+      } catch (wsError) {
+        console.error('Error sending WebSocket notification:', wsError);
+      }
+    });
+  } catch (error) {
+    console.error('Error blocking user individually:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const unblockUserIndividual = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const currentUser = req.user;
+    const { userId } = req.params;
+
+    if (!currentUser) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required.' });
+      return;
+    }
+
+    const userToUnblock = await User.findById(userId);
+    if (!userToUnblock) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    // Check if user is actually blocked
+    if (!currentUser.blockedUsers.includes(userToUnblock._id)) {
+      res.status(400).json({ message: 'User is not blocked.' });
+      return;
+    }
+
+    // Remove user from blocked list
+    currentUser.blockedUsers = currentUser.blockedUsers.filter(
+      (blockedUserId) => !blockedUserId.equals(userToUnblock._id)
+    );
+    await currentUser.save();
+
+    // Send response first before WebSocket notification
+    res.json({ 
+      message: 'User unblocked successfully.',
+      unblockedUserId: userToUnblock._id.toString()
+    });
+
+    // Send WebSocket notification asynchronously after response
+    setImmediate(() => {
+      try {
+        WebSocketManager.sendBlockingUpdate(currentUser._id.toString(), userToUnblock._id.toString(), 'unblock');
+      } catch (wsError) {
+        console.error('Error sending WebSocket notification:', wsError);
+      }
+    });
+  } catch (error) {
+    console.error('Error unblocking user individually:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getBlockedUsers = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const currentUser = req.user;
+
+    if (!currentUser) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    const user = await User.findById(currentUser._id).populate({
+      path: 'blockedUsers',
+      select: 'firstName lastName userName avatar',
+      populate: {
+        path: 'avatar',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    const blockedUsers = user.blockedUsers.map((blockedUser: any) => ({
+      id: blockedUser._id.toString(),
+      firstName: blockedUser.firstName,
+      lastName: blockedUser.lastName,
+      userName: blockedUser.userName,
+      avatar: blockedUser.avatar,
+    }));
+
+    res.json({ blockedUsers });
+  } catch (error) {
+    console.error('Error getting blocked users:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const checkIfBlockedBy = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const currentUser = req.user;
+    const { userId } = req.params;
+
+    if (!currentUser) {
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
+    }
+
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required.' });
+      return;
+    }
+
+    // Check if the other user has blocked the current user
+    const otherUser = await User.findById(userId).select('blockedUsers');
+    if (!otherUser) {
+      res.status(404).json({ message: 'User not found.' });
+      return;
+    }
+
+    const isBlockedByOtherUser = otherUser.blockedUsers.includes(currentUser._id);
+
+    res.json({ 
+      isBlocked: isBlockedByOtherUser,
+      blockedBy: userId
+    });
+  } catch (error) {
+    console.error('Error checking if blocked by user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
