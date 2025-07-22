@@ -2,9 +2,12 @@ import { Request, Response } from 'express';
 import Conversation from '../models/Conversation.js';
 import Media from '../models/Media.js';
 import User from '../models/User.js';
+import InvitationToken from '../models/InvitationToken.js';
 import { uploadFile, deleteFile } from '../services/s3Service.js';
+import { sendInvitationEmail } from '../services/emailService.js';
 import WebSocketManager from '../config/websocket.js';
 import { IUser } from '../types/index.js';
+import crypto from 'crypto';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -209,6 +212,152 @@ export const updateGroupPhoto = async (
     });
   } catch (error) {
     console.error('Error updating group photo:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const inviteUnregisteredUsers = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { conversationId } = req.params;
+    const { emails } = req.body;
+    const user = req.user;
+
+    if (!user) {
+      res.status(401).json({ message: 'Authentication required' });
+      return;
+    }
+
+    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+      res.status(400).json({ message: 'Please provide at least one email address' });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = emails.filter(email => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
+      res.status(400).json({ 
+        message: 'Invalid email addresses provided',
+        invalidEmails 
+      });
+      return;
+    }
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      res.status(404).json({ message: 'Conversation not found' });
+      return;
+    }
+
+    if (!conversation.isGroup) {
+      res.status(400).json({ message: 'Can only invite users to group chats' });
+      return;
+    }
+
+    if (conversation.groupAdmin?.toString() !== user._id.toString()) {
+      res.status(403).json({ message: 'Only group admin can invite users' });
+      return;
+    }
+
+    // Check if any emails are already registered users
+    const existingUsers = await User.find({ 
+      email: { $in: emails.map(email => email.toLowerCase()) } 
+    });
+    
+    if (existingUsers.length > 0) {
+      const existingEmails = existingUsers.map(user => user.email);
+      res.status(400).json({ 
+        message: 'Some email addresses are already registered users. Please use the "Add people" feature instead.',
+        existingEmails 
+      });
+      return;
+    }
+
+    // Check for existing unused invitations
+    const existingInvitations = await InvitationToken.find({
+      email: { $in: emails.map(email => email.toLowerCase()) },
+      conversationId: conversationId,
+      isUsed: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    const alreadyInvitedEmails = existingInvitations.map(invitation => invitation.email);
+    const newEmails = emails.filter(email => !alreadyInvitedEmails.includes(email.toLowerCase()));
+
+    if (newEmails.length === 0) {
+      res.status(400).json({ 
+        message: 'All provided email addresses already have pending invitations',
+        alreadyInvitedEmails 
+      });
+      return;
+    }
+
+    // Get user info for email
+    const inviterUser = await User.findById(user._id).select('firstName lastName userName');
+    const inviterName = inviterUser?.firstName && inviterUser?.lastName 
+      ? `${inviterUser.firstName} ${inviterUser.lastName}`
+      : inviterUser?.userName || 'A ChatApp user';
+
+    const groupName = conversation.groupName || 'Group Chat';
+    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+    // Create invitation tokens and send emails
+    const createdInvitations = [];
+    const failedEmails = [];
+
+    for (const email of newEmails) {
+      try {
+        const token = crypto.randomBytes(32).toString('hex');
+        
+        const invitation = new InvitationToken({
+          email: email.toLowerCase(),
+          token,
+          conversationId,
+          invitedBy: user._id,
+        });
+
+        await invitation.save();
+
+        const invitationLink = `${baseUrl}/register?invitation=${token}`;
+        
+        await sendInvitationEmail(
+          email,
+          inviterName,
+          groupName,
+          invitationLink
+        );
+
+        createdInvitations.push({ email, token });
+      } catch (error) {
+        console.error(`Failed to create invitation for ${email}:`, error);
+        failedEmails.push(email);
+      }
+    }
+
+    const successCount = createdInvitations.length;
+    const failedCount = failedEmails.length;
+
+    let message = `Successfully sent ${successCount} invitation(s)`;
+    if (failedCount > 0) {
+      message += `, but ${failedCount} failed to send`;
+    }
+    if (alreadyInvitedEmails.length > 0) {
+      message += `. ${alreadyInvitedEmails.length} email(s) already had pending invitations`;
+    }
+
+    res.json({ 
+      message,
+      successCount,
+      failedCount,
+      alreadyInvitedCount: alreadyInvitedEmails.length,
+      failedEmails: failedEmails.length > 0 ? failedEmails : undefined,
+      alreadyInvitedEmails: alreadyInvitedEmails.length > 0 ? alreadyInvitedEmails : undefined,
+    });
+  } catch (error) {
+    console.error('Error inviting unregistered users:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 };

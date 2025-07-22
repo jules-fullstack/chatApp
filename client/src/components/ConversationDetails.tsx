@@ -12,6 +12,7 @@ import {
   UserIcon,
   PhotoIcon,
 } from "@heroicons/react/24/solid";
+import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { Accordion, Menu } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
@@ -25,6 +26,7 @@ import PromoteUserModal from "./PromoteUserModal";
 import RemoveUserModal from "./RemoveUserModal";
 import BlockUserModal from "./BlockUserModal";
 import UnblockUserModal from "./UnblockUserModal";
+import InviteUnregisteredUserModal from "./InviteUnregisteredUserModal";
 import Avatar from "./ui/Avatar";
 import GroupAvatar from "./ui/GroupAvatar";
 
@@ -62,6 +64,8 @@ export default function ConversationDetails() {
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isInviteUnregisteredModalOpen, setIsInviteUnregisteredModalOpen] = useState(false);
+  const [isInvitingUsers, setIsInvitingUsers] = useState(false);
 
   const conversation = conversations.find(
     (conversation) => conversation._id === activeConversation
@@ -378,7 +382,7 @@ export default function ConversationDetails() {
         throw new Error(error.message || 'Failed to upload group photo');
       }
 
-      const result = await response.json();
+      await response.json();
       
       // The WebSocket message will handle updating the conversation state
 
@@ -396,6 +400,46 @@ export default function ConversationDetails() {
   const handleOpenPhotoUpload = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
+    }
+  };
+
+  const handleOpenInviteUnregisteredModal = () => {
+    setIsInviteUnregisteredModalOpen(true);
+  };
+
+  const handleCloseInviteUnregisteredModal = () => {
+    setIsInviteUnregisteredModalOpen(false);
+  };
+
+  const handleInviteUnregisteredUsers = async (emails: string[]) => {
+    if (!conversation || !activeConversation) return;
+
+    setIsInvitingUsers(true);
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/conversations/${activeConversation}/invite-unregistered`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ emails }),
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send invitations');
+      }
+
+      handleCloseInviteUnregisteredModal();
+      alert('Invitations sent successfully!');
+    } catch (error) {
+      console.error('Failed to send invitations:', error);
+      alert(error instanceof Error ? error.message : 'Failed to send invitations');
+    } finally {
+      setIsInvitingUsers(false);
     }
   };
 
@@ -604,6 +648,22 @@ export default function ConversationDetails() {
                 </Accordion.Panel>
               </div>
             )}
+
+            {isGroupAdmin && (
+              <div
+                className="cursor-pointer hover:bg-gray-50"
+                onClick={handleOpenInviteUnregisteredModal}
+              >
+                <Accordion.Panel>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-gray-200 rounded-full p-2">
+                      <EnvelopeIcon className="size-4" />
+                    </div>
+                    <p className="font-medium">Invite unregistered users</p>
+                  </div>
+                </Accordion.Panel>
+              </div>
+            )}
           </Accordion.Item>
         )}
 
@@ -701,6 +761,16 @@ export default function ConversationDetails() {
           onConfirm={handleUnblockUser}
           isLoading={isBlockingUser}
           userName={userToBlock.userName}
+        />
+      )}
+
+      {conversation && isGroup && isGroupAdmin && (
+        <InviteUnregisteredUserModal
+          opened={isInviteUnregisteredModalOpen}
+          onClose={handleCloseInviteUnregisteredModal}
+          onConfirm={handleInviteUnregisteredUsers}
+          isLoading={isInvitingUsers}
+          conversationId={conversation._id}
         />
       )}
     </Container>

@@ -67,7 +67,17 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
   component: Register,
-  beforeLoad: async () => {
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      invitation: search.invitation as string | undefined,
+    };
+  },
+  beforeLoad: async ({ search }) => {
+    // If there's an invitation token, allow access regardless of auth status
+    if (search.invitation) {
+      return;
+    }
+    
     const { isLoading } = userStore.getState();
     
     if (isLoading) {

@@ -5,6 +5,7 @@ declare module 'express-session' {
     pendingUser?: {
       email: string;
       type: 'login' | 'register';
+      invitationToken?: string;
     };
   }
 }

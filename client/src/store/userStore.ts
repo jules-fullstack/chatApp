@@ -37,10 +37,11 @@ export const userStore = create<AuthState>()((set) => ({
         const userData = await response.json();
         set({ user: userData.user, isLoading: false });
       } else {
+        // 401 is expected for unauthenticated users (like those clicking invitation links)
         set({ user: null, isLoading: false });
       }
     } catch (error) {
-      console.error("Auth check failed:", error);
+      // Network errors or other issues - don't log 401s as they're expected
       set({ user: null, isLoading: false });
     }
   },

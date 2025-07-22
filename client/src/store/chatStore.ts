@@ -114,7 +114,7 @@ interface ChatState {
   unblockUser: (userId: string) => Promise<void>;
   checkIsUserBlocked: (userId: string) => Promise<boolean>;
   checkIfBlockedBy: (userId: string) => Promise<boolean>;
-  getBlockedUsers: () => Promise<Participant[]>;
+  getBlockedUsers: () => Promise<(Participant & { id?: string })[]>;
 
   // Blocking status refresh
   blockingUpdateTrigger: number;
@@ -1305,7 +1305,7 @@ export const useChatStore = create<ChatState>()(
         try {
           // Load users I've blocked
           const blockedUsers = await get().getBlockedUsers();
-          const blockedIds = new Set(blockedUsers.map((user) => user.id));
+          const blockedIds = new Set(blockedUsers.map((user) => user._id || user.id).filter((id): id is string => !!id));
 
           // Load users who have blocked me from ALL conversations (more comprehensive)
           const usersWhoBlockedMeSet = new Set<string>();

@@ -6,6 +6,7 @@ import {
   getCurrentUser,
   verifyOTP,
   resendOTP,
+  checkInvitation,
 } from '../controllers/authController';
 import {
   ensureAuthenticated,
@@ -35,5 +36,7 @@ router.get('/check-pending', (req, res) => {
     res.status(404).json({ pending: false });
   }
 });
+
+router.get('/check-invitation', checkInvitation);
 
 export default router;

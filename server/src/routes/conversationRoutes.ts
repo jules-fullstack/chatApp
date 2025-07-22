@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAllGroupConversations, updateGroupPhoto } from '../controllers/conversationController.js';
+import { getAllGroupConversations, updateGroupPhoto, inviteUnregisteredUsers } from '../controllers/conversationController.js';
 import { ensureAuthenticated } from '../middlewares/auth.js';
 import { singleImageUpload, validateSingleImage } from '../middleware/imageValidation.js';
 
@@ -15,6 +15,13 @@ router.put(
   singleImageUpload.single('groupPhoto'),
   validateSingleImage,
   updateGroupPhoto
+);
+
+// Invitation routes
+router.post(
+  '/:conversationId/invite-unregistered',
+  ensureAuthenticated,
+  inviteUnregisteredUsers
 );
 
 export default router;

@@ -1,5 +1,6 @@
 import { useForm, type SubmitHandler } from "react-hook-form";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
 import FormField from "../components/ui/FormField";
@@ -25,6 +26,13 @@ interface ApiResponse {
 
 export default function Register() {
   const navigate = useNavigate();
+  const search = useSearch({ from: '/register' });
+  const [invitationInfo, setInvitationInfo] = useState<{ groupName?: string; inviterName?: string } | null>(null);
+  const [invitationError, setInvitationError] = useState<string | null>(null);
+  
+  // Get invitation token from search parameters
+  const invitationToken = search.invitation;
+  
   const {
     register,
     handleSubmit,
@@ -32,6 +40,34 @@ export default function Register() {
     formState: { errors },
     setError,
   } = useForm<RegisterInputs>();
+
+  // Check invitation token on component mount
+  useEffect(() => {
+    const checkInvitation = async () => {
+      if (invitationToken) {
+        try {
+          const response = await fetch(`http://localhost:3000/api/auth/check-invitation?token=${invitationToken}`, {
+            credentials: "include",
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setInvitationInfo({
+              groupName: data.groupName,
+              inviterName: data.inviterName,
+            });
+          } else {
+            const error = await response.json();
+            setInvitationError(error.message || "Invalid invitation link");
+          }
+        } catch {
+          setInvitationError("Failed to validate invitation");
+        }
+      }
+    };
+
+    checkInvitation();
+  }, [invitationToken]);
 
   const onSubmit: SubmitHandler<RegisterInputs> = async (data) => {
     try {
@@ -47,6 +83,7 @@ export default function Register() {
           userName: data.userName,
           email: data.email,
           password: data.password,
+          invitationToken: invitationToken,
         }),
       });
 
@@ -71,10 +108,25 @@ export default function Register() {
     <AuthLayout>
       <Head>Register for ChatApp</Head>
 
+      {invitationInfo && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>{invitationInfo.inviterName}</strong> has invited you to join the group chat{" "}
+            <strong>"{invitationInfo.groupName}"</strong>. Complete your registration to automatically join the group.
+          </p>
+        </div>
+      )}
+
+      {invitationError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-800">{invitationError}</p>
+        </div>
+      )}
+
       <AuthForm
         onSubmit={onSubmit}
         handleSubmit={handleSubmit}
-        submitLabel="Register"
+        submitLabel={invitationInfo ? "Register & Join Group" : "Register"}
       >
         <div className="flex gap-4">
           <FormField
