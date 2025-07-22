@@ -171,6 +171,111 @@ class AdminService {
         : new Error("An unexpected error occurred");
     }
   }
+
+  async addMembersToGroup(conversationId: string, userIds: string[]): Promise<{ addedMembers: unknown[] }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/add-members`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userIds }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to add members to group";
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          // fallback to default message
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Add members to group error:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("An unexpected error occurred");
+    }
+  }
+
+  async removeMembersFromGroup(conversationId: string, userIds: string[]): Promise<void> {
+    try {
+      // Since the backend endpoint only supports removing one member at a time,
+      // we need to make multiple requests
+      const removePromises = userIds.map(async (userId) => {
+        const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/remove-member`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userToRemoveId: userId }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMessage = "Failed to remove member from group";
+
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.message || errorMessage;
+          } catch {
+            // fallback to default message
+          }
+
+          throw new Error(errorMessage);
+        }
+      });
+
+      // Wait for all removals to complete
+      await Promise.all(removePromises);
+    } catch (error) {
+      console.error("Remove members from group error:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("An unexpected error occurred");
+    }
+  }
+
+  async promoteGroupMember(conversationId: string, userId: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/change-admin`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ newAdminId: userId }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to promote member to admin";
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          // fallback to default message
+        }
+
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Promote group member error:", error);
+      throw error instanceof Error
+        ? error
+        : new Error("An unexpected error occurred");
+    }
+  }
 }
 
 export default new AdminService();

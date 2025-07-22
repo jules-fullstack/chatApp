@@ -6,10 +6,6 @@ import Media from '../models/Media.js';
 import { IUser } from '../types/index.js';
 import WebSocketManager from '../config/websocket.js';
 import { migrateConversationsToReadAt } from '../utils/migrateConversations.js';
-import {
-  getMessagesByConversationWithMedia,
-  populateUsersWithAvatars,
-} from '../utils/mediaQueries.js';
 import { uploadImageToS3 } from '../services/s3Service.js';
 
 interface AuthenticatedRequest extends Request {
@@ -36,12 +32,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
         (!attachmentIds || attachmentIds.length === 0) &&
         (!images || images.length === 0))
     ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            'Missing required fields: must have either content or attachments',
-        });
+      return res.status(400).json({
+        message:
+          'Missing required fields: must have either content or attachments',
+      });
     }
 
     let conversation: any;
@@ -730,6 +724,7 @@ export const addMembersToGroup = async (
     const { conversationId } = req.params;
     const { userIds } = req.body;
     const userId = req.user?._id;
+    const userRole = req.user?.role;
 
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
@@ -741,24 +736,26 @@ export const addMembersToGroup = async (
 
     // Find the conversation and verify it's a group conversation
     const conversation = await Conversation.findById(conversationId);
-    if (!conversation || !conversation.participants.includes(userId)) {
-      return res
-        .status(403)
-        .json({
-          message: 'Not authorized to add members to this conversation',
-        });
+    if (
+      !conversation ||
+      (!conversation.participants.includes(userId) && userRole !== 'superAdmin')
+    ) {
+      return res.status(403).json({
+        message: 'Not authorized to add members to this conversation',
+      });
     }
 
     if (!conversation.isGroup) {
-      return res
-        .status(400)
-        .json({
-          message: 'Cannot add members to a direct message conversation',
-        });
+      return res.status(400).json({
+        message: 'Cannot add members to a direct message conversation',
+      });
     }
 
     // Verify that the user is the group admin
-    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+    if (
+      conversation.groupAdmin?.toString() !== userId.toString() &&
+      userRole !== 'superAdmin'
+    ) {
       return res
         .status(403)
         .json({ message: 'Only group admin can add members' });
@@ -871,6 +868,7 @@ export const changeGroupAdmin = async (
     const { conversationId } = req.params;
     const { newAdminId } = req.body;
     const userId = req.user?._id;
+    const userRole = req.user?.role;
 
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
@@ -882,24 +880,26 @@ export const changeGroupAdmin = async (
 
     // Find the conversation and verify it's a group conversation
     const conversation = await Conversation.findById(conversationId);
-    if (!conversation || !conversation.participants.includes(userId)) {
-      return res
-        .status(403)
-        .json({
-          message: 'Not authorized to change admin of this conversation',
-        });
+    if (
+      !conversation ||
+      (!conversation.participants.includes(userId) && userRole !== 'superAdmin')
+    ) {
+      return res.status(403).json({
+        message: 'Not authorized to change admin of this conversation',
+      });
     }
 
     if (!conversation.isGroup) {
-      return res
-        .status(400)
-        .json({
-          message: 'Cannot change admin of a direct message conversation',
-        });
+      return res.status(400).json({
+        message: 'Cannot change admin of a direct message conversation',
+      });
     }
 
     // Verify that the user is the current group admin
-    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+    if (
+      conversation.groupAdmin?.toString() !== userId.toString() &&
+      userRole !== 'superAdmin'
+    ) {
       return res
         .status(403)
         .json({ message: 'Only current group admin can change admin' });
@@ -997,6 +997,7 @@ export const removeMemberFromGroup = async (
     const { conversationId } = req.params;
     const { userToRemoveId } = req.body;
     const userId = req.user?._id;
+    const userRole = req.user?.role;
 
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
@@ -1008,24 +1009,26 @@ export const removeMemberFromGroup = async (
 
     // Find the conversation and verify it's a group conversation
     const conversation = await Conversation.findById(conversationId);
-    if (!conversation || !conversation.participants.includes(userId)) {
-      return res
-        .status(403)
-        .json({
-          message: 'Not authorized to remove members from this conversation',
-        });
+    if (
+      !conversation ||
+      (!conversation.participants.includes(userId) && userRole !== 'superAdmin')
+    ) {
+      return res.status(403).json({
+        message: 'Not authorized to remove members from this conversation',
+      });
     }
 
     if (!conversation.isGroup) {
-      return res
-        .status(400)
-        .json({
-          message: 'Cannot remove members from a direct message conversation',
-        });
+      return res.status(400).json({
+        message: 'Cannot remove members from a direct message conversation',
+      });
     }
 
     // Verify that the user is the group admin
-    if (conversation.groupAdmin?.toString() !== userId.toString()) {
+    if (
+      conversation.groupAdmin?.toString() !== userId.toString() &&
+      userRole !== 'superAdmin'
+    ) {
       return res
         .status(403)
         .json({ message: 'Only group admin can remove members' });
@@ -1044,11 +1047,9 @@ export const removeMemberFromGroup = async (
 
     // Prevent admin from removing themselves
     if (userToRemoveId === userId.toString()) {
-      return res
-        .status(400)
-        .json({
-          message: 'Admin cannot remove themselves. Use leave group instead',
-        });
+      return res.status(400).json({
+        message: 'Admin cannot remove themselves. Use leave group instead',
+      });
     }
 
     // Get user info before removing
