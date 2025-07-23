@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useIntersectionObserver } from "./useIntersectionObserver";
-import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 
 export function useConversationRead(
@@ -12,7 +12,7 @@ export function useConversationRead(
     rootMargin: "0px",
   });
 
-  const { markConversationAsRead } = useChatStore();
+  const { markConversationAsRead } = useConversationStore();
   const currentUser = userStore.getState().user;
 
   useEffect(() => {

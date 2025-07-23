@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import User from '../models/User';
 
 export const ensureAuthenticated = (
   req: Request,
@@ -13,14 +14,22 @@ export const ensureAuthenticated = (
           res.status(500).json({ message: 'Internal server error' });
           return;
         }
-        
+
         if (req.session && typeof req.session.destroy === 'function') {
           req.session.destroy((sessionErr) => {
-            if (sessionErr) console.error('Error destroying session for blocked user:', sessionErr);
-            res.status(403).json({ message: 'Your account has been blocked from the platform.' });
+            if (sessionErr)
+              console.error(
+                'Error destroying session for blocked user:',
+                sessionErr,
+              );
+            res.status(403).json({
+              message: 'Your account has been blocked from the platform.',
+            });
           });
         } else {
-          res.status(403).json({ message: 'Your account has been blocked from the platform.' });
+          res.status(403).json({
+            message: 'Your account has been blocked from the platform.',
+          });
         }
       });
       return;
@@ -39,4 +48,32 @@ export const ensureNotAuthenticated = (
     return next();
   }
   res.status(400).json({ message: 'Already authenticated' });
+};
+
+export const validatePendingSession = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { email } = req.body;
+  if (!req.session.pendingUser || req.session.pendingUser.email !== email) {
+    res.status(400).json({ message: 'Invalid verification session' });
+    return;
+  }
+  next();
+};
+
+export const ensureUserExists = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(400).json({ message: 'User not found' });
+    return;
+  }
+  req.user = user;
+  next();
 };

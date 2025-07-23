@@ -88,9 +88,10 @@ export const sendOfflineMessageNotification = async (
 
   if (conversationCount === 1) {
     subject = `New message from ${senderName} - ChatApp`;
-    content = messageCount === 1 
-      ? `You have 1 new message from <strong>${senderName}</strong>`
-      : `You have ${messageCount} new messages from <strong>${senderName}</strong>`;
+    content =
+      messageCount === 1
+        ? `You have 1 new message from <strong>${senderName}</strong>`
+        : `You have ${messageCount} new messages from <strong>${senderName}</strong>`;
   } else {
     subject = `New messages from ${conversationCount} conversations - ChatApp`;
     content = `You received ${messageCount} new messages from ${conversationCount} conversations`;
@@ -107,13 +108,12 @@ export const sendOfflineMessageNotification = async (
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
           <p style="margin-bottom: 15px; color: #666;">Log in to ChatApp to read your messages:</p>
-          <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}" 
+          <a href="${process.env.CLIENT_URL}" 
              style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">
             Open ChatApp
           </a>
         </div>
         
-        <p style="color: #666; font-size: 14px;">You received this email because you have offline message notifications enabled. You can adjust your notification settings in the app.</p>
       </div>
     `,
   };

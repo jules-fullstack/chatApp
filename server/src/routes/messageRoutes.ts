@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { ensureAuthenticated } from '../middlewares/auth.js';
 import { validateMessageContent } from '../middlewares/messageValidation.js';
-import { imageUpload, validateImageBatch } from '../middleware/imageValidation.js';
+import {
+  imageUpload,
+  validateImageBatch,
+} from '../middlewares/imageValidation.js';
 import {
   sendMessage,
   getMessages,
@@ -26,7 +29,12 @@ router.use(ensureAuthenticated);
 router.post('/send', ...validateMessageContent, sendMessage as any);
 
 // Upload images
-router.post('/upload-images', imageUpload.array('images'), validateImageBatch, uploadImages as any);
+router.post(
+  '/upload-images',
+  imageUpload.array('images'),
+  validateImageBatch,
+  uploadImages as any,
+);
 
 // Get messages for a conversation
 router.get('/conversation/:conversationId', getMessages as any);
@@ -41,19 +49,31 @@ router.get('/conversations', getConversations as any);
 router.patch('/conversation/:conversationId/read', markAsRead as any);
 
 // Update group name
-router.patch('/conversation/:conversationId/group-name', updateGroupName as any);
+router.patch(
+  '/conversation/:conversationId/group-name',
+  updateGroupName as any,
+);
 
 // Leave group
 router.post('/conversation/:conversationId/leave', leaveGroup as any);
 
 // Add members to group
-router.post('/conversation/:conversationId/add-members', addMembersToGroup as any);
+router.post(
+  '/conversation/:conversationId/add-members',
+  addMembersToGroup as any,
+);
 
 // Change group admin
-router.patch('/conversation/:conversationId/change-admin', changeGroupAdmin as any);
+router.patch(
+  '/conversation/:conversationId/change-admin',
+  changeGroupAdmin as any,
+);
 
 // Remove member from group
-router.post('/conversation/:conversationId/remove-member', removeMemberFromGroup as any);
+router.post(
+  '/conversation/:conversationId/remove-member',
+  removeMemberFromGroup as any,
+);
 
 // Migration endpoint - remove this after migration is complete
 router.post('/migrate', migrateConversations as any);

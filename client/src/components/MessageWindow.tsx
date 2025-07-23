@@ -5,6 +5,7 @@ import MessageBubble from "./MessageBubble";
 import TimestampSeparator from "./TimestampSeparator";
 import Container from "./ui/Container";
 import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 import { useConversationRead } from "../hooks/useMessageRead";
 import { shouldShowTimeSeparator } from "../utils/dateUtils";
@@ -12,6 +13,9 @@ import { Loader } from "@mantine/core";
 import { useIntersectionObserverCallback } from "../hooks/useIntersectionObserver";
 
 export default function MessageWindow() {
+  const { getTypingUsersForConversation, isUserBlockedByMe, amIBlockedByUser } =
+    useChatStore();
+
   const {
     activeConversation,
     messages,
@@ -23,10 +27,7 @@ export default function MessageWindow() {
     hasMoreMessages,
     isLoadingOlderMessages,
     loadOlderMessages,
-    getTypingUsersForConversation,
-    isUserBlockedByMe,
-    amIBlockedByUser,
-  } = useChatStore();
+  } = useConversationStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -362,7 +363,10 @@ export default function MessageWindow() {
     filteredMessages.forEach((message, index) => {
       const isLast = index === filteredMessages.length - 1;
       const previousMessage = index > 0 ? filteredMessages[index - 1] : null;
-      const nextMessage = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null;
+      const nextMessage =
+        index < filteredMessages.length - 1
+          ? filteredMessages[index + 1]
+          : null;
       const currentUser = userStore.getState().user;
       const isOwnMessage = currentUser?.id === message.sender._id;
 
@@ -383,10 +387,11 @@ export default function MessageWindow() {
       }
 
       // Check if there will be a timestamp separator after this message
-      const nextMessageShowsSeparator = nextMessage ? shouldShowTimeSeparator(
-        nextMessage.createdAt,
-        message.createdAt
-      ) : false;
+      const nextMessageShowsSeparator = nextMessage
+        ? shouldShowTimeSeparator(nextMessage.createdAt, message.createdAt)
+        : false;
+
+      const nextMessageIsGroupEvent = nextMessage?.messageType === "groupEvent";
 
       // Determine if we should show avatar for this message
       // Only show avatar for other users' messages (not own messages)
@@ -396,11 +401,12 @@ export default function MessageWindow() {
       //    - This is the last message overall OR
       //    - Next message is from a different sender OR
       //    - There will be a timestamp separator after this message (breaking the sequence)
-      const showAvatar = !isOwnMessage && (
-        isLast || // Last message overall
-        (nextMessage && nextMessage.sender._id !== message.sender._id) || // Next message from different sender
-        nextMessageShowsSeparator // Timestamp separator will break the sequence
-      );
+      const showAvatar =
+        !isOwnMessage &&
+        (isLast || // Last message overall
+          (nextMessage && nextMessage.sender._id !== message.sender._id) || // Next message from different sender
+          nextMessageShowsSeparator ||
+          nextMessageIsGroupEvent); // Timestamp separator will break the sequence
 
       // Get the users who last read this specific message
       const usersWhoLastReadThisMessage =

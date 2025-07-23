@@ -2,10 +2,10 @@ import { PencilSquareIcon } from "@heroicons/react/24/outline";
 import SearchBar from "./SearchBar";
 import Inbox from "./Inbox";
 import Container from "./ui/Container";
-import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 
 export default function Sidebar() {
-  const { startNewMessage, setShowConversationDetails } = useChatStore();
+  const { startNewMessage, setShowConversationDetails } = useConversationStore();
 
   const handleNewMessageClick = () => {
     setShowConversationDetails(false);

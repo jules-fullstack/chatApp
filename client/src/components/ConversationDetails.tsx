@@ -16,6 +16,7 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { Accordion, Menu } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 import { API_BASE_URL } from "../config";
 import { type Participant } from "../types";
@@ -43,6 +44,8 @@ export default function ConversationDetails() {
     setActiveConversation,
     setFallbackParticipant,
     setShowConversationDetails,
+  } = useConversationStore();
+  const {
     blockUser,
     unblockUser,
     blockingUpdateTrigger,

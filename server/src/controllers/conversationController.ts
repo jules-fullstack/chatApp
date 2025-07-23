@@ -22,7 +22,9 @@ export const getAllGroupConversations = async (
     const user = req.user;
 
     if (!user || user.role !== 'superAdmin') {
-      res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      res
+        .status(403)
+        .json({ message: 'Access denied. Admin privileges required.' });
       return;
     }
 
@@ -31,33 +33,33 @@ export const getAllGroupConversations = async (
     const limit = parseInt(req.query.limit as string) || 10;
     const skip = (page - 1) * limit;
 
-    const filter = { 
+    const filter = {
       isGroup: true,
-      isActive: true 
+      isActive: true,
     };
 
     // Get total count for pagination
     const total = await Conversation.countDocuments(filter);
 
     const groupConversations = await Conversation.find(filter)
-    .populate({
-      path: 'participants',
-      select: 'firstName lastName userName email',
-    })
-    .populate({
-      path: 'groupAdmin',
-      select: 'firstName lastName userName email',
-    })
-    .populate({
-      path: 'groupPhoto',
-      match: { isDeleted: false },
-      select: 'url filename originalName mimeType metadata',
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit);
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName email',
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName email',
+      })
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    const conversationData = groupConversations.map(conversation => ({
+    const conversationData = groupConversations.map((conversation) => ({
       id: conversation._id.toString(),
       groupName: conversation.groupName,
       participants: conversation.participants.map((participant: any) => ({
@@ -67,13 +69,15 @@ export const getAllGroupConversations = async (
         userName: participant.userName,
         email: participant.email,
       })),
-      groupAdmin: conversation.groupAdmin ? {
-        id: (conversation.groupAdmin as any)._id.toString(),
-        firstName: (conversation.groupAdmin as any).firstName,
-        lastName: (conversation.groupAdmin as any).lastName,
-        userName: (conversation.groupAdmin as any).userName,
-        email: (conversation.groupAdmin as any).email,
-      } : null,
+      groupAdmin: conversation.groupAdmin
+        ? {
+            id: (conversation.groupAdmin as any)._id.toString(),
+            firstName: (conversation.groupAdmin as any).firstName,
+            lastName: (conversation.groupAdmin as any).lastName,
+            userName: (conversation.groupAdmin as any).userName,
+            email: (conversation.groupAdmin as any).email,
+          }
+        : null,
       participantCount: conversation.participants.length,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
@@ -85,7 +89,7 @@ export const getAllGroupConversations = async (
     const hasNext = page < totalPages;
     const hasPrev = page > 1;
 
-    res.json({ 
+    res.json({
       conversations: conversationData,
       pagination: {
         currentPage: page,
@@ -93,8 +97,8 @@ export const getAllGroupConversations = async (
         totalItems: total,
         itemsPerPage: limit,
         hasNext,
-        hasPrev
-      }
+        hasPrev,
+      },
     });
   } catch (error) {
     console.error('Error fetching group conversations:', error);
@@ -128,7 +132,9 @@ export const updateGroupPhoto = async (
     }
 
     if (conversation.groupAdmin?.toString() !== user._id.toString()) {
-      res.status(403).json({ message: 'Only group admin can update group photo' });
+      res
+        .status(403)
+        .json({ message: 'Only group admin can update group photo' });
       return;
     }
 
@@ -176,11 +182,13 @@ export const updateGroupPhoto = async (
     // Create group event for photo change
     const eventMessage = await GroupEventService.createPhotoChangeEvent(
       conversation._id,
-      user._id
+      user._id,
     );
 
     // Get user info for notifications
-    const adminUser = await User.findById(user._id).select('firstName lastName userName');
+    const adminUser = await User.findById(user._id).select(
+      'firstName lastName userName',
+    );
 
     // Notify all participants via WebSocket
     conversation.participants.forEach((participantId: any) => {
@@ -203,7 +211,7 @@ export const updateGroupPhoto = async (
         },
         updatedAt: new Date().toISOString(),
       });
-      
+
       // Send the group event message
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'new_message',
@@ -244,17 +252,19 @@ export const inviteUnregisteredUsers = async (
     }
 
     if (!emails || !Array.isArray(emails) || emails.length === 0) {
-      res.status(400).json({ message: 'Please provide at least one email address' });
+      res
+        .status(400)
+        .json({ message: 'Please provide at least one email address' });
       return;
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const invalidEmails = emails.filter(email => !emailRegex.test(email));
+    const invalidEmails = emails.filter((email) => !emailRegex.test(email));
     if (invalidEmails.length > 0) {
-      res.status(400).json({ 
+      res.status(400).json({
         message: 'Invalid email addresses provided',
-        invalidEmails 
+        invalidEmails,
       });
       return;
     }
@@ -276,46 +286,55 @@ export const inviteUnregisteredUsers = async (
     }
 
     // Check if any emails are already registered users
-    const existingUsers = await User.find({ 
-      email: { $in: emails.map(email => email.toLowerCase()) } 
+    const existingUsers = await User.find({
+      email: { $in: emails.map((email) => email.toLowerCase()) },
     });
-    
+
     if (existingUsers.length > 0) {
-      const existingEmails = existingUsers.map(user => user.email);
-      res.status(400).json({ 
-        message: 'Some email addresses are already registered users. Please use the "Add people" feature instead.',
-        existingEmails 
+      const existingEmails = existingUsers.map((user) => user.email);
+      res.status(400).json({
+        message:
+          'Some email addresses are already registered users. Please use the "Add people" feature instead.',
+        existingEmails,
       });
       return;
     }
 
     // Check for existing unused invitations
     const existingInvitations = await InvitationToken.find({
-      email: { $in: emails.map(email => email.toLowerCase()) },
+      email: { $in: emails.map((email) => email.toLowerCase()) },
       conversationId: conversationId,
       isUsed: false,
-      expiresAt: { $gt: new Date() }
+      expiresAt: { $gt: new Date() },
     });
 
-    const alreadyInvitedEmails = existingInvitations.map(invitation => invitation.email);
-    const newEmails = emails.filter(email => !alreadyInvitedEmails.includes(email.toLowerCase()));
+    const alreadyInvitedEmails = existingInvitations.map(
+      (invitation) => invitation.email,
+    );
+    const newEmails = emails.filter(
+      (email) => !alreadyInvitedEmails.includes(email.toLowerCase()),
+    );
 
     if (newEmails.length === 0) {
-      res.status(400).json({ 
-        message: 'All provided email addresses already have pending invitations',
-        alreadyInvitedEmails 
+      res.status(400).json({
+        message:
+          'All provided email addresses already have pending invitations',
+        alreadyInvitedEmails,
       });
       return;
     }
 
     // Get user info for email
-    const inviterUser = await User.findById(user._id).select('firstName lastName userName');
-    const inviterName = inviterUser?.firstName && inviterUser?.lastName 
-      ? `${inviterUser.firstName} ${inviterUser.lastName}`
-      : inviterUser?.userName || 'A ChatApp user';
+    const inviterUser = await User.findById(user._id).select(
+      'firstName lastName userName',
+    );
+    const inviterName =
+      inviterUser?.firstName && inviterUser?.lastName
+        ? `${inviterUser.firstName} ${inviterUser.lastName}`
+        : inviterUser?.userName || 'A ChatApp user';
 
     const groupName = conversation.groupName || 'Group Chat';
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const baseUrl = process.env.CLIENT_URL;
 
     // Create invitation tokens and send emails
     const createdInvitations = [];
@@ -324,7 +343,7 @@ export const inviteUnregisteredUsers = async (
     for (const email of newEmails) {
       try {
         const token = crypto.randomBytes(32).toString('hex');
-        
+
         const invitation = new InvitationToken({
           email: email.toLowerCase(),
           token,
@@ -335,12 +354,12 @@ export const inviteUnregisteredUsers = async (
         await invitation.save();
 
         const invitationLink = `${baseUrl}/register?invitation=${token}`;
-        
+
         await sendInvitationEmail(
           email,
           inviterName,
           groupName,
-          invitationLink
+          invitationLink,
         );
 
         createdInvitations.push({ email, token });
@@ -361,13 +380,14 @@ export const inviteUnregisteredUsers = async (
       message += `. ${alreadyInvitedEmails.length} email(s) already had pending invitations`;
     }
 
-    res.json({ 
+    res.json({
       message,
       successCount,
       failedCount,
       alreadyInvitedCount: alreadyInvitedEmails.length,
       failedEmails: failedEmails.length > 0 ? failedEmails : undefined,
-      alreadyInvitedEmails: alreadyInvitedEmails.length > 0 ? alreadyInvitedEmails : undefined,
+      alreadyInvitedEmails:
+        alreadyInvitedEmails.length > 0 ? alreadyInvitedEmails : undefined,
     });
   } catch (error) {
     console.error('Error inviting unregistered users:', error);

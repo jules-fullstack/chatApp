@@ -390,11 +390,7 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
     const { page = 1, limit = 50, before } = req.query;
-    const currentUserId = req.user?._id;
-
-    if (!currentUserId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const currentUserId = req.user!._id;
 
     // Check if user is participant in conversation
     const conversation = await Conversation.findById(conversationId);
@@ -538,11 +534,7 @@ export const getDirectMessages = async (
 ) => {
   try {
     const { userId } = req.params;
-    const currentUserId = req.user?._id;
-
-    if (!currentUserId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const currentUserId = req.user!._id;
 
     // Find direct conversation between users
     const conversation = await (Conversation as any).findBetweenUsers(
@@ -568,11 +560,7 @@ export const getConversations = async (
   res: Response,
 ) => {
   try {
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const userId = req.user!._id;
 
     const conversations = await Conversation.find({
       participants: userId,
@@ -682,11 +670,7 @@ export const getConversations = async (
 export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const userId = req.user!._id;
 
     // Find and update the conversation
     const conversation = await Conversation.findById(conversationId);
@@ -748,11 +732,7 @@ export const updateGroupName = async (
   try {
     const { conversationId } = req.params;
     const { groupName } = req.body;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const userId = req.user!._id;
 
     // Find the conversation and verify it's a group conversation
     const conversation = await Conversation.findById(conversationId);
@@ -849,11 +829,7 @@ export const updateGroupName = async (
 export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { conversationId } = req.params;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
+    const userId = req.user!._id;
 
     // Find the conversation and verify it's a group conversation
     const conversation = await Conversation.findById(conversationId);
@@ -943,12 +919,8 @@ export const addMembersToGroup = async (
   try {
     const { conversationId } = req.params;
     const { userIds } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user!._id;
     const userRole = req.user?.role;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
       return res.status(400).json({ message: 'User IDs are required' });
@@ -1109,12 +1081,8 @@ export const changeGroupAdmin = async (
   try {
     const { conversationId } = req.params;
     const { newAdminId } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user!._id;
     const userRole = req.user?.role;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
 
     if (!newAdminId) {
       return res.status(400).json({ message: 'New admin ID is required' });
@@ -1256,12 +1224,8 @@ export const removeMemberFromGroup = async (
   try {
     const { conversationId } = req.params;
     const { userToRemoveId } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user!._id;
     const userRole = req.user?.role;
-
-    if (!userId) {
-      return res.status(401).json({ message: 'Not authenticated' });
-    }
 
     if (!userToRemoveId) {
       return res.status(400).json({ message: 'User to remove ID is required' });
@@ -1445,12 +1409,7 @@ export const uploadImages = async (
 ): Promise<void> => {
   try {
     const files = req.files;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      res.status(401).json({ error: 'User not authenticated' });
-      return;
-    }
+    const userId = req.user!._id;
 
     if (!files || files.length === 0) {
       res.status(400).json({ error: 'No files provided' });

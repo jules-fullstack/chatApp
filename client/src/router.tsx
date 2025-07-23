@@ -19,7 +19,11 @@ const checkPendingVerification = async (): Promise<boolean> => {
       method: "GET",
       credentials: "include",
     });
-    return response.status === 200;
+    if (response.ok) {
+      const data = await response.json();
+      return data.pending;
+    }
+    return false;
   } catch {
     return false;
   }

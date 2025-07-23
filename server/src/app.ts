@@ -1,4 +1,3 @@
-import dotenv from 'dotenv';
 import express, { Request, Response, NextFunction } from 'express';
 import session from 'express-session';
 import passport from 'passport';
@@ -11,8 +10,7 @@ import routes from './routes';
 import passportConfig from './config/passport';
 import webSocketManager from './config/websocket';
 import offlineNotificationService from './services/offlineNotificationService.js';
-
-dotenv.config();
+import { config } from './config/index.js';
 
 const app = express();
 
@@ -22,7 +20,7 @@ passportConfig(passport);
 
 app.use(
   cors({
-    origin: 'http://localhost:5173',
+    origin: config.clientUrl,
     credentials: true,
   }),
 );
@@ -31,20 +29,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET as string,
+  secret: config.session.secret,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI as string,
-    mongoOptions: {},
-    touchAfter: 24 * 3600 // lazy session update
+    mongoUrl: config.database.uri,
+    mongoOptions: config.database.options,
+    touchAfter: 24 * 3600, // lazy session update
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24,
+    secure: config.session.secure,
+    httpOnly: config.session.httpOnly,
+    maxAge: config.session.maxAge,
   },
-  rolling: true, // reset session expiry on activity
+  rolling: config.session.rolling,
 });
 
 app.use(sessionMiddleware);
@@ -71,8 +69,11 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // Start periodic cleanup for offline notifications (every 10 minutes)
-setInterval(() => {
-  offlineNotificationService.cleanup();
-}, 10 * 60 * 1000);
+setInterval(
+  () => {
+    offlineNotificationService.cleanup();
+  },
+  10 * 60 * 1000,
+);
 
 export default app;

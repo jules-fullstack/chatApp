@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 import { useLogout } from "../hooks/useLogout";
 import {
@@ -103,11 +104,14 @@ export default function UserDashboard() {
   const {
     connect,
     disconnect,
+  } = useChatStore();
+  
+  const {
     loadConversations,
     conversations,
     setActiveConversation,
     showConversationDetails,
-  } = useChatStore();
+  } = useConversationStore();
 
   const {
     register,
@@ -295,7 +299,7 @@ export default function UserDashboard() {
     // Set the most recent conversation as active on load
     if (
       conversations.length > 0 &&
-      !useChatStore.getState().activeConversation
+      !useConversationStore.getState().activeConversation
     ) {
       // Use conversation ID for both group and direct chats
       setActiveConversation(conversations[0]._id);

@@ -2,6 +2,7 @@ import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Participant, type SearchedUser, type User } from "../types";
 import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
@@ -61,7 +62,7 @@ export default function ConversationHeader({
     addRecipient,
     removeRecipient,
     toggleConversationDetails,
-  } = useChatStore();
+  } = useConversationStore();
   const { user: currentUser } = userStore();
   const { isUserOnline } = useChatStore();
   const [searchResults, setSearchResults] = useState<SearchedUser[]>([]);

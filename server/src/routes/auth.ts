@@ -11,6 +11,8 @@ import {
 import {
   ensureAuthenticated,
   ensureNotAuthenticated,
+  ensureUserExists,
+  validatePendingSession,
 } from '../middlewares/auth';
 
 const router = express.Router();
@@ -19,9 +21,21 @@ router.post('/register', ensureNotAuthenticated, register);
 
 router.post('/login', ensureNotAuthenticated, login);
 
-router.post('/verify-otp', ensureNotAuthenticated, verifyOTP);
+router.post(
+  '/verify-otp',
+  ensureNotAuthenticated,
+  ensureUserExists,
+  validatePendingSession,
+  verifyOTP,
+);
 
-router.post('/resend-otp', ensureNotAuthenticated, resendOTP);
+router.post(
+  '/resend-otp',
+  ensureNotAuthenticated,
+  ensureUserExists,
+  validatePendingSession,
+  resendOTP,
+);
 
 router.post('/logout', ensureAuthenticated, logout);
 
@@ -31,9 +45,11 @@ router.get('/check', getCurrentUser);
 
 router.get('/check-pending', (req, res) => {
   if (req.session.pendingUser) {
-    res.status(200).json({ pending: true, email: req.session.pendingUser.email });
+    res
+      .status(200)
+      .json({ pending: true, email: req.session.pendingUser.email });
   } else {
-    res.status(404).json({ pending: false });
+    res.status(200).json({ pending: false });
   }
 });
 

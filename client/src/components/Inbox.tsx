@@ -1,6 +1,6 @@
 import MessageTab from "./MessageTab";
 import useUserSearchStore from "../store/userSearchStore";
-import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { userStore } from "../store/userStore";
 import { Loader } from "@mantine/core";
 import { useEffect } from "react";
@@ -18,7 +18,7 @@ export default function Inbox() {
     isNewMessage,
     newMessageRecipients,
     isConversationsLoading,
-  } = useChatStore();
+  } = useConversationStore();
   const { user: currentUser } = userStore();
 
   useEffect(() => {

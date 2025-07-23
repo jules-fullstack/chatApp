@@ -1,77 +1,34 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userStore } from "./userStore";
-import { type Participant, type Message, type Conversation } from "../types";
-import { API_BASE_URL, WEBSOCKET_URL } from "../config";
-
-interface TypingUser {
-  userId: string;
-  userName?: string;
-  firstName?: string;
-  lastName?: string;
-}
+import { useConversationStore } from "./conversationStore";
+import { API_BASE_URL } from "../config";
+import { WebSocketManager } from "../services/webSocketManager";
+import type { Participant } from "../types";
+import type { TypingUser, StoreActions } from "../services/webSocketTypes";
 
 interface ChatState {
   // WebSocket connection
   ws: WebSocket | null;
   isConnected: boolean;
+  webSocketManager: WebSocketManager | null;
 
   // Online users tracking
   onlineUsers: Set<string>;
 
-  // Active conversation
-  activeConversation: string | null;
-
-  // Messages
-  messages: Message[];
-  conversations: Conversation[];
-  hasMoreMessages: boolean;
-  messagesNextCursor: string | null;
-  isLoadingOlderMessages: boolean;
-
   // UI state
   isTyping: boolean;
   typingUsers: Map<string, TypingUser>;
-  showConversationDetails: boolean;
-
-  isConversationsLoading: boolean;
-  isMessagesLoading: boolean;
-
-  fallbackParticipant: Participant | null;
-  setFallbackParticipant: (participant: Participant | null) => void;
-
-  // New message state
-  isNewMessage: boolean;
-  newMessageRecipients: Participant[];
-  setNewMessage: (isNew: boolean, recipients?: Participant[]) => void;
-  addRecipient: (recipient: Participant) => void;
-  removeRecipient: (recipientId: string) => void;
-  clearRecipients: () => void;
 
   // Actions
   connect: () => void;
   disconnect: () => void;
-  setActiveConversation: (userId: string) => void;
-  startNewMessage: () => void;
 
   // Online status actions
   isUserOnline: (userId: string) => boolean;
   setUserOnline: (userId: string, isOnline: boolean) => void;
 
-  // Message actions
-  sendMessage: (
-    recipientIds: string[],
-    content: string,
-    groupName?: string,
-    messageType?: string,
-    images?: string[]
-  ) => Promise<void>;
-  loadMessages: (userId: string) => Promise<void>;
-  loadOlderMessages: (conversationId: string) => Promise<void>;
-  loadConversations: () => Promise<void>;
-
   // Real-time actions
-  handleIncomingMessage: (message: Message) => void;
   startTyping: (recipientId: string) => void;
   stopTyping: (recipientId: string) => void;
   setTypingUser: (
@@ -80,35 +37,6 @@ interface ChatState {
     userInfo?: Partial<TypingUser>
   ) => void;
   getTypingUsersForConversation: () => TypingUser[];
-  getUserInfoFromConversations: (userId: string) => Partial<TypingUser>;
-
-  // Read status actions
-  markConversationAsRead: (conversationId: string) => Promise<void>;
-  handleConversationRead: (data: unknown) => void;
-
-  // Group management actions
-  updateGroupName: (conversationId: string, groupName: string) => Promise<void>;
-  handleGroupNameUpdated: (data: unknown) => void;
-  handleGroupPhotoUpdated: (data: unknown) => void;
-  leaveGroup: (conversationId: string) => Promise<void>;
-  handleUserLeftGroup: (data: unknown) => void;
-  handleMembersAddedToGroup: (data: unknown) => void;
-  changeGroupAdmin: (
-    conversationId: string,
-    newAdminId: string
-  ) => Promise<void>;
-  handleGroupAdminChanged: (data: unknown) => void;
-  handleBlockingUpdate: (data: unknown) => void;
-  removeMemberFromGroup: (
-    conversationId: string,
-    userToRemoveId: string
-  ) => Promise<void>;
-  handleMemberRemovedFromGroup: (data: unknown) => void;
-  handleRemovedFromGroup: (data: unknown) => void;
-
-  // UI actions
-  setShowConversationDetails: (show: boolean) => void;
-  toggleConversationDetails: () => void;
 
   // Blocking actions
   blockUser: (userId: string) => Promise<void>;
@@ -127,7 +55,9 @@ interface ChatState {
   loadBlockingData: () => Promise<void>;
   isUserBlockedByMe: (userId: string) => boolean;
   amIBlockedByUser: (userId: string) => boolean;
-  filterMessagesForBlocking: () => void;
+
+  // Blocking handlers (for WebSocket)
+  handleBlockingUpdate: (data: unknown) => void;
 
   resetStore: () => void;
 }
@@ -137,214 +67,78 @@ export const useChatStore = create<ChatState>()(
     (set, get) => ({
       ws: null,
       isConnected: false,
+      webSocketManager: null,
       onlineUsers: new Set(),
-      activeConversation: null,
-      messages: [],
-      conversations: [],
-      hasMoreMessages: false,
-      messagesNextCursor: null,
-      isLoadingOlderMessages: false,
       isTyping: false,
       typingUsers: new Map(),
-      showConversationDetails: false,
-      fallbackParticipant: null,
-      isNewMessage: false,
-      newMessageRecipients: [],
-      isConversationsLoading: false,
-      isMessagesLoading: false,
       blockingUpdateTrigger: 0,
       blockedUserIds: new Set(),
       usersWhoBlockedMe: new Set(),
 
-      setFallbackParticipant: (participant: Participant | null) => {
-        set({ fallbackParticipant: participant });
-      },
-
-      setNewMessage: (isNew: boolean, recipients?: Participant[]) => {
-        set({
-          isNewMessage: isNew,
-          newMessageRecipients: recipients || [],
-          messages: isNew ? [] : get().messages,
-        });
-      },
-
-      addRecipient: (recipient: Participant) => {
-        const current = get().newMessageRecipients;
-        if (!current.find((r) => r._id === recipient._id)) {
-          set({
-            newMessageRecipients: [...current, recipient],
-          });
-        }
-      },
-
-      removeRecipient: (recipientId: string) => {
-        set({
-          newMessageRecipients: get().newMessageRecipients.filter(
-            (r) => r._id !== recipientId
-          ),
-        });
-      },
-
-      clearRecipients: () => {
-        set({ newMessageRecipients: [] });
-      },
-
-      startNewMessage: () => {
-        set({
-          isNewMessage: true,
-          newMessageRecipients: [],
-          activeConversation: null,
-          messages: [],
-          fallbackParticipant: null,
-        });
-      },
-
       connect: () => {
         const user = userStore.getState().user;
-        if (!user || get().ws) return;
+        if (!user || get().webSocketManager) return;
 
-        const ws = new WebSocket(`${WEBSOCKET_URL}/chat`);
-
-        ws.onopen = () => {
-          set({ ws, isConnected: true });
-          // Load blocking data when WebSocket connects
-          get().loadBlockingData();
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-
-          switch (data.type) {
-            case "new_message":
-              get().handleIncomingMessage(data.message);
-              break;
-            case "user_typing": {
-              // Only show typing indicator if it's for the active conversation
-              const { activeConversation } = get();
-
-              // Check if this typing indicator is for the current active conversation
-              let shouldShowTyping = false;
-
-              if (activeConversation) {
-                if (activeConversation.startsWith("user:")) {
-                  // Direct message with user: format - check if the typing user is the same as the target user
-                  const targetUserId = activeConversation.replace("user:", "");
-                  shouldShowTyping = data.userId === targetUserId;
-                } else {
-                  // Group chat or existing conversation - check conversation ID
-                  shouldShowTyping = data.conversationId === activeConversation;
-                }
-              }
-
-              if (shouldShowTyping) {
-                // Try to get user info from conversations
-                const userInfo = get().getUserInfoFromConversations(
-                  data.userId
-                );
-                get().setTypingUser(data.userId, data.isTyping, userInfo);
-              }
-              break;
+        // Create store actions interface for WebSocketManager
+        const conversationStore = useConversationStore.getState();
+        const storeActions: StoreActions = {
+          setConnectionState: (isConnected: boolean) => {
+            set({ isConnected });
+          },
+          setWebSocket: (ws: WebSocket | null) => {
+            set({ ws });
+          },
+          setUserOnline: get().setUserOnline,
+          clearOnlineUsers: () => {
+            set({ onlineUsers: new Set() });
+          },
+          setTypingUser: get().setTypingUser,
+          getUserInfoFromConversations: conversationStore.getUserInfoFromConversations,
+          handleIncomingMessage: (message) => {
+            // Filter message for blocking before passing to conversation store
+            const senderId = message.sender?._id;
+            const currentUser = userStore.getState().user;
+            const isOwnMessage = senderId === currentUser?.id;
+            
+            if (!isOwnMessage && (get().isUserBlockedByMe(senderId) || get().amIBlockedByUser(senderId))) {
+              // Still refresh conversations but don't add blocked message
+              conversationStore.loadConversations();
+              return;
             }
-            case "conversation_read":
-              get().handleConversationRead(data);
-              break;
-            case "group_name_updated":
-              get().handleGroupNameUpdated(data);
-              break;
-            case "group_photo_updated":
-              get().handleGroupPhotoUpdated(data);
-              break;
-            case "user_left_group":
-              get().handleUserLeftGroup(data);
-              break;
-            case "members_added_to_group":
-              get().handleMembersAddedToGroup(data);
-              break;
-            case "group_admin_changed":
-              get().handleGroupAdminChanged(data);
-              break;
-            case "blocking_update":
-              get().handleBlockingUpdate(data);
-              break;
-            case "member_removed_from_group":
-              get().handleMemberRemovedFromGroup(data);
-              break;
-            case "removed_from_group":
-              get().handleRemovedFromGroup(data);
-              break;
-            case "user_status":
-              get().setUserOnline(data.userId, data.isOnline);
-              break;
-            case "online_users_list":
-              // Set initial online users when first connecting
-              data.userIds.forEach((userId: string) => {
-                get().setUserOnline(userId, true);
-              });
-              break;
-            case "account_blocked":
-              // Handle account blocking - perform logout sequence
-              (async () => {
-                try {
-                  await fetch(`${API_BASE_URL}/auth/logout`, {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                  });
-                } catch (error) {
-                  console.error("Error during logout:", error);
-                }
-
-                // Clear user and reset stores
-                userStore.getState().clearUser();
-                get().resetStore();
-
-                // Show blocking message
-                alert(
-                  data.message ||
-                    "Your account has been blocked from the platform."
-                );
-
-                // Redirect to login page
-                window.location.href = "/login";
-              })();
-              break;
-            case "blocked_by_user":
-              // Handle being blocked by another user
-              console.log("You have been blocked by a user:", data.blockedBy);
-              // Trigger blocking status update
-              get().triggerBlockingUpdate();
-              break;
-            case "unblocked_by_user":
-              // Handle being unblocked by another user
-              console.log(
-                "You have been unblocked by a user:",
-                data.unblockedBy
-              );
-              // Trigger blocking status update
-              get().triggerBlockingUpdate();
-              break;
-            default:
-              console.log("Unknown WebSocket message:", data);
-          }
+            
+            conversationStore.handleIncomingMessage(message);
+          },
+          loadConversations: conversationStore.loadConversations,
+          loadBlockingData: get().loadBlockingData,
+          handleConversationRead: conversationStore.handleConversationRead,
+          handleGroupNameUpdated: conversationStore.handleGroupNameUpdated,
+          handleGroupPhotoUpdated: conversationStore.handleGroupPhotoUpdated,
+          handleUserLeftGroup: conversationStore.handleUserLeftGroup,
+          handleMembersAddedToGroup: conversationStore.handleMembersAddedToGroup,
+          handleGroupAdminChanged: conversationStore.handleGroupAdminChanged,
+          handleMemberRemovedFromGroup: conversationStore.handleMemberRemovedFromGroup,
+          handleRemovedFromGroup: conversationStore.handleRemovedFromGroup,
+          handleBlockingUpdate: get().handleBlockingUpdate,
+          triggerBlockingUpdate: get().triggerBlockingUpdate,
+          resetStore: get().resetStore,
+          getState: () => ({
+            activeConversation: conversationStore.activeConversation,
+          }),
         };
 
-        ws.onclose = () => {
-          set({ ws: null, isConnected: false });
-        };
-
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
-          set({ ws: null, isConnected: false });
-        };
+        const manager = new WebSocketManager(storeActions);
+        set({ webSocketManager: manager });
+        
+        manager.connect().catch((error) => {
+          console.error("Failed to connect WebSocket:", error);
+        });
       },
 
       disconnect: () => {
-        const { ws } = get();
-        if (ws) {
-          ws.close();
-          set({ ws: null, isConnected: false, onlineUsers: new Set() });
+        const { webSocketManager } = get();
+        if (webSocketManager) {
+          webSocketManager.disconnect();
+          set({ webSocketManager: null });
         }
       },
 
@@ -364,310 +158,22 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      setActiveConversation: (conversationId: string) => {
-        set({
-          activeConversation: conversationId,
-          messages: [],
-          hasMoreMessages: false,
-          messagesNextCursor: null,
-          isNewMessage: false,
-          newMessageRecipients: [],
-        });
-        get().loadMessages(conversationId);
-
-        // Load blocking data for the new conversation
-        get().loadBlockingData();
-
-        // Also mark conversation as read when switching to it (for immediate UI update)
-        if (!conversationId.startsWith("user:")) {
-          get().markConversationAsRead(conversationId);
-        }
-      },
-
-      sendMessage: async (
-        targets: string[],
-        content: string,
-        groupName?: string,
-        messageType?: string,
-        images?: string[]
-      ) => {
-        try {
-          const { isNewMessage, activeConversation } = get();
-
-          let requestBody;
-          if (isNewMessage) {
-            // New message - send to multiple recipients
-            requestBody = {
-              recipientIds: targets,
-              content,
-              messageType: messageType || "text",
-              ...(groupName !== undefined && { groupName }),
-              ...(images && images.length > 0 && { images }),
-            };
-          } else if (activeConversation?.startsWith("user:")) {
-            // Direct message to a user (new conversation)
-            const userId = activeConversation.replace("user:", "");
-            requestBody = {
-              recipientIds: [userId],
-              content,
-              messageType: messageType || "text",
-              ...(images && images.length > 0 && { images }),
-            };
-          } else {
-            // Existing conversation - send to conversation
-            requestBody = {
-              conversationId: activeConversation,
-              content,
-              messageType: messageType || "text",
-              ...(images && images.length > 0 && { images }),
-            };
-          }
-
-          const response = await fetch(`${API_BASE_URL}/messages/send`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(requestBody),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to send message");
-          }
-
-          const result = await response.json();
-
-          set((state) => ({
-            messages: [...state.messages, result.data],
-            isNewMessage: false,
-            newMessageRecipients: [],
-            activeConversation: result.data.conversation || activeConversation,
-          }));
-
-          get().loadConversations();
-        } catch (error) {
-          console.error("Error sending message:", error);
-          throw error;
-        }
-      },
-
-      loadMessages: async (conversationId: string) => {
-        set({ isMessagesLoading: true });
-        try {
-          let url;
-          if (conversationId.startsWith("user:")) {
-            // Direct message to a user - use legacy endpoint
-            const userId = conversationId.replace("user:", "");
-            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50`;
-          } else {
-            // Existing conversation - load most recent 50 messages
-            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50`;
-          }
-
-          const response = await fetch(url, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            // If conversation doesn't exist yet, that's okay
-            if (response.status === 403 || response.status === 404) {
-              set({
-                messages: [],
-                hasMoreMessages: false,
-                messagesNextCursor: null,
-              });
-              return;
-            }
-            throw new Error("Failed to load messages");
-          }
-
-          const result = await response.json();
-          set({
-            messages: result.messages || [],
-            hasMoreMessages: result.pagination?.hasMore || false,
-            messagesNextCursor: result.pagination?.nextCursor || null,
-          });
-        } catch (error) {
-          console.error("Error loading messages:", error);
-          set({
-            messages: [],
-            hasMoreMessages: false,
-            messagesNextCursor: null,
-          });
-        } finally {
-          set({ isMessagesLoading: false });
-        }
-      },
-
-      loadOlderMessages: async (conversationId: string) => {
-        const { isLoadingOlderMessages, messagesNextCursor, hasMoreMessages } =
-          get();
-
-        if (isLoadingOlderMessages || !hasMoreMessages || !messagesNextCursor) {
-          return;
-        }
-
-        set({ isLoadingOlderMessages: true });
-        try {
-          let url;
-          if (conversationId.startsWith("user:")) {
-            // Direct message to a user - use legacy endpoint
-            const userId = conversationId.replace("user:", "");
-            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50&before=${messagesNextCursor}`;
-          } else {
-            // Existing conversation
-            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50&before=${messagesNextCursor}`;
-          }
-
-          const response = await fetch(url, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to load older messages");
-          }
-
-          const result = await response.json();
-          const olderMessages = result.messages || [];
-
-          set((state) => ({
-            messages: [...olderMessages, ...state.messages],
-            hasMoreMessages: result.pagination?.hasMore || false,
-            messagesNextCursor: result.pagination?.nextCursor || null,
-          }));
-        } catch (error) {
-          console.error("Error loading older messages:", error);
-        } finally {
-          set({ isLoadingOlderMessages: false });
-        }
-      },
-
-      loadConversations: async () => {
-        set({ isConversationsLoading: true });
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversations`,
-            {
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to load conversations");
-          }
-
-          const conversations = await response.json();
-          set({ conversations });
-
-          // Load blocking data after conversations are loaded
-          get().loadBlockingData();
-        } catch (error) {
-          console.error("Error loading conversations:", error);
-        } finally {
-          set({ isConversationsLoading: false });
-        }
-      },
-
-      handleIncomingMessage: (message: Message) => {
-        const { activeConversation, isUserBlockedByMe, amIBlockedByUser } =
-          get();
-
-        // Ensure message has required properties
-        if (!message || !message.sender) {
-          console.error("Invalid message received:", message);
-          return;
-        }
-
-        const senderId = message.sender._id;
-        const currentUser = userStore.getState().user;
-
-        // Don't filter out current user's own messages
-        const isOwnMessage = senderId === currentUser?.id;
-
-        // Filter out messages from blocked users or users who blocked me
-        if (
-          !isOwnMessage &&
-          (isUserBlockedByMe(senderId) || amIBlockedByUser(senderId))
-        ) {
-          // Still refresh conversations to update counts, but don't add message to chat
-          get().loadConversations();
-          return;
-        }
-
-        // If this message is for the active conversation, add it to messages
-        // For group chats, we need to check the conversation ID
-        if (
-          message.conversation &&
-          activeConversation === message.conversation
-        ) {
-          set((state) => ({
-            messages: [...state.messages, message],
-          }));
-        } else if (
-          !message.conversation &&
-          activeConversation === message.sender._id
-        ) {
-          // Legacy direct message handling
-          set((state) => ({
-            messages: [...state.messages, message],
-          }));
-        }
-
-        // Refresh conversations to update last message and unread count
-        get().loadConversations();
-      },
-
       startTyping: (target: string) => {
-        const { ws } = get();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          if (target.startsWith("user:")) {
-            // Direct message with user: format
-            const recipientId = target.replace("user:", "");
-            const message = {
-              type: "typing",
-              recipientId,
-              conversationId: recipientId,
-            };
-            ws.send(JSON.stringify(message));
-          } else {
-            // Group chat or existing conversation - send only conversationId
-            const message = {
-              type: "typing",
-              conversationId: target,
-            };
-            ws.send(JSON.stringify(message));
-          }
+        const { webSocketManager } = get();
+        if (webSocketManager && webSocketManager.isConnected) {
+          webSocketManager.sendTyping(target);
         } else {
           console.log(
             "DEBUG: WebSocket not ready, readyState:",
-            ws?.readyState
+            webSocketManager?.readyState
           );
         }
       },
 
       stopTyping: (target: string) => {
-        const { ws } = get();
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          if (target.startsWith("user:")) {
-            // Direct message with user: format
-            const recipientId = target.replace("user:", "");
-            ws.send(
-              JSON.stringify({
-                type: "stop_typing",
-                recipientId,
-                conversationId: recipientId,
-              })
-            );
-          } else {
-            // Group chat or existing conversation - send only conversationId
-            ws.send(
-              JSON.stringify({
-                type: "stop_typing",
-                conversationId: target,
-              })
-            );
-          }
+        const { webSocketManager } = get();
+        if (webSocketManager && webSocketManager.isConnected) {
+          webSocketManager.sendStopTyping(target);
         }
       },
 
@@ -693,525 +199,9 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      getUserInfoFromConversations: (userId: string) => {
-        const { conversations } = get();
-
-        // Find the user in conversations
-        for (const conversation of conversations) {
-          if (conversation.isGroup && conversation.participants) {
-            const participant = conversation.participants.find(
-              (p) => p._id === userId
-            );
-            if (participant) {
-              return {
-                userName: participant.userName,
-                firstName: participant.firstName,
-                lastName: participant.lastName,
-              };
-            }
-          } else if (
-            !conversation.isGroup &&
-            conversation.participant &&
-            conversation.participant._id === userId
-          ) {
-            return {
-              userName: conversation.participant.userName,
-              firstName: conversation.participant.firstName,
-              lastName: conversation.participant.lastName,
-            };
-          }
-        }
-        return {};
-      },
-
       getTypingUsersForConversation: () => {
         const { typingUsers } = get();
         return Array.from(typingUsers.values());
-      },
-
-      markConversationAsRead: async (conversationId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/read`,
-            {
-              method: "PATCH",
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to mark conversation as read");
-          }
-
-          const result = await response.json();
-          const currentUserId = userStore.getState().user?.id || "";
-
-          // Update local state - update conversation read timestamp and unread count
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                const updatedConv = {
-                  ...conv,
-                  unreadCount: 0,
-                  readAt: {
-                    ...conv.readAt,
-                    [currentUserId]: result.readAt || new Date().toISOString(),
-                  },
-                };
-                return updatedConv;
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error marking conversation as read:", error);
-        }
-      },
-
-      handleConversationRead: (data: unknown) => {
-        const { conversationId, readBy, readAt } = data as {
-          conversationId: string;
-          readBy: { userId: string };
-          readAt: string;
-        };
-
-        // Update conversation read timestamp in local state
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              const updatedConv = {
-                ...conv,
-                readAt: {
-                  ...conv.readAt,
-                  [readBy.userId]: readAt || new Date().toISOString(),
-                },
-              };
-              return updatedConv;
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      updateGroupName: async (conversationId: string, groupName: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/group-name`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              body: JSON.stringify({ groupName }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to update group name");
-          }
-
-          const result = await response.json();
-
-          // Update local state immediately
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                return {
-                  ...conv,
-                  groupName: result.groupName,
-                };
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error updating group name:", error);
-          throw error;
-        }
-      },
-
-      handleGroupNameUpdated: (data: unknown) => {
-        const { conversationId, groupName, conversation } = data as {
-          conversationId: string;
-          groupName: string;
-          conversation: Conversation;
-        };
-
-        // Update conversation in local state with full conversation data
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              return {
-                ...conv,
-                groupName,
-                // Update with any other fields from the populated conversation
-                participants: conversation.participants || conv.participants,
-                groupAdmin: conversation.groupAdmin || conv.groupAdmin,
-              };
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      handleGroupPhotoUpdated: (data: unknown) => {
-        const { conversationId, groupPhoto } = data as {
-          conversationId: string;
-          groupPhoto: {
-            _id: string;
-            url: string;
-            filename: string;
-            originalName: string;
-            mimeType: string;
-            metadata: {
-              width?: number;
-              height?: number;
-              blurhash?: string;
-              alt?: string;
-            };
-          };
-        };
-
-        // Update conversation in local state with new group photo
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              return {
-                ...conv,
-                groupPhoto: {
-                  _id: groupPhoto._id,
-                  filename: groupPhoto.filename,
-                  originalName: groupPhoto.originalName,
-                  mimeType: groupPhoto.mimeType,
-                  size: 0, // Size not provided in WebSocket message
-                  url: groupPhoto.url,
-                  metadata: groupPhoto.metadata,
-                },
-              };
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      leaveGroup: async (conversationId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/leave`,
-            {
-              method: "POST",
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to leave group");
-          }
-
-          // Remove conversation from local state
-          set((state) => ({
-            conversations: state.conversations.filter(
-              (conv) => conv._id !== conversationId
-            ),
-            // If this was the active conversation, clear it
-            activeConversation:
-              state.activeConversation === conversationId
-                ? null
-                : state.activeConversation,
-            messages:
-              state.activeConversation === conversationId ? [] : state.messages,
-            showConversationDetails: false,
-          }));
-        } catch (error) {
-          console.error("Error leaving group:", error);
-          throw error;
-        }
-      },
-
-      handleUserLeftGroup: (data: unknown) => {
-        const { conversationId, leftUser, newAdmin, isActive } = data as {
-          conversationId: string;
-          leftUser: { userId: string };
-          newAdmin: string;
-          isActive: boolean;
-        };
-
-        // Update conversation in local state
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              const filteredParticipants = conv.participants?.filter(
-                (p) => p._id !== leftUser.userId
-              );
-
-              // Find the new admin user object from remaining participants
-              const newAdminUser = filteredParticipants?.find(
-                (p) => p._id === newAdmin
-              );
-
-              return {
-                ...conv,
-                participants: filteredParticipants,
-                groupAdmin: newAdminUser,
-                isActive,
-              };
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      handleMembersAddedToGroup: (data: unknown) => {
-        const { conversationId, addedMembers, conversation } = data as {
-          conversationId: string;
-          addedMembers: Array<{
-            userId: string;
-            userName: string;
-            firstName: string;
-            lastName: string;
-          }>;
-          conversation: Conversation;
-        };
-
-        const currentUserId = userStore.getState().user?.id;
-
-        set((state) => {
-          const existingConversation = state.conversations.find(
-            (conv) => conv._id === conversationId
-          );
-
-          if (existingConversation) {
-            // Update existing conversation with new participants
-            return {
-              conversations: state.conversations.map((conv) => {
-                if (conv._id === conversationId) {
-                  return {
-                    ...conv,
-                    participants: conversation.participants,
-                  };
-                }
-                return conv;
-              }),
-            };
-          } else {
-            // Add new conversation for newly added members
-            const isNewMember = addedMembers.some(
-              (member) => member.userId === currentUserId
-            );
-
-            if (isNewMember) {
-              return {
-                conversations: [...state.conversations, conversation],
-              };
-            }
-
-            return state;
-          }
-        });
-      },
-
-      changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/change-admin`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              body: JSON.stringify({ newAdminId }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to change group admin");
-          }
-
-          await response.json();
-
-          // Update local state immediately
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                const newAdminUser = conv.participants?.find(
-                  (p) => p._id === newAdminId
-                );
-                return {
-                  ...conv,
-                  groupAdmin: newAdminUser,
-                };
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error changing group admin:", error);
-          throw error;
-        }
-      },
-
-      handleGroupAdminChanged: (data: unknown) => {
-        const { conversationId, newAdmin, conversation } = data as {
-          conversationId: string;
-          newAdmin: {
-            userId: string;
-            userName: string;
-            firstName: string;
-            lastName: string;
-            avatar?: string;
-          };
-          conversation: Conversation;
-        };
-
-        // Update conversation in local state with new admin
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              return {
-                ...conv,
-                groupAdmin: conversation.groupAdmin || {
-                  _id: newAdmin.userId,
-                  userName: newAdmin.userName,
-                  firstName: newAdmin.firstName,
-                  lastName: newAdmin.lastName,
-                  email: "", // Add required email field
-                  role: "user" as const, // Add required role field
-                  avatar:
-                    newAdmin.avatar ||
-                    "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg",
-                },
-                // Update with any other fields from the populated conversation
-                participants: conversation.participants || conv.participants,
-              };
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      handleBlockingUpdate: (data: unknown) => {
-        const { action, userId, blockedUserId } = data as {
-          action: "block" | "unblock";
-          userId: string;
-          blockedUserId: string;
-        };
-
-        console.log(
-          `Blocking update: ${action} - User ${userId} ${action}ed User ${blockedUserId}`
-        );
-
-        // Trigger blocking data reload and UI update
-        get().triggerBlockingUpdate();
-      },
-
-      removeMemberFromGroup: async (
-        conversationId: string,
-        userToRemoveId: string
-      ) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/remove-member`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              body: JSON.stringify({ userToRemoveId }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to remove member from group");
-          }
-
-          await response.json();
-
-          // Update local state immediately
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                return {
-                  ...conv,
-                  participants: conv.participants?.filter(
-                    (p) => p._id !== userToRemoveId
-                  ),
-                };
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error removing member from group:", error);
-          throw error;
-        }
-      },
-
-      handleMemberRemovedFromGroup: (data: unknown) => {
-        const { conversationId, removedUser, conversation } = data as {
-          conversationId: string;
-          removedUser: {
-            userId: string;
-            userName: string;
-            firstName: string;
-            lastName: string;
-          };
-          conversation: Conversation;
-        };
-
-        // Update conversation in local state by removing the user from participants
-        set((state) => ({
-          conversations: state.conversations.map((conv) => {
-            if (conv._id === conversationId) {
-              return {
-                ...conv,
-                participants:
-                  conversation.participants ||
-                  conv.participants?.filter(
-                    (p) => p._id !== removedUser.userId
-                  ),
-              };
-            }
-            return conv;
-          }),
-        }));
-      },
-
-      handleRemovedFromGroup: (data: unknown) => {
-        const { conversationId } = data as {
-          conversationId: string;
-          removedBy: {
-            userId: string;
-            userName: string;
-            firstName: string;
-            lastName: string;
-          };
-        };
-
-        // Remove conversation from local state since the user was removed
-        set((state) => ({
-          conversations: state.conversations.filter(
-            (conv) => conv._id !== conversationId
-          ),
-          // If this was the active conversation, clear it
-          activeConversation:
-            state.activeConversation === conversationId
-              ? null
-              : state.activeConversation,
-          messages:
-            state.activeConversation === conversationId ? [] : state.messages,
-          showConversationDetails: false,
-        }));
-      },
-
-      setShowConversationDetails: (show: boolean) => {
-        set({ showConversationDetails: show });
-      },
-
-      toggleConversationDetails: () => {
-        set({ showConversationDetails: !get().showConversationDetails });
       },
 
       blockUser: async (userId: string) => {
@@ -1321,7 +311,8 @@ export const useChatStore = create<ChatState>()(
 
           // Load users who have blocked me from ALL conversations (more comprehensive)
           const usersWhoBlockedMeSet = new Set<string>();
-          const { conversations } = get();
+          const conversationStore = useConversationStore.getState();
+          const { conversations } = conversationStore;
 
           // Check all conversation participants across all conversations
           const allParticipantIds = new Set<string>();
@@ -1385,52 +376,50 @@ export const useChatStore = create<ChatState>()(
         (async () => {
           await get().loadBlockingData();
 
-          const activeConversation = get().activeConversation;
+          const conversationStore = useConversationStore.getState();
+          const activeConversation = conversationStore.activeConversation;
           if (activeConversation) {
-            await get().loadMessages(activeConversation);
+            await conversationStore.loadMessages(activeConversation);
           }
           // Filter messages in real-time after blocking data is updated
-          get().filterMessagesForBlocking();
+          conversationStore.filterMessagesForBlocking(
+            get().blockedUserIds,
+            get().usersWhoBlockedMe
+          );
         })();
       },
 
-      filterMessagesForBlocking: () => {
-        const { messages, blockedUserIds, usersWhoBlockedMe } = get();
-        const filteredMessages = messages.filter((message) => {
-          const senderId = message.sender._id;
+      handleBlockingUpdate: (data: unknown) => {
+        const { action, userId, blockedUserId } = data as {
+          action: "block" | "unblock";
+          userId: string;
+          blockedUserId: string;
+        };
 
-          // Don't filter out current user's own messages
-          const currentUser = userStore.getState().user;
-          if (senderId === currentUser?.id) {
-            return true;
-          }
+        console.log(
+          `Blocking update: ${action} - User ${userId} ${action}ed User ${blockedUserId}`
+        );
 
-          // Filter out messages from blocked users and users who blocked me
-          return (
-            !blockedUserIds.has(senderId) && !usersWhoBlockedMe.has(senderId)
-          );
-        });
-
-        set({ messages: filteredMessages });
+        // Trigger blocking data reload and UI update
+        get().triggerBlockingUpdate();
       },
 
       resetStore: () => {
+        const { webSocketManager } = get();
+        if (webSocketManager) {
+          webSocketManager.destroy();
+        }
+        
+        // Also reset conversation store
+        useConversationStore.getState().resetConversationStore();
+        
         set({
           ws: null,
           isConnected: false,
+          webSocketManager: null,
           onlineUsers: new Set(),
-          activeConversation: null,
-          messages: [],
-          conversations: [],
-          hasMoreMessages: false,
-          messagesNextCursor: null,
-          isLoadingOlderMessages: false,
           isTyping: false,
           typingUsers: new Map(),
-          showConversationDetails: false,
-          fallbackParticipant: null,
-          isNewMessage: false,
-          newMessageRecipients: [],
           blockingUpdateTrigger: 0,
           blockedUserIds: new Set(),
           usersWhoBlockedMe: new Set(),
@@ -1439,8 +428,8 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: "chat-storage",
-      partialize: (state) => ({
-        showConversationDetails: state.showConversationDetails,
+      partialize: () => ({
+        // Only persist minimal state, most is ephemeral
       }),
     }
   )

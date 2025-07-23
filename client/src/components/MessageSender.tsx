@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { notifications } from "@mantine/notifications";
 import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
+import { useConversationStore } from "../store/conversationStore";
 import { messageSchema, type MessageFormData } from "../schemas/messageSchema";
 import { API_BASE_URL } from "../config";
 import FormField from "./ui/FormField";
@@ -14,12 +15,14 @@ export default function MessageSender() {
   const {
     activeConversation,
     sendMessage,
-    startTyping,
-    stopTyping,
     isNewMessage,
     newMessageRecipients,
     markConversationAsRead,
     conversations,
+  } = useConversationStore();
+  const {
+    startTyping,
+    stopTyping,
     checkIfBlockedBy,
     blockingUpdateTrigger,
   } = useChatStore();
