@@ -84,8 +84,14 @@ export interface Message {
   conversation?: string;
   sender: User;
   content: string;
-  messageType: "text" | "image" | "file";
+  messageType: "text" | "image" | "file" | "groupEvent";
   attachments?: Media[];
+  groupEventType?: "nameChange" | "photoChange" | "userLeft" | "userPromoted" | "userRemoved" | "userAdded";
+  groupEventData?: {
+    targetUser?: User;
+    oldValue?: string;
+    newValue?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

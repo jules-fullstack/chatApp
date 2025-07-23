@@ -7,6 +7,7 @@ import { uploadFile, deleteFile } from '../services/s3Service.js';
 import { sendInvitationEmail } from '../services/emailService.js';
 import WebSocketManager from '../config/websocket.js';
 import { IUser } from '../types/index.js';
+import { GroupEventService } from '../services/groupEventService.js';
 import crypto from 'crypto';
 
 interface AuthenticatedRequest extends Request {
@@ -172,6 +173,12 @@ export const updateGroupPhoto = async (
     conversation.groupPhoto = media._id;
     await conversation.save();
 
+    // Create group event for photo change
+    const eventMessage = await GroupEventService.createPhotoChangeEvent(
+      conversation._id,
+      user._id
+    );
+
     // Get user info for notifications
     const adminUser = await User.findById(user._id).select('firstName lastName userName');
 
@@ -195,6 +202,12 @@ export const updateGroupPhoto = async (
           lastName: adminUser?.lastName,
         },
         updatedAt: new Date().toISOString(),
+      });
+      
+      // Send the group event message
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'new_message',
+        message: eventMessage,
       });
     });
 

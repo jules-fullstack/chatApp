@@ -16,7 +16,8 @@ const messageSchema = new Schema<IMessage>(
     content: {
       type: String,
       required: function() {
-        // Content is required only if there are no attachments
+        // Content is required only if there are no attachments and it's not a group event
+        if (this.messageType === 'groupEvent') return false;
         const attachments = this.attachments || [];
         return attachments.length === 0;
       },
@@ -24,7 +25,7 @@ const messageSchema = new Schema<IMessage>(
     },
     messageType: {
       type: String,
-      enum: ['text', 'image', 'file'],
+      enum: ['text', 'image', 'file', 'groupEvent'],
       default: 'text',
     },
     attachments: {
@@ -39,6 +40,21 @@ const messageSchema = new Schema<IMessage>(
     editedAt: {
       type: Date,
       default: null,
+    },
+    groupEventType: {
+      type: String,
+      enum: ['nameChange', 'photoChange', 'userLeft', 'userPromoted', 'userRemoved', 'userAdded'],
+      required: function() {
+        return this.messageType === 'groupEvent';
+      },
+    },
+    groupEventData: {
+      targetUser: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      oldValue: String,
+      newValue: String,
     },
   },
   {

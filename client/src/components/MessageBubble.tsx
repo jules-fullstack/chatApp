@@ -4,6 +4,7 @@ import { type Message, type Conversation } from "../types";
 import { useState } from "react";
 import ImageModal from "./ImageModal";
 import Avatar from "./ui/Avatar";
+import GroupEventMessage from "./GroupEventMessage";
 
 interface MessageBubbleProps {
   message: Message;
@@ -83,6 +84,11 @@ export default function MessageBubble({
   };
 
   const { hasBeenRead, readByUsers } = getReadStatus();
+
+  // Handle group event messages differently
+  if (message.messageType === "groupEvent") {
+    return <GroupEventMessage message={message} />;
+  }
 
   return (
     <>

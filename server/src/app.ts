@@ -10,6 +10,7 @@ import connectDB from './config/database';
 import routes from './routes';
 import passportConfig from './config/passport';
 import webSocketManager from './config/websocket';
+import offlineNotificationService from './services/offlineNotificationService.js';
 
 dotenv.config();
 
@@ -68,5 +69,10 @@ app.use('/api', routes);
 app.get('/', (req: Request, res: Response) => {
   res.json({ message: 'Server is running' });
 });
+
+// Start periodic cleanup for offline notifications (every 10 minutes)
+setInterval(() => {
+  offlineNotificationService.cleanup();
+}, 10 * 60 * 1000);
 
 export default app;

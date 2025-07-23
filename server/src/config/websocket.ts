@@ -2,6 +2,7 @@ import { Application } from 'express';
 import expressWs from 'express-ws';
 import { IUser } from '../types/index.js';
 import { WebSocket } from 'ws';
+import offlineNotificationService from '../services/offlineNotificationService.js';
 
 interface AuthenticatedSocket extends WebSocket {
   user?: IUser;
@@ -34,6 +35,9 @@ class WebSocketManager {
 
       // Update user's lastActive timestamp
       this.updateUserLastActive(userId);
+
+      // Cancel any pending offline notifications for this user
+      offlineNotificationService.onUserOnline(userId);
 
       // Notify other users about online status
       this.sendOnlineStatus(userId, true);

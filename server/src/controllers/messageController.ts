@@ -7,6 +7,8 @@ import { IUser } from '../types/index.js';
 import WebSocketManager from '../config/websocket.js';
 import { migrateConversationsToReadAt } from '../utils/migrateConversations.js';
 import { uploadImageToS3 } from '../services/s3Service.js';
+import offlineNotificationService from '../services/offlineNotificationService.js';
+import { GroupEventService } from '../services/groupEventService.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -314,7 +316,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     // Send WebSocket notification to all participants except sender
     // For group chats, filter out blocked users from receiving notifications
     if (conversation.isGroup) {
-      const senderUser = await User.findById(senderId).select('blockedUsers');
+      const senderUser = await User.findById(senderId).select('blockedUsers firstName lastName');
       
       for (const participantId of conversation.participants) {
         if (participantId.toString() !== senderId.toString()) {
@@ -340,11 +342,22 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       }
     } else {
       // For direct messages, send to the other participant (blocking already handled above)
+      const senderUser = await User.findById(senderId).select('firstName lastName');
+      const senderName = senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : 'Someone';
+      
       conversation.participants.forEach((participantId: any) => {
         if (participantId.toString() !== senderId.toString()) {
           WebSocketManager.sendMessageNotification(
             participantId.toString(),
             responseMessage,
+          );
+          
+          // Handle offline notification for direct messages only
+          offlineNotificationService.handleNewMessage(
+            participantId.toString(),
+            senderId.toString(),
+            senderName,
+            false // isGroup = false for direct messages
           );
         }
       });
@@ -537,7 +550,7 @@ export const getConversations = async (
       .sort({ lastMessageAt: -1 })
       .populate({
         path: 'participants',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName lastActive',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -725,15 +738,24 @@ export const updateGroupName = async (
     }
 
     // Update the group name (allow empty string to remove name)
+    const oldName = conversation.groupName || '';
     const trimmedGroupName = groupName?.trim() || null;
     conversation.groupName = trimmedGroupName;
     await conversation.save();
+
+    // Create group event for name change
+    const eventMessage = await GroupEventService.createNameChangeEvent(
+      conversation._id,
+      userId,
+      oldName,
+      trimmedGroupName || ''
+    );
 
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
       .populate({
         path: 'participants',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName lastActive',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -775,6 +797,12 @@ export const updateGroupName = async (
         },
         conversation: updatedConversation,
       });
+      
+      // Send the group event message
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'new_message',
+        message: eventMessage,
+      });
     });
 
     res.json({
@@ -809,6 +837,12 @@ export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
         .status(400)
         .json({ message: 'Cannot leave a direct message conversation' });
     }
+
+    // Create group event for user left before removing them
+    const eventMessage = await GroupEventService.createUserLeftEvent(
+      conversation._id,
+      userId
+    );
 
     // Remove user from participants
     conversation.participants = conversation.participants.filter(
@@ -852,6 +886,12 @@ export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
         },
         newAdmin: conversation.groupAdmin?.toString(),
         isActive: conversation.isActive,
+      });
+      
+      // Send the group event message
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'new_message',
+        message: eventMessage,
       });
     });
 
@@ -941,11 +981,28 @@ export const addMembersToGroup = async (
 
     await conversation.save();
 
+    // Create group events for each added user
+    for (const addedUserId of newUserIds) {
+      const eventMessage = await GroupEventService.createUserAddedEvent(
+        conversation._id,
+        userId,
+        addedUserId
+      );
+      
+      // Send the group event message to all participants
+      conversation.participants.forEach((participantId: any) => {
+        WebSocketManager.sendMessage(participantId.toString(), {
+          type: 'new_message',
+          message: eventMessage,
+        });
+      });
+    }
+
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
       .populate({
         path: 'participants',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName lastActive',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -1084,11 +1141,18 @@ export const changeGroupAdmin = async (
     conversation.groupAdmin = newAdminId;
     await conversation.save();
 
+    // Create group event for user promoted
+    const eventMessage = await GroupEventService.createUserPromotedEvent(
+      conversation._id,
+      userId,
+      newAdminId
+    );
+
     // Get updated conversation with populated participants
     const updatedConversation = await Conversation.findById(conversationId)
       .populate({
         path: 'participants',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName lastActive',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -1130,6 +1194,12 @@ export const changeGroupAdmin = async (
           lastName: currentAdmin?.lastName,
         },
         conversation: updatedConversation,
+      });
+      
+      // Send the group event message
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'new_message',
+        message: eventMessage,
       });
     });
 
@@ -1219,6 +1289,13 @@ export const removeMemberFromGroup = async (
       return res.status(404).json({ message: 'User to remove not found' });
     }
 
+    // Create group event for user removed before removing them
+    const eventMessage = await GroupEventService.createUserRemovedEvent(
+      conversation._id,
+      userId,
+      userToRemoveId
+    );
+
     // Remove user from participants
     conversation.participants = conversation.participants.filter(
       (participant: any) => participant.toString() !== userToRemoveId,
@@ -1234,7 +1311,7 @@ export const removeMemberFromGroup = async (
     const updatedConversation = await Conversation.findById(conversationId)
       .populate({
         path: 'participants',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName lastActive',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -1293,6 +1370,12 @@ export const removeMemberFromGroup = async (
           lastName: admin?.lastName,
         },
         conversation: updatedConversation,
+      });
+      
+      // Send the group event message
+      WebSocketManager.sendMessage(participantId.toString(), {
+        type: 'new_message',
+        message: eventMessage,
       });
     });
 

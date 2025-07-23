@@ -108,10 +108,16 @@ export interface IMessage extends Document {
   conversation: Types.ObjectId;
   sender: Types.ObjectId;
   content: string;
-  messageType: 'text' | 'image' | 'file';
+  messageType: 'text' | 'image' | 'file' | 'groupEvent';
   attachments?: Types.ObjectId[];
   isEdited: boolean;
   editedAt: Date | null;
+  groupEventType?: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded';
+  groupEventData?: {
+    targetUser?: Types.ObjectId;
+    oldValue?: string;
+    newValue?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

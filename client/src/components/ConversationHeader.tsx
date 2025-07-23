@@ -215,13 +215,20 @@ export default function ConversationHeader({
   // For group chats, use conversation data
   const isGroupChat = conversation?.isGroup;
   const groupName = conversation?.groupName;
-  const groupParticipants = conversation?.participants || [] as User[];
+  const groupParticipants = conversation?.participants || ([] as User[]);
 
   // Calculate active status for direct messages
-  const isParticipantOnline = !isGroupChat && displayParticipant ? isUserOnline(displayParticipant._id) : false;
-  const activeStatus = !isGroupChat && displayParticipant 
-    ? getActiveStatus(displayParticipant.lastActive || null, isParticipantOnline)
-    : null;
+  const isParticipantOnline =
+    !isGroupChat && displayParticipant
+      ? isUserOnline(displayParticipant._id)
+      : false;
+  const activeStatus =
+    !isGroupChat && displayParticipant
+      ? getActiveStatus(
+          displayParticipant.lastActive || null,
+          isParticipantOnline
+        )
+      : null;
 
   // Get participant names for unnamed groups (excluding current user)
   const getGroupDisplayName = () => {
@@ -242,15 +249,15 @@ export default function ConversationHeader({
     <div className="flex justify-between items-center shadow-xs p-2">
       <div className="flex">
         {isGroupChat ? (
-          <GroupAvatar 
-            participants={groupParticipants} 
-            size="lg" 
+          <GroupAvatar
+            participants={groupParticipants}
+            size="lg"
             groupPhoto={conversation?.groupPhoto}
           />
         ) : (
-          <Avatar 
-            user={displayParticipant} 
-            size="lg" 
+          <Avatar
+            user={displayParticipant}
+            size="lg"
             showActiveStatus={true}
             isConnected={isParticipantOnline}
           />
@@ -274,7 +281,9 @@ export default function ConversationHeader({
               activeStatus.isOnline ? (
                 <span className="text-green-600 font-medium">Online</span>
               ) : (
-                <span className="text-gray-500">{activeStatus.displayText}</span>
+                <span className="text-gray-500">
+                  {activeStatus.displayText}
+                </span>
               )
             ) : (
               "@" + displayParticipant?.userName
