@@ -11,7 +11,7 @@ export interface GroupEventData {
 
 export class GroupEventService {
   static async createGroupEvent(
-    eventType: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded',
+    eventType: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded' | 'userJoinedViaInvitation',
     data: GroupEventData
   ) {
     const eventMessage = new Message({
@@ -118,6 +118,17 @@ export class GroupEventService {
       conversationId,
       actorUserId,
       targetUserId,
+    });
+  }
+
+  static async createUserJoinedViaInvitationEvent(
+    conversationId: Types.ObjectId,
+    userId: Types.ObjectId
+  ) {
+    return this.createGroupEvent('userJoinedViaInvitation', {
+      conversationId,
+      actorUserId: userId,
+      targetUserId: userId,
     });
   }
 }

@@ -112,7 +112,7 @@ export interface IMessage extends Document {
   attachments?: Types.ObjectId[];
   isEdited: boolean;
   editedAt: Date | null;
-  groupEventType?: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded';
+  groupEventType?: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded' | 'userJoinedViaInvitation';
   groupEventData?: {
     targetUser?: Types.ObjectId;
     oldValue?: string;

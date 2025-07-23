@@ -43,7 +43,7 @@ const messageSchema = new Schema<IMessage>(
     },
     groupEventType: {
       type: String,
-      enum: ['nameChange', 'photoChange', 'userLeft', 'userPromoted', 'userRemoved', 'userAdded'],
+      enum: ['nameChange', 'photoChange', 'userLeft', 'userPromoted', 'userRemoved', 'userAdded', 'userJoinedViaInvitation'],
       required: function() {
         return this.messageType === 'groupEvent';
       },

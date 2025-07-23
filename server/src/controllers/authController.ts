@@ -13,6 +13,7 @@ import { sendOTPEmail } from '../services/emailService.js';
 import { rateLimitService } from '../services/rateLimitService.js';
 import { populateUserWithAvatar } from '../utils/mediaQueries.js';
 import WebSocketManager from '../config/websocket.js';
+import { GroupEventService } from '../services/groupEventService.js';
 
 export const register = async (
   req: Request<{}, AuthResponse, RegisterRequest>,
@@ -208,6 +209,12 @@ export const verifyOTP = async (
                 await conversation.save();
                 console.log('User added to conversation:', conversation._id);
 
+                // Create group event for user joining via invitation
+                const eventMessage = await GroupEventService.createUserJoinedViaInvitationEvent(
+                  conversation._id,
+                  user._id
+                );
+
                 // Get updated conversation with populated participants for WebSocket
                 const updatedConversation = await Conversation.findById(conversation._id)
                   .populate('participants', 'firstName lastName userName avatar')
@@ -236,6 +243,12 @@ export const verifyOTP = async (
                       lastName: '',
                     },
                     timestamp: new Date().toISOString(),
+                  });
+                  
+                  // Send the group event message
+                  WebSocketManager.sendMessage(participantId.toString(), {
+                    type: 'new_message',
+                    message: eventMessage,
                   });
                 });
 

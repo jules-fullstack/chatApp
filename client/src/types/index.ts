@@ -86,7 +86,7 @@ export interface Message {
   content: string;
   messageType: "text" | "image" | "file" | "groupEvent";
   attachments?: Media[];
-  groupEventType?: "nameChange" | "photoChange" | "userLeft" | "userPromoted" | "userRemoved" | "userAdded";
+  groupEventType?: "nameChange" | "photoChange" | "userLeft" | "userPromoted" | "userRemoved" | "userAdded" | "userJoinedViaInvitation";
   groupEventData?: {
     targetUser?: User;
     oldValue?: string;

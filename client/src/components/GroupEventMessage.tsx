@@ -30,6 +30,9 @@ export default function GroupEventMessage({ message }: GroupEventMessageProps) {
       case "userAdded":
         return `${senderName} added ${targetName} to the group`;
       
+      case "userJoinedViaInvitation":
+        return `${senderName} joined the group via invitation`;
+      
       default:
         return "Group event occurred";
     }
