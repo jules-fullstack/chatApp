@@ -1,5 +1,6 @@
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate } from "@tanstack/react-router";
+import { API_BASE_URL } from "../config";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
 import FormField from "../components/ui/FormField";
@@ -30,7 +31,7 @@ export default function Login() {
 
   const onSubmit: SubmitHandler<LoginInputs> = async (data) => {
     try {
-      const response = await fetch("http://localhost:3000/api/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -6,33 +6,33 @@ interface GroupEventMessageProps {
 
 export default function GroupEventMessage({ message }: GroupEventMessageProps) {
   const getEventText = (): string => {
-    const senderName = `${message.sender.firstName} ${message.sender.lastName}`;
+    const senderName = `${message.sender.userName}`;
     const targetName = message.groupEventData?.targetUser
-      ? `${message.groupEventData.targetUser.firstName} ${message.groupEventData.targetUser.lastName}`
+      ? `${message.groupEventData.targetUser.userName}`
       : "";
 
     switch (message.groupEventType) {
       case "nameChange":
         return `${senderName} changed the chat name to "${message.groupEventData?.newValue}"`;
-      
+
       case "photoChange":
         return `${senderName} changed the group photo`;
-      
+
       case "userLeft":
         return `${senderName} left the group`;
-      
+
       case "userPromoted":
         return `${senderName} promoted ${targetName} to admin`;
-      
+
       case "userRemoved":
         return `${senderName} removed ${targetName} from the group`;
-      
+
       case "userAdded":
         return `${senderName} added ${targetName} to the group`;
-      
+
       case "userJoinedViaInvitation":
         return `${senderName} joined the group via invitation`;
-      
+
       default:
         return "Group event occurred";
     }
@@ -40,8 +40,8 @@ export default function GroupEventMessage({ message }: GroupEventMessageProps) {
 
   return (
     <div className="flex justify-center my-3">
-      <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full max-w-md">
-        <p className="text-xs text-gray-600 dark:text-gray-400 text-center">
+      <div className="bg-gray-100 dark:bg-gray-200 px-4 py-2 rounded-full max-w-md">
+        <p className="text-xs text-gray-600 dark:text-gray-800 text-center">
           {getEventText()}
         </p>
       </div>

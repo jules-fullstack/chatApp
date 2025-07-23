@@ -95,15 +95,16 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 
           // Check if sender has blocked this recipient
           if (currentUser.blockedUsers.includes(recipient._id)) {
-            return res.status(403).json({ 
-              message: 'You have blocked this user and cannot send messages to them' 
+            return res.status(403).json({
+              message:
+                'You have blocked this user and cannot send messages to them',
             });
           }
 
           // Check if recipient has blocked the sender
           if (recipient.blockedUsers.includes(currentUser._id)) {
-            return res.status(403).json({ 
-              message: 'You cannot send messages to this user' 
+            return res.status(403).json({
+              message: 'You cannot send messages to this user',
             });
           }
         }
@@ -111,13 +112,14 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     } else {
       // For existing conversations, check blocking status (only for direct messages, not group chats)
       if (!conversation.isGroup) {
-        const currentUser = await User.findById(senderId).populate('blockedUsers');
+        const currentUser =
+          await User.findById(senderId).populate('blockedUsers');
         if (!currentUser) {
           return res.status(404).json({ message: 'Sender not found' });
         }
 
         const otherParticipants = conversation.participants.filter(
-          (p: any) => p.toString() !== senderId.toString()
+          (p: any) => p.toString() !== senderId.toString(),
         );
 
         for (const participantId of otherParticipants) {
@@ -125,16 +127,21 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
           if (!participant) continue;
 
           // Check if sender has blocked this participant
-          if (currentUser.blockedUsers.some((blocked: any) => blocked._id.equals(participant._id))) {
-            return res.status(403).json({ 
-              message: 'You have blocked someone in this conversation and cannot send messages' 
+          if (
+            currentUser.blockedUsers.some((blocked: any) =>
+              blocked._id.equals(participant._id),
+            )
+          ) {
+            return res.status(403).json({
+              message:
+                'You have blocked someone in this conversation and cannot send messages',
             });
           }
 
           // Check if participant has blocked the sender
           if (participant.blockedUsers.includes(currentUser._id)) {
-            return res.status(403).json({ 
-              message: 'You cannot send messages to this conversation' 
+            return res.status(403).json({
+              message: 'You cannot send messages to this conversation',
             });
           }
         }
@@ -316,19 +323,22 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
     // Send WebSocket notification to all participants except sender
     // For group chats, filter out blocked users from receiving notifications
     if (conversation.isGroup) {
-      const senderUser = await User.findById(senderId).select('blockedUsers firstName lastName');
-      
+      const senderUser = await User.findById(senderId).select(
+        'blockedUsers firstName lastName',
+      );
+
       for (const participantId of conversation.participants) {
         if (participantId.toString() !== senderId.toString()) {
-          const participant = await User.findById(participantId).select('blockedUsers');
+          const participant =
+            await User.findById(participantId).select('blockedUsers');
           if (!senderUser || !participant) continue;
 
           // Check if either user has blocked the other
-          const senderHasBlockedParticipant = senderUser.blockedUsers.some((blocked: any) => 
-            blocked.toString() === participant._id.toString()
+          const senderHasBlockedParticipant = senderUser.blockedUsers.some(
+            (blocked: any) => blocked.toString() === participant._id.toString(),
           );
-          const participantHasBlockedSender = participant.blockedUsers.some((blocked: any) => 
-            blocked.toString() === senderUser._id.toString()
+          const participantHasBlockedSender = participant.blockedUsers.some(
+            (blocked: any) => blocked.toString() === senderUser._id.toString(),
           );
 
           // Only send notification if neither user has blocked the other
@@ -342,22 +352,25 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       }
     } else {
       // For direct messages, send to the other participant (blocking already handled above)
-      const senderUser = await User.findById(senderId).select('firstName lastName');
-      const senderName = senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : 'Someone';
-      
+      const senderUser =
+        await User.findById(senderId).select('firstName lastName');
+      const senderName = senderUser
+        ? `${senderUser.firstName} ${senderUser.lastName}`
+        : 'Someone';
+
       conversation.participants.forEach((participantId: any) => {
         if (participantId.toString() !== senderId.toString()) {
           WebSocketManager.sendMessageNotification(
             participantId.toString(),
             responseMessage,
           );
-          
+
           // Handle offline notification for direct messages only
           offlineNotificationService.handleNewMessage(
             participantId.toString(),
             senderId.toString(),
             senderName,
-            false // isGroup = false for direct messages
+            false, // isGroup = false for direct messages
           );
         }
       });
@@ -411,6 +424,15 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
           select: 'url filename originalName mimeType metadata',
         },
       })
+      .populate('groupEventData.targetUser', 'firstName lastName userName')
+      .populate({
+        path: 'groupEventData.targetUser',
+        populate: {
+          path: 'avatar',
+          match: { isDeleted: false },
+          select: 'url filename originalName mimeType metadata',
+        },
+      })
       .populate({
         path: 'attachments',
         match: { isDeleted: false },
@@ -418,7 +440,8 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
       });
 
     // Get current user's blocked users list
-    const currentUser = await User.findById(currentUserId).select('blockedUsers');
+    const currentUser =
+      await User.findById(currentUserId).select('blockedUsers');
     const blockedUserIds = currentUser?.blockedUsers || [];
 
     // Filter out messages based on blocking relationships
@@ -431,17 +454,20 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
 
         // For group chats, check mutual blocking
         if (conversation.isGroup) {
-          const messageSender = await User.findById(message.sender._id).select('blockedUsers');
+          const messageSender = await User.findById(message.sender._id).select(
+            'blockedUsers',
+          );
           if (!messageSender) return null;
 
           // Check if current user has blocked the message sender
-          const currentUserHasBlockedSender = blockedUserIds.some((blockedId: any) => 
-            blockedId.toString() === message.sender._id.toString()
+          const currentUserHasBlockedSender = blockedUserIds.some(
+            (blockedId: any) =>
+              blockedId.toString() === message.sender._id.toString(),
           );
 
           // Check if message sender has blocked the current user
-          const senderHasBlockedCurrentUser = messageSender.blockedUsers.some((blocked: any) => 
-            blocked.toString() === currentUserId.toString()
+          const senderHasBlockedCurrentUser = messageSender.blockedUsers.some(
+            (blocked: any) => blocked.toString() === currentUserId.toString(),
           );
 
           // Filter out message if either user has blocked the other
@@ -450,21 +476,24 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
           }
         } else {
           // For direct messages, only filter if current user has blocked the sender
-          const currentUserHasBlockedSender = blockedUserIds.some((blockedId: any) => 
-            blockedId.toString() === message.sender._id.toString()
+          const currentUserHasBlockedSender = blockedUserIds.some(
+            (blockedId: any) =>
+              blockedId.toString() === message.sender._id.toString(),
           );
-          
+
           if (currentUserHasBlockedSender) {
             return null;
           }
         }
 
         return message;
-      })
+      }),
     );
 
     // Remove null values from filtered messages
-    const finalFilteredMessages = filteredMessages.filter(message => message !== null);
+    const finalFilteredMessages = filteredMessages.filter(
+      (message) => message !== null,
+    );
 
     // Only update read status for initial load (page 1 and no before cursor)
     if (Number(page) === 1 && !before) {
@@ -482,7 +511,9 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
     const hasMore = finalFilteredMessages.length === Number(limit);
     const nextCursor =
       finalFilteredMessages.length > 0
-        ? finalFilteredMessages[finalFilteredMessages.length - 1].createdAt.toISOString()
+        ? finalFilteredMessages[
+            finalFilteredMessages.length - 1
+          ].createdAt.toISOString()
         : null;
 
     res.json({
@@ -748,7 +779,7 @@ export const updateGroupName = async (
       conversation._id,
       userId,
       oldName,
-      trimmedGroupName || ''
+      trimmedGroupName || '',
     );
 
     // Get updated conversation with populated participants
@@ -797,7 +828,7 @@ export const updateGroupName = async (
         },
         conversation: updatedConversation,
       });
-      
+
       // Send the group event message
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'new_message',
@@ -841,7 +872,7 @@ export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
     // Create group event for user left before removing them
     const eventMessage = await GroupEventService.createUserLeftEvent(
       conversation._id,
-      userId
+      userId,
     );
 
     // Remove user from participants
@@ -887,7 +918,7 @@ export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
         newAdmin: conversation.groupAdmin?.toString(),
         isActive: conversation.isActive,
       });
-      
+
       // Send the group event message
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'new_message',
@@ -986,9 +1017,9 @@ export const addMembersToGroup = async (
       const eventMessage = await GroupEventService.createUserAddedEvent(
         conversation._id,
         userId,
-        addedUserId
+        addedUserId,
       );
-      
+
       // Send the group event message to all participants
       conversation.participants.forEach((participantId: any) => {
         WebSocketManager.sendMessage(participantId.toString(), {
@@ -1145,7 +1176,7 @@ export const changeGroupAdmin = async (
     const eventMessage = await GroupEventService.createUserPromotedEvent(
       conversation._id,
       userId,
-      newAdminId
+      newAdminId,
     );
 
     // Get updated conversation with populated participants
@@ -1195,7 +1226,7 @@ export const changeGroupAdmin = async (
         },
         conversation: updatedConversation,
       });
-      
+
       // Send the group event message
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'new_message',
@@ -1293,7 +1324,7 @@ export const removeMemberFromGroup = async (
     const eventMessage = await GroupEventService.createUserRemovedEvent(
       conversation._id,
       userId,
-      userToRemoveId
+      userToRemoveId,
     );
 
     // Remove user from participants
@@ -1371,7 +1402,7 @@ export const removeMemberFromGroup = async (
         },
         conversation: updatedConversation,
       });
-      
+
       // Send the group event message
       WebSocketManager.sendMessage(participantId.toString(), {
         type: 'new_message',

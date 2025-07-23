@@ -5,6 +5,7 @@ import { PinInput } from "@mantine/core";
 import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
+import { API_BASE_URL } from "../config";
 
 interface ApiResponse {
   message: string;
@@ -54,20 +55,17 @@ export default function OTPVerify() {
     setError("");
 
     try {
-      const response = await fetch(
-        "http://localhost:3000/api/auth/verify-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-            otp: pin,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+          otp: pin,
+        }),
+      });
 
       const result: ApiResponse = await response.json();
 
@@ -95,19 +93,16 @@ export default function OTPVerify() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch(
-        "http://localhost:3000/api/auth/resend-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email,
+        }),
+      });
 
       const result: ApiResponse = await response.json();
 

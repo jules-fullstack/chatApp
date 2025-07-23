@@ -1,4 +1,8 @@
-import { type PaginatedUsersResponse, type PaginatedGroupConversationsResponse } from "../types/admin";
+import {
+  type PaginatedUsersResponse,
+  type PaginatedGroupConversationsResponse,
+} from "../types/admin";
+import { API_BASE_URL } from "../config";
 
 interface PaginationParams {
   page?: number;
@@ -6,11 +10,9 @@ interface PaginationParams {
 }
 
 class AdminService {
-  private baseUrl = import.meta.env.DEV
-    ? "http://localhost:3000/api"
-    : "/api";
-
-  async getAllUsers(params: PaginationParams = {}): Promise<PaginatedUsersResponse> {
+  async getAllUsers(
+    params: PaginationParams = {}
+  ): Promise<PaginatedUsersResponse> {
     try {
       const { page = 1, limit = 10 } = params;
       const queryParams = new URLSearchParams({
@@ -18,13 +20,16 @@ class AdminService {
         limit: limit.toString(),
       });
 
-      const response = await fetch(`${this.baseUrl}/users/admin/all?${queryParams}`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/users/admin/all?${queryParams}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -60,7 +65,9 @@ class AdminService {
     }
   }
 
-  async getAllGroupConversations(params: PaginationParams = {}): Promise<PaginatedGroupConversationsResponse> {
+  async getAllGroupConversations(
+    params: PaginationParams = {}
+  ): Promise<PaginatedGroupConversationsResponse> {
     try {
       const { page = 1, limit = 10 } = params;
       const queryParams = new URLSearchParams({
@@ -68,13 +75,16 @@ class AdminService {
         limit: limit.toString(),
       });
 
-      const response = await fetch(`${this.baseUrl}/conversations/admin/groups?${queryParams}`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/conversations/admin/groups?${queryParams}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -112,13 +122,16 @@ class AdminService {
 
   async blockUser(userId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/users/admin/block/${userId}`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/users/admin/block/${userId}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -143,13 +156,16 @@ class AdminService {
 
   async unblockUser(userId: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/users/admin/unblock/${userId}`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/users/admin/unblock/${userId}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -172,16 +188,22 @@ class AdminService {
     }
   }
 
-  async addMembersToGroup(conversationId: string, userIds: string[]): Promise<{ addedMembers: unknown[] }> {
+  async addMembersToGroup(
+    conversationId: string,
+    userIds: string[]
+  ): Promise<{ addedMembers: unknown[] }> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/add-members`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userIds }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/messages/conversation/${conversationId}/add-members`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userIds }),
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -206,19 +228,25 @@ class AdminService {
     }
   }
 
-  async removeMembersFromGroup(conversationId: string, userIds: string[]): Promise<void> {
+  async removeMembersFromGroup(
+    conversationId: string,
+    userIds: string[]
+  ): Promise<void> {
     try {
       // Since the backend endpoint only supports removing one member at a time,
       // we need to make multiple requests
       const removePromises = userIds.map(async (userId) => {
-        const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/remove-member`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userToRemoveId: userId }),
-        });
+        const response = await fetch(
+          `${API_BASE_URL}/messages/conversation/${conversationId}/remove-member`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ userToRemoveId: userId }),
+          }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -245,16 +273,22 @@ class AdminService {
     }
   }
 
-  async promoteGroupMember(conversationId: string, userId: string): Promise<void> {
+  async promoteGroupMember(
+    conversationId: string,
+    userId: string
+  ): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/messages/conversation/${conversationId}/change-admin`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ newAdminId: userId }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/messages/conversation/${conversationId}/change-admin`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newAdminId: userId }),
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();

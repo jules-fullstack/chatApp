@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
 import { useChatStore } from "../store/chatStore";
 import { notifications } from "@mantine/notifications";
+import { API_BASE_URL } from "../config";
 
 export function useLogout(showNotifications = true) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -13,7 +14,7 @@ export function useLogout(showNotifications = true) {
   const logout = async () => {
     setIsLoggingOut(true);
     try {
-      const response = await fetch("http://localhost:3000/api/auth/logout", {
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
         headers: {

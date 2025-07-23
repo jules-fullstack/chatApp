@@ -5,6 +5,7 @@ import { notifications } from "@mantine/notifications";
 import { useState, useRef, useEffect } from "react";
 import { useChatStore } from "../store/chatStore";
 import { messageSchema, type MessageFormData } from "../schemas/messageSchema";
+import { API_BASE_URL } from "../config";
 import FormField from "./ui/FormField";
 import GroupNameModal from "./GroupNameModal";
 import ImagePreview from "./ImagePreview";
@@ -208,7 +209,7 @@ export default function MessageSender() {
         // Only check blocking for direct messages, not group chats
         if (!isGroupChat && targetUserId) {
           const [blockedUsers, isBlockedByOtherUser] = await Promise.all([
-            fetch("http://localhost:3000/api/users/blocked", {
+            fetch(`${API_BASE_URL}/users/blocked`, {
               credentials: "include",
             })
               .then((res) => res.json())

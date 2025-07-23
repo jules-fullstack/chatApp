@@ -1,10 +1,7 @@
 import { type SearchedUser, type SearchResponse } from "../types/index";
+import { API_BASE_URL } from "../config";
 
 class UserSearchService {
-  private baseUrl = import.meta.env.DEV
-    ? "http://localhost:3000/api/users"
-    : "/api/users";
-
   async searchUsers(query: string): Promise<SearchedUser[]> {
     if (!query.trim()) {
       return [];
@@ -12,7 +9,7 @@ class UserSearchService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/search?query=${encodeURIComponent(query)}`,
+        `${API_BASE_URL}/users/search?query=${encodeURIComponent(query)}`,
         {
           method: "GET",
           credentials: "include",

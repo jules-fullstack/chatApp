@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userStore } from "./userStore";
 import { type Participant, type Message, type Conversation } from "../types";
+import { API_BASE_URL, WEBSOCKET_URL } from "../config";
 
 interface TypingUser {
   userId: string;
@@ -131,8 +132,6 @@ interface ChatState {
   resetStore: () => void;
 }
 
-const API_BASE = "http://localhost:3000/api";
-
 export const useChatStore = create<ChatState>()(
   persist(
     (set, get) => ({
@@ -204,7 +203,7 @@ export const useChatStore = create<ChatState>()(
         const user = userStore.getState().user;
         if (!user || get().ws) return;
 
-        const ws = new WebSocket("ws://localhost:3000/api/chat");
+        const ws = new WebSocket(`${WEBSOCKET_URL}/chat`);
 
         ws.onopen = () => {
           set({ ws, isConnected: true });
@@ -286,7 +285,7 @@ export const useChatStore = create<ChatState>()(
               // Handle account blocking - perform logout sequence
               (async () => {
                 try {
-                  await fetch("http://localhost:3000/api/auth/logout", {
+                  await fetch(`${API_BASE_URL}/auth/logout`, {
                     method: "POST",
                     credentials: "include",
                     headers: {
@@ -424,7 +423,7 @@ export const useChatStore = create<ChatState>()(
             };
           }
 
-          const response = await fetch(`${API_BASE}/messages/send`, {
+          const response = await fetch(`${API_BASE_URL}/messages/send`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -460,10 +459,10 @@ export const useChatStore = create<ChatState>()(
           if (conversationId.startsWith("user:")) {
             // Direct message to a user - use legacy endpoint
             const userId = conversationId.replace("user:", "");
-            url = `${API_BASE}/messages/conversation/user/${userId}?limit=50`;
+            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50`;
           } else {
             // Existing conversation - load most recent 50 messages
-            url = `${API_BASE}/messages/conversation/${conversationId}?limit=50`;
+            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50`;
           }
 
           const response = await fetch(url, {
@@ -515,10 +514,10 @@ export const useChatStore = create<ChatState>()(
           if (conversationId.startsWith("user:")) {
             // Direct message to a user - use legacy endpoint
             const userId = conversationId.replace("user:", "");
-            url = `${API_BASE}/messages/conversation/user/${userId}?limit=50&before=${messagesNextCursor}`;
+            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50&before=${messagesNextCursor}`;
           } else {
             // Existing conversation
-            url = `${API_BASE}/messages/conversation/${conversationId}?limit=50&before=${messagesNextCursor}`;
+            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50&before=${messagesNextCursor}`;
           }
 
           const response = await fetch(url, {
@@ -547,9 +546,12 @@ export const useChatStore = create<ChatState>()(
       loadConversations: async () => {
         set({ isConversationsLoading: true });
         try {
-          const response = await fetch(`${API_BASE}/messages/conversations`, {
-            credentials: "include",
-          });
+          const response = await fetch(
+            `${API_BASE_URL}/messages/conversations`,
+            {
+              credentials: "include",
+            }
+          );
 
           if (!response.ok) {
             throw new Error("Failed to load conversations");
@@ -730,7 +732,7 @@ export const useChatStore = create<ChatState>()(
       markConversationAsRead: async (conversationId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE}/messages/conversation/${conversationId}/read`,
+            `${API_BASE_URL}/messages/conversation/${conversationId}/read`,
             {
               method: "PATCH",
               credentials: "include",
@@ -794,7 +796,7 @@ export const useChatStore = create<ChatState>()(
       updateGroupName: async (conversationId: string, groupName: string) => {
         try {
           const response = await fetch(
-            `${API_BASE}/messages/conversation/${conversationId}/group-name`,
+            `${API_BASE_URL}/messages/conversation/${conversationId}/group-name`,
             {
               method: "PATCH",
               headers: {
@@ -896,7 +898,7 @@ export const useChatStore = create<ChatState>()(
       leaveGroup: async (conversationId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE}/messages/conversation/${conversationId}/leave`,
+            `${API_BASE_URL}/messages/conversation/${conversationId}/leave`,
             {
               method: "POST",
               credentials: "include",
@@ -1012,7 +1014,7 @@ export const useChatStore = create<ChatState>()(
       changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE}/messages/conversation/${conversationId}/change-admin`,
+            `${API_BASE_URL}/messages/conversation/${conversationId}/change-admin`,
             {
               method: "PATCH",
               headers: {
@@ -1110,7 +1112,7 @@ export const useChatStore = create<ChatState>()(
       ) => {
         try {
           const response = await fetch(
-            `${API_BASE}/messages/conversation/${conversationId}/remove-member`,
+            `${API_BASE_URL}/messages/conversation/${conversationId}/remove-member`,
             {
               method: "POST",
               headers: {
@@ -1214,10 +1216,13 @@ export const useChatStore = create<ChatState>()(
 
       blockUser: async (userId: string) => {
         try {
-          const response = await fetch(`${API_BASE}/users/block/${userId}`, {
-            method: "POST",
-            credentials: "include",
-          });
+          const response = await fetch(
+            `${API_BASE_URL}/users/block/${userId}`,
+            {
+              method: "POST",
+              credentials: "include",
+            }
+          );
 
           if (!response.ok) {
             const errorData = await response.json();
@@ -1234,10 +1239,13 @@ export const useChatStore = create<ChatState>()(
 
       unblockUser: async (userId: string) => {
         try {
-          const response = await fetch(`${API_BASE}/users/unblock/${userId}`, {
-            method: "POST",
-            credentials: "include",
-          });
+          const response = await fetch(
+            `${API_BASE_URL}/users/unblock/${userId}`,
+            {
+              method: "POST",
+              credentials: "include",
+            }
+          );
 
           if (!response.ok) {
             const errorData = await response.json();
@@ -1265,7 +1273,7 @@ export const useChatStore = create<ChatState>()(
       checkIfBlockedBy: async (userId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE}/users/check-blocked-by/${userId}`,
+            `${API_BASE_URL}/users/check-blocked-by/${userId}`,
             {
               credentials: "include",
             }
@@ -1285,7 +1293,7 @@ export const useChatStore = create<ChatState>()(
 
       getBlockedUsers: async () => {
         try {
-          const response = await fetch(`${API_BASE}/users/blocked`, {
+          const response = await fetch(`${API_BASE_URL}/users/blocked`, {
             credentials: "include",
           });
 
@@ -1305,7 +1313,11 @@ export const useChatStore = create<ChatState>()(
         try {
           // Load users I've blocked
           const blockedUsers = await get().getBlockedUsers();
-          const blockedIds = new Set(blockedUsers.map((user) => user._id || user.id).filter((id): id is string => !!id));
+          const blockedIds = new Set(
+            blockedUsers
+              .map((user) => user._id || user.id)
+              .filter((id): id is string => !!id)
+          );
 
           // Load users who have blocked me from ALL conversations (more comprehensive)
           const usersWhoBlockedMeSet = new Set<string>();

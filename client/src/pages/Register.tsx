@@ -1,6 +1,7 @@
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "../config";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
 import FormField from "../components/ui/FormField";
@@ -26,13 +27,16 @@ interface ApiResponse {
 
 export default function Register() {
   const navigate = useNavigate();
-  const search = useSearch({ from: '/register' });
-  const [invitationInfo, setInvitationInfo] = useState<{ groupName?: string; inviterName?: string } | null>(null);
+  const search = useSearch({ from: "/register" });
+  const [invitationInfo, setInvitationInfo] = useState<{
+    groupName?: string;
+    inviterName?: string;
+  } | null>(null);
   const [invitationError, setInvitationError] = useState<string | null>(null);
-  
+
   // Get invitation token from search parameters
   const invitationToken = search.invitation;
-  
+
   const {
     register,
     handleSubmit,
@@ -46,10 +50,13 @@ export default function Register() {
     const checkInvitation = async () => {
       if (invitationToken) {
         try {
-          const response = await fetch(`http://localhost:3000/api/auth/check-invitation?token=${invitationToken}`, {
-            credentials: "include",
-          });
-          
+          const response = await fetch(
+            `${API_BASE_URL}/auth/check-invitation?token=${invitationToken}`,
+            {
+              credentials: "include",
+            }
+          );
+
           if (response.ok) {
             const data = await response.json();
             setInvitationInfo({
@@ -71,7 +78,7 @@ export default function Register() {
 
   const onSubmit: SubmitHandler<RegisterInputs> = async (data) => {
     try {
-      const response = await fetch("http://localhost:3000/api/auth/register", {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,8 +118,9 @@ export default function Register() {
       {invitationInfo && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">
-            <strong>{invitationInfo.inviterName}</strong> has invited you to join the group chat{" "}
-            <strong>"{invitationInfo.groupName}"</strong>. Complete your registration to automatically join the group.
+            <strong>{invitationInfo.inviterName}</strong> has invited you to
+            join the group chat <strong>"{invitationInfo.groupName}"</strong>.
+            Complete your registration to automatically join the group.
           </p>
         </div>
       )}

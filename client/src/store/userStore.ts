@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Media } from "../types";
+import { API_BASE_URL } from "../config";
 
 interface User {
   id: string;
@@ -28,7 +29,7 @@ export const userStore = create<AuthState>()((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   checkAuthStatus: async () => {
     try {
-      const response = await fetch("http://localhost:3000/api/auth/check", {
+      const response = await fetch(`${API_BASE_URL}/auth/check`, {
         method: "GET",
         credentials: "include",
       });

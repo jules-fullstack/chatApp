@@ -7,6 +7,7 @@ import {
   Cog6ToothIcon,
   CameraIcon,
 } from "@heroicons/react/24/outline";
+import { API_BASE_URL } from "../config";
 import Sidebar from "../components/Sidebar";
 import MessageWindow from "../components/MessageWindow";
 import { useDisclosure } from "@mantine/hooks";
@@ -140,7 +141,7 @@ export default function UserDashboard() {
           }),
       };
 
-      const response = await fetch("http://localhost:3000/api/users/profile", {
+      const response = await fetch(`${API_BASE_URL}/users/profile`, {
         method: "PUT",
         credentials: "include",
         headers: {
@@ -224,7 +225,7 @@ export default function UserDashboard() {
       formData.append("parentId", user!.id);
       formData.append("usage", "avatar");
 
-      const response = await fetch("http://localhost:3000/api/media/upload", {
+      const response = await fetch(`${API_BASE_URL}/media/upload`, {
         method: "POST",
         credentials: "include",
         body: formData,

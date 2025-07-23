@@ -17,6 +17,7 @@ import { Accordion, Menu } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../store/chatStore";
 import { userStore } from "../store/userStore";
+import { API_BASE_URL } from "../config";
 import { type Participant } from "../types";
 import Container from "./ui/Container";
 import GroupNameModal from "./GroupNameModal";
@@ -64,7 +65,8 @@ export default function ConversationDetails() {
   const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isInviteUnregisteredModalOpen, setIsInviteUnregisteredModalOpen] = useState(false);
+  const [isInviteUnregisteredModalOpen, setIsInviteUnregisteredModalOpen] =
+    useState(false);
   const [isInvitingUsers, setIsInvitingUsers] = useState(false);
 
   const conversation = conversations.find(
@@ -81,17 +83,23 @@ export default function ConversationDetails() {
     const loadBlockedUsers = async () => {
       try {
         // We need to get the full list to check each user
-        const blockedUsersList = await fetch("http://localhost:3000/api/users/blocked", {
+        const blockedUsersList = await fetch(`${API_BASE_URL}/users/blocked`, {
           credentials: "include",
-        }).then(res => res.json()).then(data => data.blockedUsers || []);
-        
-        const blockedIds = new Set<string>(blockedUsersList.map((user: { id?: string; _id?: string }) => user.id || user._id));
+        })
+          .then((res) => res.json())
+          .then((data) => data.blockedUsers || []);
+
+        const blockedIds = new Set<string>(
+          blockedUsersList.map(
+            (user: { id?: string; _id?: string }) => user.id || user._id
+          )
+        );
         setBlockedUsers(blockedIds);
       } catch (error) {
         console.error("Error loading blocked users:", error);
       }
     };
-    
+
     loadBlockedUsers();
   }, [blockingUpdateTrigger]);
 
@@ -288,9 +296,9 @@ export default function ConversationDetails() {
     setIsBlockingUser(true);
     try {
       await blockUser(userToBlock._id);
-      setBlockedUsers(prev => new Set([...prev, userToBlock._id]));
+      setBlockedUsers((prev) => new Set([...prev, userToBlock._id]));
       handleCloseBlockUserModal();
-      
+
       // Force refresh of conversations list to update UI
       setTimeout(() => {
         setShowConversationDetails(false);
@@ -308,13 +316,13 @@ export default function ConversationDetails() {
     setIsBlockingUser(true);
     try {
       await unblockUser(userToBlock._id);
-      setBlockedUsers(prev => {
+      setBlockedUsers((prev) => {
         const newSet = new Set(prev);
         newSet.delete(userToBlock._id);
         return newSet;
       });
       handleCloseUnblockUserModal();
-      
+
       // Force refresh of conversations list to update UI
       setTimeout(() => {
         setShowConversationDetails(false);
@@ -328,7 +336,7 @@ export default function ConversationDetails() {
 
   const handleBlockUserInDirectMessage = () => {
     if (!conversation?.participant) return;
-    
+
     const participant = conversation.participant;
     if (blockedUsers.has(participant._id)) {
       handleOpenUnblockUserModal(participant);
@@ -338,21 +346,29 @@ export default function ConversationDetails() {
   };
 
   const validateImageFile = (file: File): string | null => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
     const maxSize = 5 * 1024 * 1024; // 5MB
 
     if (!allowedTypes.includes(file.type)) {
-      return 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.';
+      return "Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.";
     }
 
     if (file.size > maxSize) {
-      return 'File size must be less than 5MB.';
+      return "File size must be less than 5MB.";
     }
 
     return null;
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file || !conversation || !activeConversation) return;
 
@@ -366,33 +382,34 @@ export default function ConversationDetails() {
 
     try {
       const formData = new FormData();
-      formData.append('groupPhoto', file);
+      formData.append("groupPhoto", file);
 
       const response = await fetch(
-        `http://localhost:3000/api/conversations/${activeConversation}/photo`,
+        `${API_BASE_URL}/conversations/${activeConversation}/photo`,
         {
-          method: 'PUT',
+          method: "PUT",
           body: formData,
-          credentials: 'include',
+          credentials: "include",
         }
       );
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to upload group photo');
+        throw new Error(error.message || "Failed to upload group photo");
       }
 
       await response.json();
-      
-      // The WebSocket message will handle updating the conversation state
 
+      // The WebSocket message will handle updating the conversation state
     } catch (error) {
-      console.error('Failed to upload group photo:', error);
-      alert(error instanceof Error ? error.message : 'Failed to upload group photo');
+      console.error("Failed to upload group photo:", error);
+      alert(
+        error instanceof Error ? error.message : "Failed to upload group photo"
+      );
     } finally {
       setIsUploadingPhoto(false);
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
   };
@@ -417,27 +434,29 @@ export default function ConversationDetails() {
     setIsInvitingUsers(true);
     try {
       const response = await fetch(
-        `http://localhost:3000/api/conversations/${activeConversation}/invite-unregistered`,
+        `${API_BASE_URL}/conversations/${activeConversation}/invite-unregistered`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ emails }),
-          credentials: 'include',
+          credentials: "include",
         }
       );
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to send invitations');
+        throw new Error(error.message || "Failed to send invitations");
       }
 
       handleCloseInviteUnregisteredModal();
-      alert('Invitations sent successfully!');
+      alert("Invitations sent successfully!");
     } catch (error) {
-      console.error('Failed to send invitations:', error);
-      alert(error instanceof Error ? error.message : 'Failed to send invitations');
+      console.error("Failed to send invitations:", error);
+      alert(
+        error instanceof Error ? error.message : "Failed to send invitations"
+      );
     } finally {
       setIsInvitingUsers(false);
     }
@@ -448,9 +467,9 @@ export default function ConversationDetails() {
       <div className="flex flex-col items-center">
         {isGroup ? (
           <div className="mt-2">
-            <GroupAvatar 
-              participants={conversation?.participants || []} 
-              size="xl" 
+            <GroupAvatar
+              participants={conversation?.participants || []}
+              size="xl"
               className="!w-28 !h-28"
               groupPhoto={conversation?.groupPhoto}
             />
@@ -496,8 +515,8 @@ export default function ConversationDetails() {
             </div>
 
             {isGroup && (
-              <div 
-                className="cursor-pointer hover:bg-gray-50" 
+              <div
+                className="cursor-pointer hover:bg-gray-50"
                 onClick={handleOpenPhotoUpload}
               >
                 <Accordion.Panel>
@@ -512,7 +531,7 @@ export default function ConversationDetails() {
                 </Accordion.Panel>
               </div>
             )}
-            
+
             <input
               type="file"
               ref={fileInputRef}
@@ -603,7 +622,9 @@ export default function ConversationDetails() {
                                 }}
                               >
                                 <span className="font-medium">
-                                  {blockedUsers.has(participant._id) ? "Unblock" : "Block"}
+                                  {blockedUsers.has(participant._id)
+                                    ? "Unblock"
+                                    : "Block"}
                                 </span>
                               </Menu.Item>
 
@@ -674,7 +695,11 @@ export default function ConversationDetails() {
 
           <div
             className="cursor-pointer hover:bg-gray-50"
-            onClick={isGroup ? handleOpenLeaveGroupModal : handleBlockUserInDirectMessage}
+            onClick={
+              isGroup
+                ? handleOpenLeaveGroupModal
+                : handleBlockUserInDirectMessage
+            }
           >
             <Accordion.Panel>
               <div className="flex items-center gap-2">
@@ -686,12 +711,12 @@ export default function ConversationDetails() {
                   )}
                 </div>
                 <p className="font-medium">
-                  {isGroup 
-                    ? "Leave Group" 
-                    : conversation?.participant && blockedUsers.has(conversation.participant._id)
+                  {isGroup
+                    ? "Leave Group"
+                    : conversation?.participant &&
+                        blockedUsers.has(conversation.participant._id)
                       ? "Unblock"
-                      : "Block"
-                  }
+                      : "Block"}
                 </p>
               </div>
             </Accordion.Panel>

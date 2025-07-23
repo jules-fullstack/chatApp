@@ -1,17 +1,17 @@
 import { type SearchedUser } from "../types/index";
+import { API_BASE_URL } from "../config";
 
 class ConversationService {
-  private baseUrl = import.meta.env.DEV
-    ? "http://localhost:3000/api/messages"
-    : "/api/messages";
-
-  async addMembersToGroup(conversationId: string, userIds: string[]): Promise<{
+  async addMembersToGroup(
+    conversationId: string,
+    userIds: string[]
+  ): Promise<{
     message: string;
     addedMembers: SearchedUser[];
   }> {
     try {
       const response = await fetch(
-        `${this.baseUrl}/conversation/${conversationId}/add-members`,
+        `${API_BASE_URL}/messages/conversation/${conversationId}/add-members`,
         {
           method: "POST",
           credentials: "include",
@@ -45,7 +45,6 @@ class ConversationService {
         : new Error("An unexpected error occurred");
     }
   }
-
 }
 
 export default new ConversationService();

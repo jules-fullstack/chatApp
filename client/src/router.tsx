@@ -10,11 +10,12 @@ import Register from "./pages/Register";
 import UserDashboard from "./pages/UserDashboard";
 import OTPVerify from "./pages/OTPVerify";
 import AdminDashboard from "./pages/AdminDashboard";
+import { API_BASE_URL } from "./config";
 import { userStore } from "./store/userStore";
 
 const checkPendingVerification = async (): Promise<boolean> => {
   try {
-    const response = await fetch("http://localhost:3000/api/auth/check-pending", {
+    const response = await fetch(`${API_BASE_URL}/auth/check-pending`, {
       method: "GET",
       credentials: "include",
     });
@@ -38,9 +39,9 @@ const loginRoute = createRoute({
   component: Login,
   beforeLoad: async () => {
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -53,7 +54,8 @@ const loginRoute = createRoute({
     const currentUser = userStore.getState().user;
     if (currentUser) {
       throw redirect({
-        to: currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
+        to:
+          currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
@@ -77,11 +79,11 @@ const registerRoute = createRoute({
     if (search.invitation) {
       return;
     }
-    
+
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -94,7 +96,8 @@ const registerRoute = createRoute({
     const currentUser = userStore.getState().user;
     if (currentUser) {
       throw redirect({
-        to: currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
+        to:
+          currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
@@ -110,9 +113,9 @@ const verifyRoute = createRoute({
   component: OTPVerify,
   beforeLoad: async () => {
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -125,7 +128,8 @@ const verifyRoute = createRoute({
     const currentUser = userStore.getState().user;
     if (currentUser) {
       throw redirect({
-        to: currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
+        to:
+          currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     }
 
@@ -141,9 +145,9 @@ const dashboardRoute = createRoute({
   component: UserDashboard,
   beforeLoad: async () => {
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -169,9 +173,9 @@ const adminDashboardRoute = createRoute({
   component: AdminDashboard,
   beforeLoad: async () => {
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -196,9 +200,9 @@ const indexRoute = createRoute({
   path: "/",
   beforeLoad: async () => {
     const { isLoading } = userStore.getState();
-    
+
     if (isLoading) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         const unsubscribe = userStore.subscribe((state) => {
           if (!state.isLoading) {
             unsubscribe();
@@ -211,7 +215,8 @@ const indexRoute = createRoute({
     const currentUser = userStore.getState().user;
     if (currentUser) {
       throw redirect({
-        to: currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
+        to:
+          currentUser.role === "superAdmin" ? "/adminDashboard" : "/dashboard",
       });
     } else if (await checkPendingVerification()) {
       throw redirect({ to: "/verify" });
