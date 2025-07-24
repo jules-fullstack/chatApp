@@ -1,7 +1,7 @@
 import { Modal, Button } from "@mantine/core";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
-import FormField from "./ui/FormField";
+import FormField from "../ui/FormField";
 
 interface GroupNameFormData {
   groupName: string;
@@ -12,7 +12,7 @@ interface GroupNameModalProps {
   onClose: () => void;
   onConfirm: (groupName: string) => void;
   participantNames?: string[];
-  mode?: 'create' | 'edit';
+  mode?: "create" | "edit";
   currentGroupName?: string;
 }
 
@@ -21,8 +21,8 @@ export default function GroupNameModal({
   onClose,
   onConfirm,
   participantNames = [],
-  mode = 'create',
-  currentGroupName = '',
+  mode = "create",
+  currentGroupName = "",
 }: GroupNameModalProps) {
   const {
     register,
@@ -39,7 +39,7 @@ export default function GroupNameModal({
   // Update form values when modal opens or currentGroupName changes
   useEffect(() => {
     if (opened) {
-      setValue('groupName', currentGroupName);
+      setValue("groupName", currentGroupName);
     }
   }, [opened, currentGroupName, setValue]);
 
@@ -55,11 +55,11 @@ export default function GroupNameModal({
     onClose();
   };
 
-  const isEditMode = mode === 'edit';
+  const isEditMode = mode === "edit";
   const modalTitle = isEditMode ? "Change Chat Name" : "Create Group Chat";
   const buttonText = isEditMode ? "Save" : "Create";
-  const placeholder = isEditMode 
-    ? "Enter group name" 
+  const placeholder = isEditMode
+    ? "Enter group name"
     : "Enter group name (optional)";
 
   return (
@@ -77,7 +77,7 @@ export default function GroupNameModal({
               Creating a group chat with: {participantNames.join(", ")}
             </p>
           )}
-          
+
           <FormField
             name="groupName"
             type="text"
@@ -94,9 +94,7 @@ export default function GroupNameModal({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button type="submit">
-            {buttonText}
-          </Button>
+          <Button type="submit">{buttonText}</Button>
         </div>
       </form>
     </Modal>

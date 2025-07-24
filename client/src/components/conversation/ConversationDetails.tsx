@@ -15,22 +15,22 @@ import {
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { Accordion, Menu } from "@mantine/core";
 import { useState, useEffect, useRef } from "react";
-import { useChatStore } from "../store/chatStore";
-import { useConversationStore } from "../store/conversationStore";
-import { userStore } from "../store/userStore";
-import { API_BASE_URL } from "../config";
-import { type Participant } from "../types";
-import Container from "./ui/Container";
-import GroupNameModal from "./GroupNameModal";
-import LeaveGroupModal from "./LeaveGroupModal";
-import AddPeopleModal from "./AddPeopleModal";
-import PromoteUserModal from "./PromoteUserModal";
-import RemoveUserModal from "./RemoveUserModal";
-import BlockUserModal from "./BlockUserModal";
-import UnblockUserModal from "./UnblockUserModal";
-import InviteUnregisteredUserModal from "./InviteUnregisteredUserModal";
-import Avatar from "./ui/Avatar";
-import GroupAvatar from "./ui/GroupAvatar";
+import { useChatStore } from "../../store/chatStore";
+import { useConversationStore } from "../../store/conversationStore";
+import { userStore } from "../../store/userStore";
+import { API_BASE_URL } from "../../config";
+import { type Participant } from "../../types";
+import Container from "../ui/Container";
+import GroupNameModal from "../modals/GroupNameModal";
+import LeaveGroupModal from "../modals/LeaveGroupModal";
+import AddPeopleModal from "../modals/AddPeopleModal";
+import PromoteUserModal from "../modals/PromoteUserModal";
+import RemoveUserModal from "../modals/RemoveUserModal";
+import BlockUserModal from "../modals/BlockUserModal";
+import UnblockUserModal from "../modals/UnblockUserModal";
+import InviteUnregisteredUserModal from "../modals/InviteUnregisteredUserModal";
+import Avatar from "../ui/Avatar";
+import GroupAvatar from "../ui/GroupAvatar";
 
 export default function ConversationDetails() {
   const {
@@ -45,11 +45,7 @@ export default function ConversationDetails() {
     setFallbackParticipant,
     setShowConversationDetails,
   } = useConversationStore();
-  const {
-    blockUser,
-    unblockUser,
-    blockingUpdateTrigger,
-  } = useChatStore();
+  const { blockUser, unblockUser, blockingUpdateTrigger } = useChatStore();
   const { user: currentUser } = userStore();
   const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
   const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);

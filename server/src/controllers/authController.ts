@@ -1,18 +1,14 @@
-import { sendOTPEmail } from '../services/emailService.js';
 import { rateLimitService } from '../services/rateLimitService.js';
-import { GroupEventService } from '../services/groupEventService.js';
+import invitationService from '../services/invitationService.js';
+import authService from '../services/authService.js';
 
 import User from '../models/User.js';
-import Conversation from '../models/Conversation.js';
-import InvitationToken from '../models/InvitationToken.js';
 
 import { Request, Response, NextFunction } from 'express';
-import { populateUserWithAvatar } from '../utils/mediaQueries.js';
+import { formatUserResponse } from '../utils/userUtils.js';
 import passport from 'passport';
-import WebSocketManager from '../config/websocket.js';
 
 import {
-  IUser,
   RegisterRequest,
   LoginRequest,
   OTPVerifyRequest,
@@ -27,24 +23,6 @@ export const register = async (
     const { firstName, lastName, userName, email, password, invitationToken } =
       req.body;
 
-    // Validate invitation token if provided
-    let invitation = null;
-    if (invitationToken) {
-      invitation = await InvitationToken.findOne({
-        token: invitationToken,
-        email: email.toLowerCase(),
-        isUsed: false,
-        expiresAt: { $gt: new Date() },
-      }).populate('conversationId');
-
-      if (!invitation) {
-        res
-          .status(400)
-          .json({ message: 'Invalid or expired invitation token' });
-        return;
-      }
-    }
-
     const user = new User({
       firstName,
       lastName,
@@ -54,7 +32,7 @@ export const register = async (
       role: 'user',
     });
 
-    await generateAndSendOTP(user);
+    await authService.generateAndSendOTP(user);
 
     // Store both registration and invitation info in session
     const pendingUser: any = {
@@ -107,7 +85,7 @@ export const login = (
 
     try {
       // Generate and send OTP
-      await generateAndSendOTP(user);
+      await authService.generateAndSendOTP(user);
 
       // Store user info in session for OTP verification
       req.session.pendingUser = { email: user.email, type: 'login' };
@@ -154,88 +132,18 @@ export const verifyOTP = async (
         return;
       }
 
-      if (req.session.pendingUser?.invitationToken || savedInvitationToken) {
+      const token =
+        req.session.pendingUser?.invitationToken || savedInvitationToken;
+      if (token) {
         try {
-          const invitation = await InvitationToken.findOne({
-            token:
-              req.session.pendingUser?.invitationToken || savedInvitationToken,
-            email: email.toLowerCase(),
-            isUsed: false,
-            expiresAt: { $gt: new Date() },
-          });
+          const result = await invitationService.processInvitation(
+            token,
+            email,
+            user,
+          );
 
-          if (invitation) {
-            // Add user to the conversation
-            const conversation = await Conversation.findById(
-              invitation.conversationId,
-            );
-            if (conversation && conversation.isGroup) {
-              // Add user to participants if not already added
-              if (!conversation.participants.includes(user._id)) {
-                conversation.participants.push(user._id);
-                await conversation.save();
-
-                // Create group event for user joining via invitation
-                const eventMessage =
-                  await GroupEventService.createUserJoinedViaInvitationEvent(
-                    conversation._id,
-                    user._id,
-                  );
-
-                // Get updated conversation with populated participants for WebSocket
-                const updatedConversation = await Conversation.findById(
-                  conversation._id,
-                )
-                  .populate(
-                    'participants',
-                    'firstName lastName userName avatar',
-                  )
-                  .populate('groupAdmin', 'firstName lastName userName')
-                  .populate('groupPhoto')
-                  .lean();
-
-                // Notify all participants via WebSocket about the new member
-                const newMember = {
-                  userId: user._id.toString(),
-                  userName: user.userName,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                };
-
-                conversation.participants.forEach((participantId: any) => {
-                  WebSocketManager.sendMessage(participantId.toString(), {
-                    type: 'members_added_to_group',
-                    conversationId: conversation._id,
-                    addedMembers: [newMember],
-                    conversation: updatedConversation,
-                    addedBy: {
-                      userId: 'system',
-                      userName: 'System',
-                      firstName: 'System',
-                      lastName: '',
-                    },
-                    timestamp: new Date().toISOString(),
-                  });
-
-                  // Send the group event message
-                  WebSocketManager.sendMessage(participantId.toString(), {
-                    type: 'new_message',
-                    message: eventMessage,
-                  });
-                });
-              } else {
-                console.log('User already in conversation');
-              }
-
-              // Mark invitation as used
-              invitation.isUsed = true;
-              await invitation.save();
-            }
-          } else {
-            console.log(
-              'No valid invitation found for token:',
-              req.session.pendingUser?.invitationToken || savedInvitationToken,
-            );
+          if (!result.success) {
+            console.log('Invitation processing failed:', result.message);
           }
         } catch (invitationError) {
           console.error('Error processing invitation:', invitationError);
@@ -249,7 +157,9 @@ export const verifyOTP = async (
       delete req.session.pendingUser;
 
       // Get user with populated avatar
-      const avatarUrl = await getUserWithAvatar(user._id.toString());
+      const avatarUrl = await authService.getUserWithAvatar(
+        user._id.toString(),
+      );
 
       res.json({
         message: 'OTP verified successfully',
@@ -300,7 +210,7 @@ export const resendOTP = async (
 
     const user = req.user!;
 
-    await generateAndSendOTP(user);
+    await authService.generateAndSendOTP(user);
 
     rateLimitService.recordAttempt(email);
 
@@ -325,7 +235,9 @@ export const getCurrentUser = async (
 ): Promise<void> => {
   if (req.user) {
     try {
-      const avatarUrl = await getUserWithAvatar(req.user._id.toString());
+      const avatarUrl = await authService.getUserWithAvatar(
+        req.user._id.toString(),
+      );
 
       res.json({
         authenticated: true,
@@ -344,71 +256,6 @@ export const checkInvitation = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  try {
-    const { token } = req.query;
-
-    if (!token || typeof token !== 'string') {
-      res.status(400).json({ message: 'Invalid invitation token' });
-      return;
-    }
-
-    const invitation = await InvitationToken.findOne({
-      token,
-      isUsed: false,
-      expiresAt: { $gt: new Date() },
-    }).populate([
-      {
-        path: 'conversationId',
-        select: 'groupName',
-      },
-      {
-        path: 'invitedBy',
-        select: 'firstName lastName userName',
-      },
-    ]);
-
-    if (!invitation) {
-      res.status(404).json({ message: 'Invalid or expired invitation' });
-      return;
-    }
-
-    const conversation = invitation.conversationId as any;
-    const inviter = invitation.invitedBy as any;
-
-    const inviterName =
-      inviter?.firstName && inviter?.lastName
-        ? `${inviter.firstName} ${inviter.lastName}`
-        : inviter?.userName || 'A ChatApp user';
-
-    res.json({
-      email: invitation.email,
-      groupName: conversation?.groupName || 'Group Chat',
-      inviterName,
-    });
-  } catch (error) {
-    console.error('Error checking invitation:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-const formatUserResponse = (user: IUser, avatarUrl: string) => ({
-  id: user._id.toString(),
-  firstName: user.firstName,
-  lastName: user.lastName,
-  userName: user.userName,
-  email: user.email,
-  role: user.role,
-  avatar: avatarUrl,
-});
-
-const generateAndSendOTP = async (user: IUser) => {
-  const otp = user.generateOTP();
-  await user.save();
-  await sendOTPEmail(user.email, otp);
-  return otp;
-};
-
-const getUserWithAvatar = async (userId: string) => {
-  const userWithAvatar = await populateUserWithAvatar(userId);
-  return (userWithAvatar?.avatar as any)?.url || null;
+  const invitationInfo = (req as any).invitationInfo;
+  res.json(invitationInfo);
 };

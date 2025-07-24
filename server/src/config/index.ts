@@ -18,8 +18,6 @@ interface SessionConfig {
 }
 
 interface EmailConfig {
-  host: string;
-  port: number;
   user: string;
   pass: string;
 }
@@ -45,7 +43,7 @@ const createConfig = (): AppConfig => ({
   port: env.PORT,
   nodeEnv: env.NODE_ENV,
   clientUrl: env.CLIENT_URL,
-  
+
   database: {
     uri: env.MONGODB_URI,
     options: {
@@ -54,7 +52,7 @@ const createConfig = (): AppConfig => ({
       socketTimeoutMS: 45000,
     },
   },
-  
+
   session: {
     secret: env.SESSION_SECRET,
     maxAge: 1000 * 60 * 60 * 24, // 24 hours
@@ -62,19 +60,17 @@ const createConfig = (): AppConfig => ({
     httpOnly: true,
     rolling: true,
   },
-  
+
   email: {
-    host: env.EMAIL_HOST,
-    port: env.EMAIL_PORT,
     user: env.EMAIL_USER,
-    pass: env.EMAIL_PASS,
+    pass: env.EMAIL_APP_PASSWORD,
   },
-  
+
   aws: {
     accessKeyId: env.AWS_ACCESS_KEY_ID,
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
-    region: env.AWS_REGION,
-    s3BucketName: env.AWS_S3_BUCKET_NAME,
+    region: env.AWS_DEFAULT_REGION,
+    s3BucketName: env.AWS_BUCKET,
   },
 });
 

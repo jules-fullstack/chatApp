@@ -19,15 +19,15 @@ import type {
   AdminGroupConversation,
   PaginationInfo,
 } from "../../types/admin";
-import { 
-  NoSymbolIcon, 
+import {
+  NoSymbolIcon,
   LockOpenIcon,
   UserPlusIcon,
   UserMinusIcon,
   UserIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import AddPeopleModal from "../AddPeopleModal";
+import AddPeopleModal from "../modals/AddPeopleModal";
 import AdminRemoveMembersModal from "./AdminRemoveMembersModal";
 import AdminPromoteMemberModal from "./AdminPromoteMemberModal";
 import AdminActionConfirmModal from "./AdminActionConfirmModal";
@@ -50,12 +50,15 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  
+
   // Group chat action states
-  const [selectedGroupChat, setSelectedGroupChat] = useState<AdminGroupConversation | null>(null);
+  const [selectedGroupChat, setSelectedGroupChat] =
+    useState<AdminGroupConversation | null>(null);
   const [isAddPeopleModalOpen, setIsAddPeopleModalOpen] = useState(false);
-  const [isRemoveMembersModalOpen, setIsRemoveMembersModalOpen] = useState(false);
-  const [isPromoteMemberModalOpen, setIsPromoteMemberModalOpen] = useState(false);
+  const [isRemoveMembersModalOpen, setIsRemoveMembersModalOpen] =
+    useState(false);
+  const [isPromoteMemberModalOpen, setIsPromoteMemberModalOpen] =
+    useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     type: "remove" | "promote";
@@ -205,7 +208,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
       });
       setGroupConversations(response.conversations);
       setGroupsPagination(response.pagination);
-      
+
       setIsConfirmModalOpen(false);
       setConfirmAction(null);
       setSelectedGroupChat(null);
@@ -226,8 +229,10 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   };
 
   // Convert AdminParticipant to Participant for modal compatibility
-  const convertAdminParticipantsToParticipants = (adminParticipants: AdminGroupConversation["participants"]) => {
-    return adminParticipants.map(p => ({
+  const convertAdminParticipantsToParticipants = (
+    adminParticipants: AdminGroupConversation["participants"]
+  ) => {
+    return adminParticipants.map((p) => ({
       _id: p.id,
       firstName: p.firstName,
       lastName: p.lastName,
@@ -249,14 +254,14 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         <Table.Td>{user.email}</Table.Td>
         <Table.Td>
           {user.isBlocked ? (
-            <LockOpenIcon 
-              className={`size-6 text-green-500 cursor-pointer ${actionLoading === user.id ? 'opacity-50' : ''}`}
+            <LockOpenIcon
+              className={`size-6 text-green-500 cursor-pointer ${actionLoading === user.id ? "opacity-50" : ""}`}
               onClick={() => handleUnblockUser(user.id)}
               title="Unblock user"
             />
           ) : (
-            <NoSymbolIcon 
-              className={`size-6 text-red-500 cursor-pointer ${actionLoading === user.id ? 'opacity-50' : ''}`}
+            <NoSymbolIcon
+              className={`size-6 text-red-500 cursor-pointer ${actionLoading === user.id ? "opacity-50" : ""}`}
               onClick={() => handleBlockUser(user.id)}
               title="Block user"
             />
@@ -384,8 +389,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   };
 
   const getConfirmMessage = () => {
-    if (!confirmAction || !selectedGroupChat) return { title: "", message: "", confirmText: "", color: "blue" };
-    
+    if (!confirmAction || !selectedGroupChat)
+      return { title: "", message: "", confirmText: "", color: "blue" };
+
     if (confirmAction.type === "remove") {
       const userCount = confirmAction.data.length;
       return {
@@ -395,7 +401,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         color: "red",
       };
     } else if (confirmAction.type === "promote") {
-      const selectedUser = selectedGroupChat.participants.find(p => p.id === confirmAction.data);
+      const selectedUser = selectedGroupChat.participants.find(
+        (p) => p.id === confirmAction.data
+      );
       return {
         title: "Confirm Promote Member",
         message: `Are you sure you want to promote ${selectedUser?.userName || "this user"} to admin in "${selectedGroupChat.groupName || "this group"}"?`,
@@ -403,7 +411,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         color: "orange",
       };
     }
-    
+
     return { title: "", message: "", confirmText: "", color: "blue" };
   };
 
@@ -426,7 +434,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             opened={isAddPeopleModalOpen}
             onClose={closeAllModals}
             conversationId={selectedGroupChat.id}
-            existingParticipants={convertAdminParticipantsToParticipants(selectedGroupChat.participants)}
+            existingParticipants={convertAdminParticipantsToParticipants(
+              selectedGroupChat.participants
+            )}
             onMembersAdded={handleMembersAdded}
           />
 
@@ -434,7 +444,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             opened={isRemoveMembersModalOpen}
             onClose={closeAllModals}
             onConfirm={handleConfirmRemoveMembers}
-            participants={convertAdminParticipantsToParticipants(selectedGroupChat.participants)}
+            participants={convertAdminParticipantsToParticipants(
+              selectedGroupChat.participants
+            )}
             groupName={selectedGroupChat.groupName || "Unnamed Group"}
           />
 
@@ -442,7 +454,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             opened={isPromoteMemberModalOpen}
             onClose={closeAllModals}
             onConfirm={handleConfirmPromoteMember}
-            participants={convertAdminParticipantsToParticipants(selectedGroupChat.participants)}
+            participants={convertAdminParticipantsToParticipants(
+              selectedGroupChat.participants
+            )}
             groupName={selectedGroupChat.groupName || "Unnamed Group"}
             currentAdminId={selectedGroupChat.groupAdmin?.id}
           />

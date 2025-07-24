@@ -10,7 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { API_BASE_URL } from "../config";
 import Sidebar from "../components/Sidebar";
-import MessageWindow from "../components/MessageWindow";
+import MessageWindow from "../components/conversation/MessageWindow";
 import { useDisclosure } from "@mantine/hooks";
 import { Menu, Modal, Button, Group, LoadingOverlay } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import FormField from "../components/ui/FormField";
-import ConversationDetails from "../components/ConversationDetails";
+import ConversationDetails from "../components/conversation/ConversationDetails";
 import Avatar from "../components/ui/Avatar";
 
 // Zod schema for profile update
@@ -101,11 +101,8 @@ export default function UserDashboard() {
   const user = userStore((state) => state.user);
   const setUser = userStore((state) => state.setUser);
 
-  const {
-    connect,
-    disconnect,
-  } = useChatStore();
-  
+  const { connect, disconnect } = useChatStore();
+
   const {
     loadConversations,
     conversations,

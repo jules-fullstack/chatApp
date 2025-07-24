@@ -2,15 +2,15 @@ import { useEffect, useRef, useCallback } from "react";
 import ConversationHeader from "./ConversationHeader";
 import MessageSender from "./MessageSender";
 import MessageBubble from "./MessageBubble";
-import TimestampSeparator from "./TimestampSeparator";
-import Container from "./ui/Container";
-import { useChatStore } from "../store/chatStore";
-import { useConversationStore } from "../store/conversationStore";
-import { userStore } from "../store/userStore";
-import { useConversationRead } from "../hooks/useMessageRead";
-import { shouldShowTimeSeparator } from "../utils/dateUtils";
+import TimestampSeparator from "../TimestampSeparator";
+import Container from "../ui/Container";
+import { useChatStore } from "../../store/chatStore";
+import { useConversationStore } from "../../store/conversationStore";
+import { userStore } from "../../store/userStore";
+import { useConversationRead } from "../../hooks/useMessageRead";
+import { shouldShowTimeSeparator } from "../../utils/dateUtils";
 import { Loader } from "@mantine/core";
-import { useIntersectionObserverCallback } from "../hooks/useIntersectionObserver";
+import { useIntersectionObserverCallback } from "../../hooks/useIntersectionObserver";
 
 export default function MessageWindow() {
   const { getTypingUsersForConversation, isUserBlockedByMe, amIBlockedByUser } =

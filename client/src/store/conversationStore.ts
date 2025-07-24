@@ -339,12 +339,9 @@ export const useConversationStore = create<ConversationState>()(
       loadConversations: async () => {
         set({ isConversationsLoading: true });
         try {
-          const response = await fetch(
-            `${API_BASE_URL}/messages/conversations`,
-            {
-              credentials: "include",
-            }
-          );
+          const response = await fetch(`${API_BASE_URL}/conversations`, {
+            credentials: "include",
+          });
 
           if (!response.ok) {
             throw new Error("Failed to load conversations");
@@ -425,7 +422,7 @@ export const useConversationStore = create<ConversationState>()(
       markConversationAsRead: async (conversationId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/read`,
+            `${API_BASE_URL}/conversations/${conversationId}/read`,
             {
               method: "PATCH",
               credentials: "include",
@@ -489,7 +486,7 @@ export const useConversationStore = create<ConversationState>()(
       updateGroupName: async (conversationId: string, groupName: string) => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/group-name`,
+            `${API_BASE_URL}/conversations/${conversationId}/name`,
             {
               method: "PATCH",
               headers: {
@@ -591,7 +588,7 @@ export const useConversationStore = create<ConversationState>()(
       leaveGroup: async (conversationId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/leave`,
+            `${API_BASE_URL}/conversations/${conversationId}/leave`,
             {
               method: "POST",
               credentials: "include",
@@ -707,7 +704,7 @@ export const useConversationStore = create<ConversationState>()(
       changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/change-admin`,
+            `${API_BASE_URL}/conversations/${conversationId}/admin`,
             {
               method: "PATCH",
               headers: {
@@ -790,14 +787,13 @@ export const useConversationStore = create<ConversationState>()(
       ) => {
         try {
           const response = await fetch(
-            `${API_BASE_URL}/messages/conversation/${conversationId}/remove-member`,
+            `${API_BASE_URL}/conversations/${conversationId}/members/${userToRemoveId}`,
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
               credentials: "include",
-              body: JSON.stringify({ userToRemoveId }),
             }
           );
 

@@ -194,7 +194,7 @@ class AdminService {
   ): Promise<{ addedMembers: unknown[] }> {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/messages/conversation/${conversationId}/add-members`,
+        `${API_BASE_URL}/conversations/${conversationId}/members`,
         {
           method: "POST",
           credentials: "include",
@@ -237,14 +237,13 @@ class AdminService {
       // we need to make multiple requests
       const removePromises = userIds.map(async (userId) => {
         const response = await fetch(
-          `${API_BASE_URL}/messages/conversation/${conversationId}/remove-member`,
+          `${API_BASE_URL}/conversations/${conversationId}/members/${userId}`,
           {
-            method: "POST",
+            method: "DELETE",
             credentials: "include",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ userToRemoveId: userId }),
           }
         );
 
@@ -279,7 +278,7 @@ class AdminService {
   ): Promise<void> {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/messages/conversation/${conversationId}/change-admin`,
+        `${API_BASE_URL}/conversations/${conversationId}/admin`,
         {
           method: "PATCH",
           credentials: "include",

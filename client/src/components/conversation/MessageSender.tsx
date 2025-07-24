@@ -3,12 +3,15 @@ import { HandThumbUpIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useForm } from "react-hook-form";
 import { notifications } from "@mantine/notifications";
 import { useState, useRef, useEffect } from "react";
-import { useChatStore } from "../store/chatStore";
-import { useConversationStore } from "../store/conversationStore";
-import { messageSchema, type MessageFormData } from "../schemas/messageSchema";
-import { API_BASE_URL } from "../config";
-import FormField from "./ui/FormField";
-import GroupNameModal from "./GroupNameModal";
+import { useChatStore } from "../../store/chatStore";
+import { useConversationStore } from "../../store/conversationStore";
+import {
+  messageSchema,
+  type MessageFormData,
+} from "../../schemas/messageSchema";
+import { API_BASE_URL } from "../../config";
+import FormField from "../ui/FormField";
+import GroupNameModal from "../modals/GroupNameModal";
 import ImagePreview from "./ImagePreview";
 
 export default function MessageSender() {
@@ -20,12 +23,8 @@ export default function MessageSender() {
     markConversationAsRead,
     conversations,
   } = useConversationStore();
-  const {
-    startTyping,
-    stopTyping,
-    checkIfBlockedBy,
-    blockingUpdateTrigger,
-  } = useChatStore();
+  const { startTyping, stopTyping, checkIfBlockedBy, blockingUpdateTrigger } =
+    useChatStore();
   const [isTyping, setIsTyping] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string>("");
@@ -143,7 +142,7 @@ export default function MessageSender() {
     });
 
     const response = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/api/messages/upload-images`,
+      `${import.meta.env.VITE_API_BASE_URL}/media/upload-images`,
       {
         method: "POST",
         body: formData,

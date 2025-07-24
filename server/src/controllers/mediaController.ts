@@ -7,10 +7,12 @@ import Media from '../models/Media.js';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import { IUser } from '../types/index.js';
+import { uploadImageToS3 } from '../services/s3Service.js';
 
 interface AuthRequest extends Request {
   user?: IUser;
   file?: Express.Multer.File;
+  files?: Express.Multer.File[];
 }
 
 const s3Client = new S3Client({
@@ -235,5 +237,43 @@ export const getMediaByParent = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get media error:', error);
     res.status(500).json({ success: false, message: 'Failed to get media' });
+  }
+};
+
+// Image upload function moved from messageController
+export const uploadImages = async (
+  req: AuthRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const files = req.files;
+    const userId = req.user!._id;
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'No files provided' });
+      return;
+    }
+
+    // Upload images to S3 and get URLs for backward compatibility
+    const imageUrls: string[] = [];
+
+    for (const file of files) {
+      try {
+        const uploadResult = await uploadImageToS3(file, userId.toString());
+        imageUrls.push(uploadResult.url);
+      } catch (error) {
+        console.error('Error uploading file:', file.originalname, error);
+        throw new Error(`Failed to upload ${file.originalname}`);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      images: imageUrls,
+      count: imageUrls.length,
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ error: 'Failed to upload images' });
   }
 };

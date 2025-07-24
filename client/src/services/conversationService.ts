@@ -11,7 +11,7 @@ class ConversationService {
   }> {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/messages/conversation/${conversationId}/add-members`,
+        `${API_BASE_URL}/conversations/${conversationId}/members`,
         {
           method: "POST",
           credentials: "include",
