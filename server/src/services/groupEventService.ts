@@ -1,4 +1,5 @@
 import Message from '../models/Message.js';
+import Conversation from '../models/Conversation.js';
 import { Types } from 'mongoose';
 
 export interface GroupEventData {
@@ -27,6 +28,12 @@ export class GroupEventService {
     });
 
     const savedMessage = await eventMessage.save();
+    
+    // Update the conversation's lastMessage and lastMessageAt
+    await Conversation.findByIdAndUpdate(data.conversationId, {
+      lastMessage: savedMessage._id,
+      lastMessageAt: new Date(),
+    });
     
     // Populate the message with sender and target user data
     return await Message.findById(savedMessage._id)

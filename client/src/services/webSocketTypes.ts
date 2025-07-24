@@ -5,6 +5,7 @@ export interface TypingUser {
   userName?: string;
   firstName?: string;
   lastName?: string;
+  conversationId: string;
 }
 
 export interface WebSocketMessage {
@@ -22,7 +23,7 @@ export interface StoreActions {
   clearOnlineUsers: () => void;
   
   // Typing
-  setTypingUser: (userId: string, isTyping: boolean, userInfo?: Partial<TypingUser>) => void;
+  setTypingUser: (userId: string, isTyping: boolean, conversationId: string, userInfo?: Partial<TypingUser>) => void;
   getUserInfoFromConversations: (userId: string) => Partial<TypingUser>;
   
   // Messages and conversations

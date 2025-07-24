@@ -13,27 +13,33 @@ import {
   ensureNotAuthenticated,
   ensureUserExists,
   validatePendingSession,
+  validateRegister,
+  validateLogin,
+  validateOTP,
+  validateEmail,
 } from '../middlewares/auth';
 
 const router = express.Router();
 
-router.post('/register', ensureNotAuthenticated, register);
+router.post('/register', ensureNotAuthenticated, ...validateRegister, register);
 
-router.post('/login', ensureNotAuthenticated, login);
+router.post('/login', ensureNotAuthenticated, ...validateLogin, login);
 
 router.post(
   '/verify-otp',
   ensureNotAuthenticated,
-  ensureUserExists,
-  validatePendingSession,
+  ...validateOTP,
+  ...ensureUserExists,
+  ...validatePendingSession,
   verifyOTP,
 );
 
 router.post(
   '/resend-otp',
   ensureNotAuthenticated,
-  ensureUserExists,
-  validatePendingSession,
+  ...validateEmail,
+  ...ensureUserExists,
+  ...validatePendingSession,
   resendOTP,
 );
 

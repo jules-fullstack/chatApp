@@ -50,9 +50,13 @@ export class WebSocketManager {
           console.log("WebSocket disconnected:", event.code, event.reason);
           this.storeActions.setConnectionState(false);
           this.storeActions.setWebSocket(null);
-          
+
           // Attempt reconnection if not a manual close
-          if (!this.isManualDisconnect && event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
+          if (
+            !this.isManualDisconnect &&
+            event.code !== 1000 &&
+            this.reconnectAttempts < this.maxReconnectAttempts
+          ) {
             this.attemptReconnect();
           }
         };
@@ -63,7 +67,6 @@ export class WebSocketManager {
           this.storeActions.setWebSocket(null);
           reject(error);
         };
-
       } catch (error) {
         reject(error);
       }
@@ -87,7 +90,7 @@ export class WebSocketManager {
       this.ws.send(JSON.stringify(message));
       return true;
     }
-    
+
     console.warn("WebSocket not ready, message not sent:", message);
     return false;
   }
@@ -122,7 +125,7 @@ export class WebSocketManager {
   private handleMessage(event: MessageEvent): void {
     try {
       const data: WebSocketMessage = JSON.parse(event.data);
-      
+
       // Find and execute the appropriate handler
       const handler = messageHandlers[data.type];
       if (handler) {
@@ -138,13 +141,15 @@ export class WebSocketManager {
   private attemptReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    
-    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`);
-    
+
+    console.log(
+      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`
+    );
+
     setTimeout(() => {
       this.connect().catch((error) => {
         console.error("Reconnection failed:", error);
-        
+
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           console.error("Max reconnection attempts reached");
         }

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import { IConversation } from '../types/index.js';
 
 const conversationSchema = new Schema<IConversation>(
@@ -104,6 +104,6 @@ conversationSchema.index({ participants: 1 });
 conversationSchema.index({ lastMessageAt: -1 });
 conversationSchema.index({ isGroup: 1 });
 
-const Conversation = model<IConversation>('Conversation', conversationSchema);
+const Conversation = (mongoose.models.Conversation as mongoose.Model<IConversation>) || model<IConversation>('Conversation', conversationSchema);
 
 export default Conversation;

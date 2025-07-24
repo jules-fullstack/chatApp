@@ -27,12 +27,6 @@ export const register = async (
     const { firstName, lastName, userName, email, password, invitationToken } =
       req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      res.status(400).json({ message: 'User already exists' });
-      return;
-    }
-
     // Validate invitation token if provided
     let invitation = null;
     if (invitationToken) {

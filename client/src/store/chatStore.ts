@@ -34,6 +34,7 @@ interface ChatState {
   setTypingUser: (
     userId: string,
     isTyping: boolean,
+    conversationId: string,
     userInfo?: Partial<TypingUser>
   ) => void;
   getTypingUsersForConversation: () => TypingUser[];
@@ -93,19 +94,24 @@ export const useChatStore = create<ChatState>()(
             set({ onlineUsers: new Set() });
           },
           setTypingUser: get().setTypingUser,
-          getUserInfoFromConversations: conversationStore.getUserInfoFromConversations,
+          getUserInfoFromConversations:
+            conversationStore.getUserInfoFromConversations,
           handleIncomingMessage: (message) => {
             // Filter message for blocking before passing to conversation store
             const senderId = message.sender?._id;
             const currentUser = userStore.getState().user;
             const isOwnMessage = senderId === currentUser?.id;
-            
-            if (!isOwnMessage && (get().isUserBlockedByMe(senderId) || get().amIBlockedByUser(senderId))) {
+
+            if (
+              !isOwnMessage &&
+              (get().isUserBlockedByMe(senderId) ||
+                get().amIBlockedByUser(senderId))
+            ) {
               // Still refresh conversations but don't add blocked message
               conversationStore.loadConversations();
               return;
             }
-            
+
             conversationStore.handleIncomingMessage(message);
           },
           loadConversations: conversationStore.loadConversations,
@@ -114,21 +120,23 @@ export const useChatStore = create<ChatState>()(
           handleGroupNameUpdated: conversationStore.handleGroupNameUpdated,
           handleGroupPhotoUpdated: conversationStore.handleGroupPhotoUpdated,
           handleUserLeftGroup: conversationStore.handleUserLeftGroup,
-          handleMembersAddedToGroup: conversationStore.handleMembersAddedToGroup,
+          handleMembersAddedToGroup:
+            conversationStore.handleMembersAddedToGroup,
           handleGroupAdminChanged: conversationStore.handleGroupAdminChanged,
-          handleMemberRemovedFromGroup: conversationStore.handleMemberRemovedFromGroup,
+          handleMemberRemovedFromGroup:
+            conversationStore.handleMemberRemovedFromGroup,
           handleRemovedFromGroup: conversationStore.handleRemovedFromGroup,
           handleBlockingUpdate: get().handleBlockingUpdate,
           triggerBlockingUpdate: get().triggerBlockingUpdate,
           resetStore: get().resetStore,
           getState: () => ({
-            activeConversation: conversationStore.activeConversation,
+            activeConversation: useConversationStore.getState().activeConversation,
           }),
         };
 
         const manager = new WebSocketManager(storeActions);
         set({ webSocketManager: manager });
-        
+
         manager.connect().catch((error) => {
           console.error("Failed to connect WebSocket:", error);
         });
@@ -180,6 +188,7 @@ export const useChatStore = create<ChatState>()(
       setTypingUser: (
         userId: string,
         isTyping: boolean,
+        conversationId: string,
         userInfo?: Partial<TypingUser>
       ) => {
         set((state) => {
@@ -187,6 +196,7 @@ export const useChatStore = create<ChatState>()(
           if (isTyping) {
             const typingUser: TypingUser = {
               userId,
+              conversationId,
               userName: userInfo?.userName,
               firstName: userInfo?.firstName,
               lastName: userInfo?.lastName,
@@ -201,7 +211,13 @@ export const useChatStore = create<ChatState>()(
 
       getTypingUsersForConversation: () => {
         const { typingUsers } = get();
-        return Array.from(typingUsers.values());
+        const conversationStore = useConversationStore.getState();
+        const activeConversation = conversationStore.activeConversation;
+        if (!activeConversation) return [];
+        
+        return Array.from(typingUsers.values()).filter(
+          (user) => user.conversationId === activeConversation
+        );
       },
 
       blockUser: async (userId: string) => {
@@ -409,10 +425,10 @@ export const useChatStore = create<ChatState>()(
         if (webSocketManager) {
           webSocketManager.destroy();
         }
-        
+
         // Also reset conversation store
         useConversationStore.getState().resetConversationStore();
-        
+
         set({
           ws: null,
           isConnected: false,

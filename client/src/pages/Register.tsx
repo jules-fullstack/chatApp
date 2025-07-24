@@ -2,20 +2,13 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "../config";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { registerSchema, type RegisterFormData } from "../schemas/authSchema";
 import AuthLayout from "../layouts/AuthLayout";
 import AuthForm from "../components/AuthForm";
 import FormField from "../components/ui/FormField";
 import AuthLink from "../components/AuthLink";
 import Head from "../components/ui/Head";
-
-interface RegisterInputs {
-  email: string;
-  firstName: string;
-  lastName: string;
-  userName: string;
-  password: string;
-  confirmPassword: string;
-}
 
 interface ApiResponse {
   message: string;
@@ -40,10 +33,11 @@ export default function Register() {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors },
     setError,
-  } = useForm<RegisterInputs>();
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+  });
 
   // Check invitation token on component mount
   useEffect(() => {
@@ -76,7 +70,7 @@ export default function Register() {
     checkInvitation();
   }, [invitationToken]);
 
-  const onSubmit: SubmitHandler<RegisterInputs> = async (data) => {
+  const onSubmit: SubmitHandler<RegisterFormData> = async (data) => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
@@ -143,7 +137,6 @@ export default function Register() {
             placeholder="First Name"
             register={register}
             errors={errors}
-            validation={{ required: "First Name is required." }}
           />
 
           <FormField
@@ -152,7 +145,6 @@ export default function Register() {
             placeholder="Last Name"
             register={register}
             errors={errors}
-            validation={{ required: "Last Name is required." }}
           />
         </div>
 
@@ -162,7 +154,6 @@ export default function Register() {
           placeholder="Email"
           register={register}
           errors={errors}
-          validation={{ required: "Email is required." }}
         />
 
         <FormField
@@ -171,7 +162,6 @@ export default function Register() {
           placeholder="Username"
           register={register}
           errors={errors}
-          validation={{ required: "Username is required." }}
         />
 
         <FormField
@@ -180,7 +170,6 @@ export default function Register() {
           placeholder="Password"
           register={register}
           errors={errors}
-          validation={{ required: "Password is required" }}
         />
 
         <FormField
@@ -189,14 +178,6 @@ export default function Register() {
           placeholder="Confirm Password"
           register={register}
           errors={errors}
-          validation={{
-            required: "Password is required",
-            validate: (val: string) => {
-              if (watch("password") !== val) {
-                return "Your passwords do not match";
-              }
-            },
-          }}
         />
 
         {errors.root && <p className="text-red-900">{errors.root.message}</p>}

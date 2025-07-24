@@ -18,26 +18,39 @@ export const messageHandlers: MessageHandlers = {
 
     // Only show typing indicator if it's for the active conversation
     const { activeConversation } = actions.getState();
+    if (!activeConversation) return;
 
-    // Check if this typing indicator is for the current active conversation
-    let shouldShowTyping = false;
-
-    if (activeConversation) {
-      if (activeConversation.startsWith("user:")) {
-        // Direct message with user: format - check if the typing user is the same as the target user
-        const targetUserId = activeConversation.replace("user:", "");
-        shouldShowTyping = typingData.userId === targetUserId;
-      } else {
-        // Group chat or existing conversation - check conversation ID
-        shouldShowTyping = typingData.conversationId === activeConversation;
+    // Determine if this typing event is for the current conversation
+    let isForCurrentConversation = false;
+    let eventConversationId: string;
+    
+    if (activeConversation.startsWith("user:")) {
+      // Direct message with user: format
+      const targetUserId = activeConversation.replace("user:", "");
+      
+      // For direct messages, typing is relevant if:
+      // 1. The typing user is the target user, OR
+      // 2. The conversationId matches the target user ID, OR  
+      // 3. The conversationId matches the activeConversation
+      if (typingData.userId === targetUserId || 
+          typingData.conversationId === targetUserId ||
+          typingData.conversationId === activeConversation) {
+        isForCurrentConversation = true;
+        eventConversationId = activeConversation;
+      }
+    } else {
+      // Group chat or existing conversation - check conversation ID match
+      if (typingData.conversationId === activeConversation) {
+        isForCurrentConversation = true;
+        eventConversationId = activeConversation;
       }
     }
 
-    if (shouldShowTyping) {
-      // Try to get user info from conversations
-      const userInfo = actions.getUserInfoFromConversations(typingData.userId);
-      actions.setTypingUser(typingData.userId, typingData.isTyping, userInfo);
-    }
+    if (!isForCurrentConversation) return;
+
+    // Try to get user info from conversations
+    const userInfo = actions.getUserInfoFromConversations(typingData.userId);
+    actions.setTypingUser(typingData.userId, typingData.isTyping, eventConversationId!, userInfo);
   },
 
   conversation_read: (data, actions) => {

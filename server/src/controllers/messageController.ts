@@ -18,7 +18,6 @@ interface AuthenticatedRequest extends Request {
 export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const {
-      recipientIds,
       conversationId,
       content,
       messageType = 'text',
@@ -26,22 +25,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       attachmentIds,
       images, // Backward compatibility
     } = req.body;
-    const senderId = req.user?._id;
-
-    if (
-      !senderId ||
-      (!content &&
-        (!attachmentIds || attachmentIds.length === 0) &&
-        (!images || images.length === 0))
-    ) {
-      return res.status(400).json({
-        message:
-          'Missing required fields: must have either content or attachments',
-      });
-    }
+    const senderId = req.user!._id;
 
     let conversation: any;
-    let recipients: string[] = [];
+    let recipients: string[] = req.body.recipients || [];
 
     if (conversationId) {
       // Existing conversation
@@ -56,20 +43,6 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       recipients = conversation.participants
         .map((p: any) => p.toString())
         .filter((p: string) => p !== senderId.toString());
-    } else {
-      // New message - support both single recipient (legacy) and multiple recipients
-      if (recipientIds) {
-        recipients = Array.isArray(recipientIds)
-          ? recipientIds
-          : [recipientIds];
-      } else if (req.body.recipientId) {
-        // Legacy support
-        recipients = [req.body.recipientId];
-      }
-
-      if (recipients.length === 0) {
-        return res.status(400).json({ message: 'No recipients specified' });
-      }
     }
 
     if (!conversationId) {

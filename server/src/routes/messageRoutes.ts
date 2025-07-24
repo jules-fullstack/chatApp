@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { ensureAuthenticated } from '../middlewares/auth.js';
-import { validateMessageContent } from '../middlewares/messageValidation.js';
+import { validateSendMessage } from '../middlewares/messageValidation.js';
 import {
   imageUpload,
   validateImageBatch,
@@ -26,7 +26,7 @@ const router = Router();
 router.use(ensureAuthenticated);
 
 // Send a message
-router.post('/send', ...validateMessageContent, sendMessage as any);
+router.post('/send', ...validateSendMessage, sendMessage as any);
 
 // Upload images
 router.post(

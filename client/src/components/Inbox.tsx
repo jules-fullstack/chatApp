@@ -5,6 +5,7 @@ import { userStore } from "../store/userStore";
 import { Loader } from "@mantine/core";
 import { useEffect } from "react";
 import { type Message, type Media } from "../types";
+import { getGroupEventText } from "../utils/groupEventUtils";
 
 export default function Inbox() {
   const { searchedUsers, isSearching, isSearchActive, error, searchQuery } =
@@ -121,8 +122,14 @@ export default function Inbox() {
     currentUserId: string | undefined
   ) => {
     if (!lastMessage) return "No messages yet";
-
+    
+    // Handle group events
+    if (lastMessage.messageType === "groupEvent") {
+      return getGroupEventText(lastMessage);
+    }
+    
     // Check if the message has attachments
+    console.log(lastMessage);
     if (lastMessage.attachments && lastMessage.attachments.length > 0) {
       const isOwnMessage = currentUserId === lastMessage.sender._id;
       if (isOwnMessage) {
@@ -205,8 +212,12 @@ export default function Inbox() {
               );
             }}
             user={conversation.isGroup ? null : conversation.participant}
-            groupParticipants={conversation.isGroup ? conversation.participants : undefined}
-            groupPhoto={conversation.isGroup ? conversation.groupPhoto : undefined}
+            groupParticipants={
+              conversation.isGroup ? conversation.participants : undefined
+            }
+            groupPhoto={
+              conversation.isGroup ? conversation.groupPhoto : undefined
+            }
           />
         );
       });

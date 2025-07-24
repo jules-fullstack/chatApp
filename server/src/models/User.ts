@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUser } from '../types/index.js';
 
@@ -100,4 +100,4 @@ userSchema.methods.verifyOTP = function (inputOTP: string): boolean {
   return this.otp === inputOTP;
 };
 
-export default model<IUser>('User', userSchema);
+export default (mongoose.models.User as mongoose.Model<IUser>) || model<IUser>('User', userSchema);
