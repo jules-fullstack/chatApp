@@ -10,9 +10,9 @@ import {
   type MessageFormData,
 } from "../../schemas/messageSchema";
 import { API_BASE_URL } from "../../config";
-import FormField from "../ui/FormField";
-import GroupNameModal from "../modals/GroupNameModal";
-import ImagePreview from "./ImagePreview";
+import { FormField } from "../ui";
+import { GroupNameModal } from "../modals";
+import { ImagePreview } from "./";
 
 export default function MessageSender() {
   const {

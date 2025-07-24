@@ -1,5 +1,4 @@
-import Button from "../components/ui/button";
-import Head from "../components/ui/Head";
+import { Button, Head } from "../components/ui";
 import AuthLayout from "../layouts/AuthLayout";
 import { PinInput } from "@mantine/core";
 import { useState, useEffect } from "react";

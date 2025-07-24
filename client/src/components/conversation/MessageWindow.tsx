@@ -1,9 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
-import ConversationHeader from "./ConversationHeader";
-import MessageSender from "./MessageSender";
-import MessageBubble from "./MessageBubble";
-import TimestampSeparator from "../TimestampSeparator";
-import Container from "../ui/Container";
+import { ConversationHeader, MessageBubble, MessageSender } from "./";
+import TimestampSeparator from "./TimestampSeparator";
+import { Container } from "../ui";
 import { useChatStore } from "../../store/chatStore";
 import { useConversationStore } from "../../store/conversationStore";
 import { userStore } from "../../store/userStore";

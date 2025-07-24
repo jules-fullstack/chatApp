@@ -1,5 +1,5 @@
-import { type Message } from "../types";
-import { getGroupEventText } from "../utils/groupEventUtils";
+import { type Message } from "../../types";
+import { getGroupEventText } from "../../utils/groupEventUtils";
 
 interface GroupEventMessageProps {
   message: Message;

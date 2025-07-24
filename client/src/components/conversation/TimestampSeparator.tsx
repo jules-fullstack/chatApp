@@ -1,4 +1,4 @@
-import { formatTimeSeparator } from "../utils/dateUtils";
+import { formatTimeSeparator } from "../../utils/dateUtils";
 
 interface TimestampSeparatorProps {
   timestamp: string;

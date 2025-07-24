@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Checkbox, ScrollArea } from "@mantine/core";
-import { ExclamationTriangleIcon, UserMinusIcon } from "@heroicons/react/24/outline";
+import {
+  ExclamationTriangleIcon,
+  UserMinusIcon,
+} from "@heroicons/react/24/outline";
 import type { Participant } from "../../types";
-import Avatar from "../ui/Avatar";
+import { Avatar } from "../ui";
 
 interface AdminRemoveMembersModalProps {
   opened: boolean;
@@ -63,8 +66,8 @@ export default function AdminRemoveMembersModal({
               Remove members from "{groupName}"
             </h3>
             <p className="text-sm text-gray-600">
-              Select the members you want to remove from this group. They will no longer
-              have access to the conversation.
+              Select the members you want to remove from this group. They will
+              no longer have access to the conversation.
             </p>
           </div>
         </div>
@@ -84,7 +87,10 @@ export default function AdminRemoveMembersModal({
                     <Checkbox
                       checked={isSelected}
                       onChange={(event) =>
-                        handleUserSelect(participant._id, event.currentTarget.checked)
+                        handleUserSelect(
+                          participant._id,
+                          event.currentTarget.checked
+                        )
                       }
                     />
                     <Avatar user={participant} size="md" />

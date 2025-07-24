@@ -20,17 +20,17 @@ import { useConversationStore } from "../../store/conversationStore";
 import { userStore } from "../../store/userStore";
 import { API_BASE_URL } from "../../config";
 import { type Participant } from "../../types";
-import Container from "../ui/Container";
-import GroupNameModal from "../modals/GroupNameModal";
-import LeaveGroupModal from "../modals/LeaveGroupModal";
-import AddPeopleModal from "../modals/AddPeopleModal";
-import PromoteUserModal from "../modals/PromoteUserModal";
-import RemoveUserModal from "../modals/RemoveUserModal";
-import BlockUserModal from "../modals/BlockUserModal";
-import UnblockUserModal from "../modals/UnblockUserModal";
-import InviteUnregisteredUserModal from "../modals/InviteUnregisteredUserModal";
-import Avatar from "../ui/Avatar";
-import GroupAvatar from "../ui/GroupAvatar";
+import { Avatar, Container, GroupAvatar } from "../ui";
+import {
+  AddPeopleModal,
+  BlockUserModal,
+  GroupNameModal,
+  InviteUnregisteredUserModal,
+  LeaveGroupModal,
+  PromoteUserModal,
+  RemoveUserModal,
+  UnblockUserModal,
+} from "../modals";
 
 export default function ConversationDetails() {
   const {

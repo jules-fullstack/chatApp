@@ -1,7 +1,6 @@
-import { type MessageTabProps } from "../types";
-import Avatar from "./ui/Avatar";
-import GroupAvatar from "./ui/GroupAvatar";
-import { useChatStore } from "../store/chatStore";
+import { type MessageTabProps } from "../../types";
+import { Avatar, GroupAvatar } from "../ui";
+import { useChatStore } from "../../store/chatStore";
 
 export default function MessageTab({
   type = "default",
@@ -16,7 +15,7 @@ export default function MessageTab({
 }: MessageTabProps) {
   const isDefault = type === "default";
   const { isUserOnline } = useChatStore();
-  
+
   const isUserConnected = user ? isUserOnline(user._id) : false;
 
   return (

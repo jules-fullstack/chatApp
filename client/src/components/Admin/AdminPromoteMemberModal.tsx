@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Modal, Button, Radio, ScrollArea } from "@mantine/core";
 import { ExclamationTriangleIcon, UserIcon } from "@heroicons/react/24/outline";
 import type { Participant } from "../../types";
-import Avatar from "../ui/Avatar";
+import { Avatar } from "../ui";
 
 interface AdminPromoteMemberModalProps {
   opened: boolean;
@@ -37,8 +37,10 @@ export default function AdminPromoteMemberModal({
     }
   };
 
-  const selectedUser = participants.find(p => p._id === selectedUserId);
-  const eligibleParticipants = participants.filter(p => p._id !== currentAdminId);
+  const selectedUser = participants.find((p) => p._id === selectedUserId);
+  const eligibleParticipants = participants.filter(
+    (p) => p._id !== currentAdminId
+  );
 
   return (
     <Modal
@@ -58,15 +60,17 @@ export default function AdminPromoteMemberModal({
               Promote member in "{groupName}"
             </h3>
             <p className="text-sm text-gray-600">
-              Select a member to promote to admin. This will give them administrative
-              privileges in this group.
+              Select a member to promote to admin. This will give them
+              administrative privileges in this group.
             </p>
           </div>
         </div>
 
         {/* Member Selection */}
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Choose a member:</h4>
+          <h4 className="text-sm font-medium text-gray-700">
+            Choose a member:
+          </h4>
           <ScrollArea className="h-64 border rounded-lg p-2">
             <Radio.Group value={selectedUserId} onChange={setSelectedUserId}>
               <div className="space-y-2">
@@ -104,7 +108,8 @@ export default function AdminPromoteMemberModal({
             <div className="flex items-center gap-2">
               <Avatar user={selectedUser} size="sm" />
               <span className="text-sm text-blue-700">
-                {selectedUser.firstName} {selectedUser.lastName} (@{selectedUser.userName})
+                {selectedUser.firstName} {selectedUser.lastName} (@
+                {selectedUser.userName})
               </span>
             </div>
           </div>

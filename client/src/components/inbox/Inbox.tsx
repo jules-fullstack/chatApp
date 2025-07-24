@@ -1,4 +1,4 @@
-import MessageTab from "../conversation/MessageTab";
+import { MessageTab } from "../conversation";
 import useUserSearchStore from "../../store/userSearchStore";
 import { useConversationStore } from "../../store/conversationStore";
 import { userStore } from "../../store/userStore";

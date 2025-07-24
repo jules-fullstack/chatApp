@@ -1,7 +1,7 @@
 import { Modal, Button } from "@mantine/core";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
-import FormField from "../ui/FormField";
+import { FormField } from "../ui";
 
 interface GroupNameFormData {
   groupName: string;

@@ -1,16 +1,15 @@
 import { EllipsisHorizontalIcon } from "@heroicons/react/24/solid";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { type Participant, type SearchedUser, type User } from "../types";
-import { useChatStore } from "../store/chatStore";
-import { useConversationStore } from "../store/conversationStore";
-import { userStore } from "../store/userStore";
+import type { Participant, SearchedUser, User } from "../../types";
+import { useChatStore } from "../../store/chatStore";
+import { useConversationStore } from "../../store/conversationStore";
+import { userStore } from "../../store/userStore";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
-import userSearchService from "../services/userSearchService";
+import userSearchService from "../../services/userSearchService";
 import { Badge } from "@mantine/core";
-import Avatar from "./ui/Avatar";
-import GroupAvatar from "./ui/GroupAvatar";
-import { getActiveStatus } from "../utils/activeStatus";
+import { Avatar, GroupAvatar } from "../ui";
+import { getActiveStatus } from "../../utils/activeStatus";
 
 interface ConversationHeaderProps {
   participant?: Participant;

@@ -11,7 +11,7 @@ import {
   Button,
   Menu,
 } from "@mantine/core";
-import Container from "../ui/Container";
+import { Container } from "../ui";
 import type { AdminTab } from "./AdminSidebar";
 import adminService from "../../services/adminService";
 import type {
@@ -27,7 +27,7 @@ import {
   UserIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import AddPeopleModal from "../modals/AddPeopleModal";
+import { AddPeopleModal } from "../modals";
 import AdminRemoveMembersModal from "./AdminRemoveMembersModal";
 import AdminPromoteMemberModal from "./AdminPromoteMemberModal";
 import AdminActionConfirmModal from "./AdminActionConfirmModal";

@@ -2,9 +2,9 @@ import { userStore } from "../../store/userStore";
 import { useChatStore } from "../../store/chatStore";
 import { type Message, type Conversation } from "../../types";
 import { useState } from "react";
-import ImageModal from "../modals/ImageModal";
-import Avatar from "../ui/Avatar";
-import GroupEventMessage from "./GroupEventMessage";
+import { ImageModal } from "../modals";
+import { Avatar } from "../ui";
+import { GroupEventMessage } from "./";
 
 interface MessageBubbleProps {
   message: Message;

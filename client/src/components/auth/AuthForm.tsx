@@ -4,7 +4,7 @@ import {
   type UseFormHandleSubmit,
   type SubmitHandler,
 } from "react-hook-form";
-import Button from "./ui/button";
+import { Button } from "../ui";
 import { Loader } from "@mantine/core";
 
 interface AuthFormProps<T extends FieldValues> {

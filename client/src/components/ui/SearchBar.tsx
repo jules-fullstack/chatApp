@@ -1,8 +1,8 @@
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useForm } from "react-hook-form";
-import FormField from "./ui/FormField";
-import useUserSearchStore from "../store/userSearchStore";
-import useDebounce from "../hooks/useDebounce";
+import FormField from "./FormField";
+import useUserSearchStore from "../../store/userSearchStore";
+import useDebounce from "../../hooks/useDebounce";
 import { useEffect } from "react";
 
 interface SearchFormData {

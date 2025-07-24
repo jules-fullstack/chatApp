@@ -1,16 +1,12 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Checkbox, ScrollArea } from "@mantine/core";
-import {
-  MagnifyingGlassIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useForm } from "react-hook-form";
-import FormField from "./ui/FormField";
-import useDebounce from "../hooks/useDebounce";
-import conversationService from "../services/conversationService";
-import userSearchService from "../services/userSearchService";
-import { type SearchedUser, type Participant } from "../types/index";
-import Avatar from "./ui/Avatar";
+import { Avatar, FormField } from "../ui";
+import useDebounce from "../../hooks/useDebounce";
+import conversationService from "../../services/conversationService";
+import userSearchService from "../../services/userSearchService";
+import type { SearchedUser, Participant } from "../../types/index";
 
 interface SearchFormData {
   search: string;

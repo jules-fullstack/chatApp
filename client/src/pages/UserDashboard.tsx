@@ -9,17 +9,18 @@ import {
   CameraIcon,
 } from "@heroicons/react/24/outline";
 import { API_BASE_URL } from "../config";
-import Sidebar from "../components/Sidebar";
-import MessageWindow from "../components/conversation/MessageWindow";
+import {
+  ConversationDetails,
+  MessageWindow,
+  Sidebar,
+} from "../components/conversation";
 import { useDisclosure } from "@mantine/hooks";
 import { Menu, Modal, Button, Group, LoadingOverlay } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import FormField from "../components/ui/FormField";
-import ConversationDetails from "../components/conversation/ConversationDetails";
-import Avatar from "../components/ui/Avatar";
+import { Avatar, FormField } from "../components/ui";
 
 // Zod schema for profile update
 const profileUpdateSchema = z
