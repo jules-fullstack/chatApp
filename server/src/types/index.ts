@@ -91,7 +91,7 @@ export interface IMedia extends Document {
   storageKey: string;
   parentType: 'User' | 'Message' | 'Conversation';
   parentId: Types.ObjectId;
-  usage: 'avatar' | 'attachment' | 'groupPhoto';
+  usage: 'avatar' | 'groupPhoto' | 'messageAttachment' | 'general';
   metadata: {
     width?: number;
     height?: number;

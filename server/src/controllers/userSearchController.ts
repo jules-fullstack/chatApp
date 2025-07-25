@@ -32,6 +32,7 @@ export const searchUsers = async (
 
     const users = await User.find({
       _id: { $ne: currentUserId },
+      role: 'user',
       userName: {
         $regex: searchQuery,
         $options: 'i',

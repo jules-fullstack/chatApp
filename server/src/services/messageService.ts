@@ -1,5 +1,4 @@
 import Message from '../models/Message.js';
-import Conversation from '../models/Conversation.js';
 import { Types } from 'mongoose';
 import conversationService from './conversationService.js';
 import blockingService from './blockingService.js';

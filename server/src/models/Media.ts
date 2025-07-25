@@ -40,7 +40,7 @@ const mediaSchema = new Schema<IMedia>(
     usage: {
       type: String,
       required: true,
-      enum: ['avatar', 'attachment', 'groupPhoto'],
+      enum: ['avatar', 'groupPhoto', 'messageAttachment', 'general'],
     },
     metadata: {
       width: { type: Number },

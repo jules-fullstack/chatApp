@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import Conversation from '../models/Conversation.js';
 import mediaService from '../services/mediaService.js';
 import invitationService from '../services/invitationService.js';
 import { IUser } from '../types/index.js';

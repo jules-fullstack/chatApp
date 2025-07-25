@@ -95,7 +95,7 @@ export const getMessageAttachments = async (messageId: string | Types.ObjectId) 
   return await Media.find({
     parentType: 'Message',
     parentId: messageId,
-    usage: 'attachment',
+    usage: 'messageAttachment',
     isDeleted: false,
   }).select('url filename originalName mimeType size metadata');
 };

@@ -4,7 +4,6 @@
  */
 
 import offlineNotificationService from '../services/offlineNotificationService.js';
-import { sendOfflineMessageNotification } from '../services/emailService.js';
 
 interface MockUser {
   id: string;

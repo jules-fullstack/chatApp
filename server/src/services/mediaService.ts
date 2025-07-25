@@ -1,5 +1,6 @@
 import Media from '../models/Media.js';
 import { uploadFile, deleteFile } from './s3Service.js';
+import { generateS3Url, extractStorageKeyFromUrl } from '../config/s3.js';
 import { Types } from 'mongoose';
 
 export type MediaUsage = 'avatar' | 'groupPhoto' | 'messageAttachment' | 'general';
@@ -45,7 +46,9 @@ class MediaService {
     const { file, parentType, parentId, usage, metadata, uploadResult } = options;
 
     // Upload file to S3 if not already uploaded
-    const upload = uploadResult || await uploadFile(file);
+    const upload = uploadResult || await uploadFile(file, {
+      folderPath: this.getFolderPath(usage, parentType, parentId),
+    });
 
     // Generate metadata based on usage type
     const generatedMetadata = this.generateMetadata(usage, metadata, file.originalname, parentId);
@@ -87,10 +90,7 @@ class MediaService {
     } = options;
 
     // Generate storage key if not provided
-    const finalStorageKey = storageKey || url.replace(
-      'https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/',
-      ''
-    );
+    const finalStorageKey = storageKey || extractStorageKeyFromUrl(url);
 
     // Generate metadata based on usage type
     const generatedMetadata = this.generateMetadata(usage, metadata, originalName, parentId);
@@ -196,6 +196,24 @@ class MediaService {
   }
 
   /**
+   * Generate appropriate folder path based on usage and parent
+   */
+  private getFolderPath(usage: MediaUsage, parentType: ParentType, parentId: string | Types.ObjectId): string {
+    switch (usage) {
+      case 'avatar':
+        return 'avatars';
+      case 'groupPhoto':
+        return 'group-photos';
+      case 'messageAttachment':
+        return 'message-attachments';
+      case 'general':
+        return `${parentType.toLowerCase()}s/${parentId}`;
+      default:
+        return 'misc';
+    }
+  }
+
+  /**
    * Generate metadata based on usage type
    */
   private generateMetadata(
@@ -225,6 +243,12 @@ class MediaService {
           alt: filename || 'Message attachment',
         };
 
+      case 'general':
+        return {
+          ...baseMetadata,
+          alt: filename || 'General file',
+        };
+
       default:
         return baseMetadata;
     }
@@ -251,12 +275,13 @@ class MediaService {
    * Create default avatar specifically
    */
   async createDefaultAvatar(userId: string | Types.ObjectId) {
-    const defaultAvatarUrl = 'https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg';
+    const defaultAvatarKey = 'images/default-avatars/default-avatar.jpg';
+    const defaultAvatarUrl = generateS3Url(defaultAvatarKey);
     
     return await this.createDefaultMedia({
       defaultUrl: defaultAvatarUrl,
       filename: 'default-avatar.jpg',
-      storageKey: 'images/default-avatars/default-avatar.jpg',
+      storageKey: defaultAvatarKey,
       parentType: 'User',
       parentId: userId,
       usage: 'avatar',

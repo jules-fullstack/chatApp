@@ -19,7 +19,6 @@ import {
 } from '../middlewares/imageValidation.js';
 import { requireConversationAccess } from '../middlewares/conversationAuth.js';
 import {
-  ensureConversationExists,
   requireGroupConversation,
   requireGroupAdmin,
   requireGroupMembership,
@@ -42,7 +41,7 @@ router.get('/admin/groups', ensureRole('superAdmin'), getAllGroupConversations);
 router.put(
   '/:conversationId/photo',
   ensureAuthenticated,
-  ensureConversationExists,
+  requireConversationAccess,
   requireGroupConversation,
   requireGroupAdmin,
   singleImageUpload.single('groupPhoto'),
@@ -54,7 +53,7 @@ router.put(
 router.post(
   '/:conversationId/invite-unregistered',
   ensureAuthenticated,
-  ensureConversationExists,
+  requireConversationAccess,
   requireGroupConversation,
   requireGroupAdmin,
   validateInvitationEmails,

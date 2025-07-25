@@ -10,19 +10,6 @@ interface AuthenticatedRequest extends Request {
  * Middleware to validate that the conversation is a group conversation
  */
 
-export const ensureConversationExists = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const conversation = req.conversation;
-  if (!conversation) {
-    return res.status(400).json({ message: 'Conversation not found' });
-  }
-
-  next();
-};
-
 export const requireGroupConversation = (
   req: AuthenticatedRequest,
   res: Response,

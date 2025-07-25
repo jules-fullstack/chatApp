@@ -5,18 +5,51 @@ import {
   imageUpload,
   validateImageBatch,
 } from '../middlewares/imageValidation.js';
+import {
+  validateFileUpload,
+  validateMultipleFiles,
+  validateMediaUploadFields,
+  validateParentExists,
+  validateMediaExists,
+  validateMediaOwnership,
+  validateGetMediaParams,
+} from '../middlewares/mediaValidation.js';
 
 const router = express.Router();
 
-router.post('/upload', ensureAuthenticated, uploadMiddleware, uploadMedia as any);
-router.delete('/:mediaId', ensureAuthenticated, deleteMedia as any);
-router.get('/:parentType/:parentId', getMediaByParent as any);
+// Upload media with comprehensive validation
+router.post(
+  '/upload',
+  ensureAuthenticated,
+  uploadMiddleware,
+  validateFileUpload,
+  validateMediaUploadFields,
+  validateParentExists,
+  uploadMedia as any
+);
 
-// Image upload route (moved from messageRoutes)
+// Delete media with ownership validation
+router.delete(
+  '/:mediaId',
+  ensureAuthenticated,
+  validateMediaExists,
+  validateMediaOwnership, // Optional: remove if not needed
+  deleteMedia as any
+);
+
+// Get media by parent with parameter validation
+router.get(
+  '/:parentType/:parentId',
+  validateGetMediaParams,
+  getMediaByParent as any
+);
+
+// Image upload route (moved from messageRoutes) with file validation
 router.post(
   '/upload-images',
   ensureAuthenticated,
   imageUpload.array('images'),
+  validateMultipleFiles,
   validateImageBatch,
   uploadImages as any,
 );
