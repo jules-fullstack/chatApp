@@ -1,11 +1,17 @@
 import express from 'express';
-import { uploadMedia, deleteMedia, getMediaByParent, uploadMiddleware, uploadImages } from '../controllers/mediaController.js';
+import {
+  uploadMedia,
+  deleteMedia,
+  getMediaByParent,
+  uploadImages,
+} from '../controllers/mediaController.js';
 import { ensureAuthenticated } from '../middlewares/auth.js';
 import {
   imageUpload,
   validateImageBatch,
 } from '../middlewares/imageValidation.js';
 import {
+  uploadMiddleware,
   validateFileUpload,
   validateMultipleFiles,
   validateMediaUploadFields,
@@ -25,7 +31,7 @@ router.post(
   validateFileUpload,
   validateMediaUploadFields,
   validateParentExists,
-  uploadMedia as any
+  uploadMedia as any,
 );
 
 // Delete media with ownership validation
@@ -34,14 +40,14 @@ router.delete(
   ensureAuthenticated,
   validateMediaExists,
   validateMediaOwnership, // Optional: remove if not needed
-  deleteMedia as any
+  deleteMedia as any,
 );
 
 // Get media by parent with parameter validation
 router.get(
   '/:parentType/:parentId',
   validateGetMediaParams,
-  getMediaByParent as any
+  getMediaByParent as any,
 );
 
 // Image upload route (moved from messageRoutes) with file validation

@@ -1,8 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
 import { IUser } from '../types/index.js';
 import Media from '../models/Media.js';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
+import {
+  mediaUploadSchema,
+  mediaParamsSchema,
+  mediaIdSchema,
+} from '../schemas/validations.js';
+import {
+  validateBody,
+  validateParams,
+  validateFiles,
+} from './zodValidation.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -11,77 +22,61 @@ interface AuthenticatedRequest extends Request {
   targetMedia?: any;
 }
 
+// File validation constants
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: MAX_FILE_SIZE,
+  },
+  fileFilter: (_, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type') as any, false);
+    }
+  },
+});
+
+export const uploadMiddleware = upload.single('file');
+
 /**
  * Middleware to validate that a file was uploaded
  */
-export const validateFileUpload = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  if (!req.file) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'No file provided' 
-    });
-  }
-  next();
-};
+export const validateFileUpload = validateFiles({
+  required: true,
+  maxFiles: 1,
+  maxSize: MAX_FILE_SIZE,
+  allowedMimes: ALLOWED_MIME_TYPES,
+});
 
 /**
  * Middleware to validate that multiple files were uploaded
  */
-export const validateMultipleFiles = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const files = req.files as Express.Multer.File[];
-  if (!files || files.length === 0) {
-    return res.status(400).json({ 
-      error: 'No files provided' 
-    });
-  }
-  next();
-};
+export const validateMultipleFiles = validateFiles({
+  required: true,
+  maxFiles: 10,
+  maxSize: MAX_FILE_SIZE,
+  allowedMimes: ALLOWED_MIME_TYPES,
+});
 
 /**
  * Middleware to validate required media upload fields
  */
-export const validateMediaUploadFields = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  const { parentType, parentId, usage } = req.body;
-
-  if (!parentType || !parentId || !usage) {
-    return res.status(400).json({
-      success: false,
-      message: 'parentType, parentId, and usage are required',
-    });
-  }
-
-  // Validate parentType enum
-  const validParentTypes = ['User', 'Message', 'Conversation'];
-  if (!validParentTypes.includes(parentType)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid parentType. Must be User, Message, or Conversation',
-    });
-  }
-
-  // Validate usage enum
-  const validUsageTypes = ['avatar', 'groupPhoto', 'messageAttachment', 'general'];
-  if (!validUsageTypes.includes(usage)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid usage. Must be avatar, groupPhoto, messageAttachment, or general',
-    });
-  }
-
-  next();
-};
+export const validateMediaUploadFields = validateBody(mediaUploadSchema);
 
 /**
  * Middleware to validate parent entity exists
@@ -90,25 +85,27 @@ export const validateParentExists = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { parentType, parentId } = req.body;
 
     if (parentType === 'User') {
       const user = await User.findById(parentId);
       if (!user) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'User not found' 
+        res.status(404).json({
+          message: 'Validation error',
+          errors: [{ field: 'parentId', message: 'User not found' }],
         });
+        return;
       }
     } else if (parentType === 'Message') {
       const message = await Message.findById(parentId);
       if (!message) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Message not found' 
+        res.status(404).json({
+          message: 'Validation error',
+          errors: [{ field: 'parentId', message: 'Message not found' }],
         });
+        return;
       }
     }
     // Note: Conversation validation would go here if needed
@@ -116,9 +113,11 @@ export const validateParentExists = async (
     next();
   } catch (error) {
     console.error('Error validating parent exists:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
+    res.status(500).json({
+      message: 'Internal server error',
+      errors: [
+        { field: 'server', message: 'Failed to validate parent entity' },
+      ],
     });
   }
 };
@@ -126,40 +125,39 @@ export const validateParentExists = async (
 /**
  * Middleware to find and validate media exists (for delete operations)
  */
-export const validateMediaExists = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const { mediaId } = req.params;
-    
-    if (!mediaId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Media ID is required' 
+export const validateMediaExists = [
+  validateParams(mediaIdSchema),
+  async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { mediaId } = req.params;
+
+      const media = await Media.findById(mediaId);
+      if (!media) {
+        res.status(404).json({
+          message: 'Validation error',
+          errors: [{ field: 'mediaId', message: 'Media not found' }],
+        });
+        return;
+      }
+
+      // Attach media to request for use in controller
+      req.targetMedia = media;
+      next();
+    } catch (error) {
+      console.error('Error validating media exists:', error);
+      res.status(500).json({
+        message: 'Internal server error',
+        errors: [
+          { field: 'server', message: 'Failed to validate media exists' },
+        ],
       });
     }
-
-    const media = await Media.findById(mediaId);
-    if (!media) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Media not found' 
-      });
-    }
-
-    // Attach media to request for use in controller
-    req.targetMedia = media;
-    next();
-  } catch (error) {
-    console.error('Error validating media exists:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
-    });
-  }
-};
+  },
+];
 
 /**
  * Middleware to validate media ownership (optional - for enhanced security)
@@ -168,36 +166,50 @@ export const validateMediaOwnership = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const media = req.targetMedia;
     const currentUser = req.user!;
 
     // For User-type media, ensure user owns it
-    if (media.parentType === 'User' && media.parentId.toString() !== currentUser._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Not authorized to access this media' 
+    if (
+      media.parentType === 'User' &&
+      media.parentId.toString() !== currentUser._id.toString()
+    ) {
+      res.status(403).json({
+        message: 'Authorization error',
+        errors: [
+          { field: 'mediaId', message: 'Not authorized to access this media' },
+        ],
       });
+      return;
     }
 
     // For Message-type media, ensure user is sender (could be enhanced to check conversation membership)
     if (media.parentType === 'Message') {
       const message = await Message.findById(media.parentId);
       if (message && message.sender.toString() !== currentUser._id.toString()) {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Not authorized to access this media' 
+        res.status(403).json({
+          message: 'Authorization error',
+          errors: [
+            {
+              field: 'mediaId',
+              message: 'Not authorized to access this media',
+            },
+          ],
         });
+        return;
       }
     }
 
     next();
   } catch (error) {
     console.error('Error validating media ownership:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error' 
+    res.status(500).json({
+      message: 'Internal server error',
+      errors: [
+        { field: 'server', message: 'Failed to validate media ownership' },
+      ],
     });
   }
 };
@@ -205,27 +217,4 @@ export const validateMediaOwnership = async (
 /**
  * Middleware to validate URL parameters for getMediaByParent
  */
-export const validateGetMediaParams = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  const { parentType, parentId } = req.params;
-
-  if (!parentType || !parentId) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'parentType and parentId are required' 
-    });
-  }
-
-  const validParentTypes = ['User', 'Message', 'Conversation'];
-  if (!validParentTypes.includes(parentType)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid parentType. Must be User, Message, or Conversation',
-    });
-  }
-
-  next();
-};
+export const validateGetMediaParams = validateParams(mediaParamsSchema);

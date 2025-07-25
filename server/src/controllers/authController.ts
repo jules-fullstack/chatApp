@@ -109,6 +109,8 @@ export const verifyOTP = async (
 
     const user = req.user!;
 
+    console.log(email, otp);
+
     if (!user.verifyOTP(otp)) {
       res.status(400).json({ message: 'Invalid or expired OTP' });
       return;

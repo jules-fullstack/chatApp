@@ -99,7 +99,7 @@ router.post(
   requireConversationAccess,
   requireGroupConversation,
   requireGroupAdmin,
-  validateUsersExist('userIds'),
+  ...validateUsersExist('userIds'),
   addMembersToGroup,
 );
 
@@ -110,7 +110,7 @@ router.patch(
   requireConversationAccess,
   requireGroupConversation,
   requireGroupAdmin,
-  validateUserExists('newAdminId'),
+  ...validateUserExists('newAdminId'),
   requireGroupMembership('newAdminId'),
   changeGroupAdmin,
 );
@@ -127,7 +127,7 @@ router.post(
     req.body.userToRemoveId = req.params.userToRemoveId;
     next();
   },
-  validateUserExists('userToRemoveId'),
+  ...validateUserExists('userToRemoveId'),
   requireGroupMembership('userToRemoveId'),
   preventSelfModification('userToRemoveId'),
   removeMemberFromGroup,

@@ -14,6 +14,7 @@ interface ApiResponse {
     id: string;
     email: string;
   };
+  errors?: { field: string; message: string }[];
 }
 
 export default function Register() {
@@ -92,7 +93,15 @@ export default function Register() {
         localStorage.setItem("pendingEmail", data.email);
         navigate({ to: "/verify", replace: true });
       } else {
-        setError("root", { message: result.message });
+        if (result.errors && Array.isArray(result.errors)) {
+          result.errors.forEach((err: { field: string; message: string }) => {
+            setError(err.field as keyof RegisterFormData, {
+              message: err.message,
+            });
+          });
+        } else {
+          setError("root", { message: result.message });
+        }
       }
     } catch (error: unknown) {
       const errorMessage =

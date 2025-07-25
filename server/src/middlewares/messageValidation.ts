@@ -1,44 +1,35 @@
-import { body, validationResult, ValidationChain } from 'express-validator';
-import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { messageContentSchema } from '../schemas/validations.js';
+import { validateBody } from './zodValidation.js';
 
-const validationMiddleware: RequestHandler = (
+/**
+ * Custom middleware to validate request structure and normalize recipients
+ */
+export const validateMessageStructure = (
   req: Request,
   res: Response,
   next: NextFunction,
 ): void => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res.status(400).json({
-      message: 'Validation failed',
-      errors: errors.array(),
-    });
-    return;
-  }
-  next();
-};
+  const { recipientIds, conversationId, content, attachmentIds, images } = req.body;
 
-const validateRequestStructure: RequestHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void => {
-  const { recipientIds, conversationId, content, attachmentIds, images } =
-    req.body;
-
+  // Check mutual exclusivity of conversationId and recipientIds
   if (!conversationId && !recipientIds) {
-    res
-      .status(400)
-      .json({ message: 'Must specify either conversationId or recipientIds' });
+    res.status(400).json({
+      message: 'Validation error',
+      errors: [{ field: 'conversationId', message: 'Must specify either conversationId or recipientIds' }],
+    });
     return;
   }
 
   if (conversationId && recipientIds) {
-    res
-      .status(400)
-      .json({ message: 'Cannot specify both conversationId and recipientIds' });
+    res.status(400).json({
+      message: 'Validation error',
+      errors: [{ field: 'conversationId', message: 'Cannot specify both conversationId and recipientIds' }],
+    });
     return;
   }
 
+  // Check that there's either content or attachments
   const hasContent = content && content.trim();
   const hasAttachments =
     (attachmentIds && attachmentIds.length > 0) ||
@@ -46,7 +37,8 @@ const validateRequestStructure: RequestHandler = (
 
   if (!hasContent && !hasAttachments) {
     res.status(400).json({
-      message: 'Must have either content or attachments',
+      message: 'Validation error',
+      errors: [{ field: 'content', message: 'Must have either content or attachments' }],
     });
     return;
   }
@@ -54,7 +46,10 @@ const validateRequestStructure: RequestHandler = (
   next();
 };
 
-const normalizeRecipients: RequestHandler = (
+/**
+ * Normalize recipients array from recipientIds
+ */
+export const normalizeRecipients = (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -62,69 +57,37 @@ const normalizeRecipients: RequestHandler = (
   const { recipientIds } = req.body;
 
   if (recipientIds) {
+    // Convert to array if it's a single string
     req.body.recipients = Array.isArray(recipientIds)
       ? recipientIds
       : [recipientIds];
 
+    // Check if recipients array is empty
     if (req.body.recipients.length === 0) {
-      res.status(400).json({ message: 'Recipients array cannot be empty' });
+      res.status(400).json({
+        message: 'Validation error',
+        errors: [{ field: 'recipientIds', message: 'Recipients array cannot be empty' }],
+      });
       return;
     }
 
+    // Remove duplicates
     req.body.recipients = [...new Set(req.body.recipients)];
   }
 
   next();
 };
 
-export const validateMessageContent: (ValidationChain | RequestHandler)[] = [
-  body('content')
-    .optional()
-    .trim()
-    .isLength({ max: 2000 })
-    .withMessage('Message content must be no more than 2000 characters'),
-
-  body('messageType')
-    .optional()
-    .isIn(['text', 'image'])
-    .withMessage('Message type must be either text or image'),
-
-  body('recipientIds')
-    .optional()
-    .custom((value) => {
-      if (value && !Array.isArray(value) && typeof value !== 'string') {
-        throw new Error('Recipients must be string or array of strings');
-      }
-      return true;
-    }),
-
-  body('conversationId')
-    .optional()
-    .isMongoId()
-    .withMessage('Conversation ID must be a valid MongoDB ObjectId'),
-
-  body('attachmentIds')
-    .optional()
-    .isArray()
-    .withMessage('Attachment IDs must be an array'),
-
-  body('attachmentIds.*')
-    .optional()
-    .isMongoId()
-    .withMessage('Each attachment ID must be a valid MongoDB ObjectId'),
-
-  body('images').optional().isArray().withMessage('Images must be an array'),
-
-  body('groupName')
-    .optional()
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('Group name must be no more than 100 characters'),
-  validationMiddleware,
-];
-
-export const validateSendMessage: RequestHandler[] = [
-  validateRequestStructure,
+/**
+ * Combined validation middleware for message sending
+ */
+export const validateSendMessage = [
+  validateBody(messageContentSchema),
+  validateMessageStructure,
   normalizeRecipients,
-  ...validateMessageContent,
 ];
+
+/**
+ * Basic message content validation (for simple scenarios)
+ */
+export const validateMessageContent = validateBody(messageContentSchema);

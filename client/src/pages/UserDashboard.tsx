@@ -130,7 +130,6 @@ export default function UserDashboard() {
 
   const handleProfileUpdate = async (data: ProfileUpdateForm) => {
     setIsUpdating(true);
-
     try {
       const updateData = {
         firstName: data.firstName,

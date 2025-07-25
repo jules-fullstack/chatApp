@@ -48,7 +48,7 @@ export default function InviteUnregisteredUserModal({
   };
 
   const handleRemoveEmail = (emailToRemove: string) => {
-    setEmails(emails.filter(email => email !== emailToRemove));
+    setEmails(emails.filter((email) => email !== emailToRemove));
   };
 
   const handleKeyPress = (event: React.KeyboardEvent) => {
@@ -64,6 +64,7 @@ export default function InviteUnregisteredUserModal({
       return;
     }
     onConfirm(emails);
+    setEmails([]);
   };
 
   const handleClose = () => {
@@ -83,7 +84,9 @@ export default function InviteUnregisteredUserModal({
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          Invite new users to join this group chat via email. They'll receive an invitation link to sign up and will be automatically added to the group.
+          Invite new users to join this group chat via email. They'll receive an
+          invitation link to sign up and will be automatically added to the
+          group.
         </Text>
 
         <div>
@@ -110,7 +113,13 @@ export default function InviteUnregisteredUserModal({
             </Text>
             <Stack gap="xs">
               {emails.map((email) => (
-                <Group key={email} justify="space-between" p="xs" bg="gray.1" style={{ borderRadius: "8px" }}>
+                <Group
+                  key={email}
+                  justify="space-between"
+                  p="xs"
+                  bg="gray.1"
+                  style={{ borderRadius: "8px" }}
+                >
                   <Text size="sm">{email}</Text>
                   <Button
                     variant="subtle"

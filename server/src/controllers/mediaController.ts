@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import multer from 'multer';
 import { IUser } from '../types/index.js';
 import mediaService from '../services/mediaService.js';
 import User from '../models/User.js';
@@ -11,34 +10,6 @@ interface AuthRequest extends Request {
   files?: Express.Multer.File[];
   targetMedia?: any;
 }
-
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (_, file, cb) => {
-    const allowedMimes = [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/pdf',
-      'text/plain',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
-
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type') as any, false);
-    }
-  },
-});
-
-export const uploadMiddleware = upload.single('file');
 
 export const uploadMedia = async (req: AuthRequest, res: Response) => {
   try {

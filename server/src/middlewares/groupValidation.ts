@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { IUser } from '../types/index.js';
+import { userIdsSchema, singleUserIdSchema } from '../schemas/validations.js';
+import { validateBody } from './zodValidation.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -108,68 +110,94 @@ export const preventSelfModification = (
  * Middleware to validate that users exist in the database
  */
 export const validateUsersExist = (userIdsField: string = 'userIds') => {
-  return async (
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const User = (await import('../models/User.js')).default;
-      const userIds = req.body[userIdsField];
+  // Only validate if the field name matches the schema
+  const middleware = userIdsField === 'userIds' ? [validateBody(userIdsSchema)] : [];
+  
+  return [
+    ...middleware,
+    async (
+      req: AuthenticatedRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        const User = (await import('../models/User.js')).default;
+        const userIds = req.body[userIdsField];
 
-      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        return res.status(400).json({
-          message: `${userIdsField} are required and must be an array`,
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+          res.status(400).json({
+            message: 'Validation error',
+            errors: [{ field: userIdsField, message: `${userIdsField} are required and must be an array` }],
+          });
+          return;
+        }
+
+        const users = await User.find({ _id: { $in: userIds } });
+        if (users.length !== userIds.length) {
+          res.status(404).json({
+            message: 'Validation error',
+            errors: [{ field: userIdsField, message: 'One or more users not found' }],
+          });
+          return;
+        }
+
+        next();
+      } catch (error) {
+        console.error('Error validating users exist:', error);
+        res.status(500).json({
+          message: 'Internal server error',
+          errors: [{ field: 'server', message: 'Failed to validate users' }],
         });
       }
-
-      const users = await User.find({ _id: { $in: userIds } });
-      if (users.length !== userIds.length) {
-        return res.status(404).json({
-          message: 'One or more users not found',
-        });
-      }
-
-      next();
-    } catch (error) {
-      console.error('Error validating users exist:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  };
+    },
+  ];
 };
 
 /**
  * Middleware to validate single user exists in the database
  */
 export const validateUserExists = (userIdField: string = 'newAdminId') => {
-  return async (
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const userService = (await import('../services/userService.js')).default;
-      const userId = req.body[userIdField];
+  // Only validate if the field name matches the schema
+  const middleware = userIdField === 'newAdminId' ? [validateBody(singleUserIdSchema)] : [];
+  
+  return [
+    ...middleware,
+    async (
+      req: AuthenticatedRequest,
+      res: Response,
+      next: NextFunction,
+    ): Promise<void> => {
+      try {
+        const userService = (await import('../services/userService.js')).default;
+        const userId = req.body[userIdField];
 
-      if (!userId) {
-        return res.status(400).json({
-          message: `${userIdField} is required`,
+        if (!userId) {
+          res.status(400).json({
+            message: 'Validation error',
+            errors: [{ field: userIdField, message: `${userIdField} is required` }],
+          });
+          return;
+        }
+
+        const user = await userService.getUserInfo(userId);
+        if (!user) {
+          res.status(404).json({
+            message: 'Validation error',
+            errors: [{ field: userIdField, message: 'User not found' }],
+          });
+          return;
+        }
+
+        // Store user info for later use
+        req.body[`${userIdField}Info`] = user;
+        next();
+      } catch (error) {
+        console.error('Error validating user exists:', error);
+        res.status(500).json({
+          message: 'Internal server error',
+          errors: [{ field: 'server', message: 'Failed to validate user' }],
         });
       }
-
-      const user = await userService.getUserInfo(userId);
-      if (!user) {
-        return res.status(404).json({
-          message: 'User not found',
-        });
-      }
-
-      // Store user info for later use
-      req.body[`${userIdField}Info`] = user;
-      next();
-    } catch (error) {
-      console.error('Error validating user exists:', error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  };
+    },
+  ];
 };

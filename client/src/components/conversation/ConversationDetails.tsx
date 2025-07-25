@@ -14,6 +14,7 @@ import {
 } from "@heroicons/react/24/solid";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { Accordion, Menu } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useState, useEffect, useRef } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useConversationStore } from "../../store/conversationStore";
@@ -373,7 +374,11 @@ export default function ConversationDetails() {
 
     const validationError = validateImageFile(file);
     if (validationError) {
-      alert(validationError);
+      notifications.show({
+        title: "Validation Error",
+        message: validationError || "Error in validating image.",
+        color: "red",
+      });
       return;
     }
 
@@ -450,12 +455,18 @@ export default function ConversationDetails() {
       }
 
       handleCloseInviteUnregisteredModal();
-      alert("Invitations sent successfully!");
+      notifications.show({
+        title: "Success",
+        message: "Invitations sent successfully!",
+        color: "green",
+      });
     } catch (error) {
       console.error("Failed to send invitations:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to send invitations"
-      );
+      notifications.show({
+        title: "Failed",
+        message: "Failed to send invitations.",
+        color: "red",
+      });
     } finally {
       setIsInvitingUsers(false);
     }
@@ -523,9 +534,7 @@ export default function ConversationDetails() {
                     <div className="bg-gray-200 rounded-full p-2">
                       <PhotoIcon className="size-4" />
                     </div>
-                    <p className="font-medium">
-                      {isUploadingPhoto ? "Uploading..." : "Change photo"}
-                    </p>
+                    <p className="font-medium">Change photo</p>
                   </div>
                 </Accordion.Panel>
               </div>

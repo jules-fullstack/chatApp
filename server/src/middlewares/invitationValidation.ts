@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import User from '../models/User.js';
 import InvitationToken from '../models/InvitationToken.js';
 import { IUser } from '../types/index.js';
+import { invitationEmailsSchema, invitationQuerySchema } from '../schemas/validations.js';
+import { validateBody, validateQuery } from './zodValidation.js';
 
 interface AuthenticatedRequest extends Request {
   user?: IUser;
@@ -12,39 +14,9 @@ interface AuthenticatedRequest extends Request {
 }
 
 /**
- * Validates email array format and email addresses
+ * Validates email array format using Zod schema
  */
-export const validateInvitationEmails = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const { emails } = req.body;
-
-  // Check if emails array is provided and valid
-  if (!emails || !Array.isArray(emails) || emails.length === 0) {
-    res
-      .status(400)
-      .json({ message: 'Please provide at least one email address' });
-    return;
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const invalidEmails = emails.filter((email: string) => !emailRegex.test(email));
-  
-  if (invalidEmails.length > 0) {
-    res.status(400).json({
-      message: 'Invalid email addresses provided',
-      invalidEmails,
-    });
-    return;
-  }
-
-  // Store validated emails for next middleware
-  req.validatedEmails = emails.map((email: string) => email.toLowerCase());
-  next();
-};
+export const validateInvitationEmails = validateBody(invitationEmailsSchema);
 
 /**
  * Checks if any emails belong to already registered users
@@ -52,10 +24,10 @@ export const validateInvitationEmails = (
 export const checkExistingUsers = async (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
-) => {
+  next: NextFunction,
+): Promise<void> => {
   try {
-    const emails = req.validatedEmails!;
+    const { emails } = req.body;
 
     // Check if any emails are already registered users
     const existingUsers = await User.find({
@@ -65,17 +37,22 @@ export const checkExistingUsers = async (
     if (existingUsers.length > 0) {
       const existingEmails = existingUsers.map((user) => user.email);
       res.status(400).json({
-        message:
-          'Some email addresses are already registered users. Please use the "Add people" feature instead.',
+        message: 'Some email addresses are already registered users. Please use the "Add people" feature instead.',
+        errors: [{ field: 'emails', message: 'Some emails belong to existing users' }],
         existingEmails,
       });
       return;
     }
 
+    // Store validated emails for next middleware (transform to lowercase was done by Zod)
+    req.validatedEmails = emails;
     next();
   } catch (error) {
     console.error('Error checking existing users:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ 
+      message: 'Internal server error',
+      errors: [{ field: 'server', message: 'Failed to check existing users' }],
+    });
   }
 };
 
@@ -85,8 +62,8 @@ export const checkExistingUsers = async (
 export const checkExistingInvitations = async (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
-) => {
+  next: NextFunction,
+): Promise<void> => {
   try {
     const { conversationId } = req.params;
     const emails = req.validatedEmails!;
@@ -109,8 +86,8 @@ export const checkExistingInvitations = async (
 
     if (newEmails.length === 0) {
       res.status(400).json({
-        message:
-          'All provided email addresses already have pending invitations',
+        message: 'All provided email addresses already have pending invitations',
+        errors: [{ field: 'emails', message: 'All emails have pending invitations' }],
         alreadyInvitedEmails,
       });
       return;
@@ -122,6 +99,14 @@ export const checkExistingInvitations = async (
     next();
   } catch (error) {
     console.error('Error checking existing invitations:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ 
+      message: 'Internal server error',
+      errors: [{ field: 'server', message: 'Failed to check existing invitations' }],
+    });
   }
 };
+
+/**
+ * Validates invitation token from query parameters
+ */
+export const validateInvitationQuery = validateQuery(invitationQuerySchema);

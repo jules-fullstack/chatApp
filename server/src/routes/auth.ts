@@ -18,29 +18,38 @@ import {
   validateOTP,
   validateEmail,
 } from '../middlewares/auth';
-import { validateInvitationToken, requireValidInvitationToken } from '../middlewares/invitationAuth';
+import {
+  validateInvitationToken,
+  requireValidInvitationToken,
+} from '../middlewares/invitationAuth';
 
 const router = express.Router();
 
-router.post('/register', ensureNotAuthenticated, ...validateRegister, validateInvitationToken, register);
+router.post(
+  '/register',
+  ensureNotAuthenticated,
+  validateRegister,
+  validateInvitationToken,
+  register,
+);
 
-router.post('/login', ensureNotAuthenticated, ...validateLogin, login);
+router.post('/login', ensureNotAuthenticated, validateLogin, login);
 
 router.post(
   '/verify-otp',
   ensureNotAuthenticated,
-  ...validateOTP,
-  ...ensureUserExists,
-  ...validatePendingSession,
+  validateOTP,
+  ensureUserExists,
+  validatePendingSession,
   verifyOTP,
 );
 
 router.post(
   '/resend-otp',
   ensureNotAuthenticated,
-  ...validateEmail,
-  ...ensureUserExists,
-  ...validatePendingSession,
+  validateEmail,
+  ensureUserExists,
+  validatePendingSession,
   resendOTP,
 );
 
@@ -60,6 +69,10 @@ router.get('/check-pending', (req, res) => {
   }
 });
 
-router.get('/check-invitation', requireValidInvitationToken, checkInvitation);
+router.get(
+  '/check-invitation',
+  ...requireValidInvitationToken,
+  checkInvitation,
+);
 
 export default router;
