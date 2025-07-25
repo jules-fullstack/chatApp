@@ -255,6 +255,38 @@ class NotificationService {
   }
 
   /**
+   * Notify participants about group photo update
+   */
+  notifyGroupPhotoUpdate(
+    participantIds: (string | Types.ObjectId)[],
+    conversationId: string | Types.ObjectId,
+    groupPhoto: any,
+    updatedBy: UserInfo
+  ) {
+    const notificationData = {
+      type: 'group_photo_updated',
+      conversationId: conversationId.toString(),
+      groupPhoto: {
+        _id: groupPhoto._id.toString(),
+        url: groupPhoto.url,
+        filename: groupPhoto.filename,
+        originalName: groupPhoto.originalName,
+        mimeType: groupPhoto.mimeType,
+        metadata: groupPhoto.metadata,
+      },
+      updatedBy: {
+        userId: updatedBy._id.toString(),
+        userName: updatedBy.userName,
+        firstName: updatedBy.firstName,
+        lastName: updatedBy.lastName,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.notifyParticipants(participantIds, notificationData);
+  }
+
+  /**
    * Send direct message notifications (standardized)
    */
   async notifyDirectMessageRecipients(

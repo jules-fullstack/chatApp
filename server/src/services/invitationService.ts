@@ -2,8 +2,10 @@ import InvitationToken from '../models/InvitationToken.js';
 import Conversation from '../models/Conversation.js';
 import { GroupEventService } from './groupEventService.js';
 import notificationService from './notificationService.js';
+import { sendInvitationEmail } from './emailService.js';
 import { Types } from 'mongoose';
 import { IUser } from '../types/index.js';
+import crypto from 'crypto';
 
 export interface InvitationInfo {
   email: string;
@@ -17,7 +19,66 @@ export interface ProcessInvitationResult {
   message?: string;
 }
 
+export interface CreateInvitationResult {
+  success: boolean;
+  email: string;
+  token?: string;
+  error?: string;
+}
+
 class InvitationService {
+  /**
+   * Generate a secure random token for invitations
+   */
+  generateInvitationToken(): string {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  /**
+   * Create invitation and send email
+   */
+  async createInvitation(
+    email: string,
+    conversationId: string | Types.ObjectId,
+    invitedBy: string | Types.ObjectId,
+    inviterName: string,
+    groupName: string
+  ): Promise<CreateInvitationResult> {
+    try {
+      const token = this.generateInvitationToken();
+      const baseUrl = process.env.CLIENT_URL;
+
+      // Create invitation token
+      const invitation = new InvitationToken({
+        email: email.toLowerCase(),
+        token,
+        conversationId,
+        invitedBy,
+      });
+
+      await invitation.save();
+
+      // Generate invitation link
+      const invitationLink = `${baseUrl}/register?invitation=${token}`;
+
+      // Send invitation email
+      await sendInvitationEmail(email, inviterName, groupName, invitationLink);
+
+      return {
+        success: true,
+        email,
+        token,
+      };
+    } catch (error) {
+      console.error(`Failed to create invitation for ${email}:`, error);
+      return {
+        success: false,
+        email,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
   /**
    * Validate invitation token and return invitation details
    */

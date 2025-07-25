@@ -1,9 +1,9 @@
 import Message from '../models/Message.js';
-import Media from '../models/Media.js';
 import Conversation from '../models/Conversation.js';
 import { Types } from 'mongoose';
 import conversationService from './conversationService.js';
 import blockingService from './blockingService.js';
+import mediaService from './mediaService.js';
 
 export interface MessageData {
   conversationId: string;
@@ -84,27 +84,8 @@ class MessageService {
 
     const mediaIds = [];
     for (const imageUrl of images) {
-      // Create Media object for each image URL
-      const filename = imageUrl.split('/').pop() || 'image.jpg';
-      const media = new Media({
-        filename,
-        originalName: filename,
-        mimeType: 'image/jpeg', // Assume JPEG for uploaded images
-        size: 0, // Unknown size for existing URLs
-        url: imageUrl,
-        storageKey: imageUrl.replace(
-          'https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/',
-          '',
-        ),
-        parentType: 'Message',
-        parentId: message._id,
-        usage: 'attachment',
-        metadata: {
-          alt: `Image attachment`,
-        },
-      });
-
-      await media.save();
+      // Create Media object for each image URL using media service
+      const media = await mediaService.createMessageAttachment(imageUrl, message._id);
       mediaIds.push(media._id);
     }
 

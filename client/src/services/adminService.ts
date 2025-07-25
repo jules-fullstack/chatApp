@@ -239,7 +239,7 @@ class AdminService {
         const response = await fetch(
           `${API_BASE_URL}/conversations/${conversationId}/members/${userId}`,
           {
-            method: "DELETE",
+            method: "POST",
             credentials: "include",
             headers: {
               "Content-Type": "application/json",

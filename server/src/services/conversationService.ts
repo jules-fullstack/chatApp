@@ -238,6 +238,57 @@ class ConversationService {
   async findConversationBetweenUsers(currentUserId: string, otherUserId: string) {
     return await (Conversation as any).findBetweenUsers(currentUserId, otherUserId);
   }
+
+  /**
+   * Get admin group conversations with pagination
+   */
+  async getAdminGroupConversations(page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    const filter = {
+      isGroup: true,
+      isActive: true,
+    };
+
+    // Get total count for pagination
+    const total = await Conversation.countDocuments(filter);
+
+    // Get conversations with population
+    const conversations = await Conversation.find(filter)
+      .populate({
+        path: 'participants',
+        select: 'firstName lastName userName email',
+      })
+      .populate({
+        path: 'groupAdmin',
+        select: 'firstName lastName userName email',
+      })
+      .populate({
+        path: 'groupPhoto',
+        match: { isDeleted: false },
+        select: 'url filename originalName mimeType metadata',
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+    const hasPrev = page > 1;
+
+    return {
+      conversations,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNext,
+        hasPrev,
+      },
+    };
+  }
 }
 
 // Export singleton instance

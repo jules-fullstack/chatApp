@@ -12,12 +12,14 @@ import {
   removeMemberFromGroup,
 } from '../controllers/conversationController.js';
 import { ensureAuthenticated } from '../middlewares/auth.js';
+import { ensureRole } from '../middlewares/ensureRole.js';
 import {
   singleImageUpload,
   validateSingleImage,
 } from '../middlewares/imageValidation.js';
 import { requireConversationAccess } from '../middlewares/conversationAuth.js';
 import {
+  ensureConversationExists,
   requireGroupConversation,
   requireGroupAdmin,
   requireGroupMembership,
@@ -25,16 +27,24 @@ import {
   validateUsersExist,
   validateUserExists,
 } from '../middlewares/groupValidation.js';
+import {
+  validateInvitationEmails,
+  checkExistingUsers,
+  checkExistingInvitations,
+} from '../middlewares/invitationValidation.js';
 
 const router = express.Router();
 
 // Admin routes
-router.get('/admin/groups', ensureAuthenticated, getAllGroupConversations);
+router.get('/admin/groups', ensureRole('superAdmin'), getAllGroupConversations);
 
 // Group photo routes
 router.put(
   '/:conversationId/photo',
   ensureAuthenticated,
+  ensureConversationExists,
+  requireGroupConversation,
+  requireGroupAdmin,
   singleImageUpload.single('groupPhoto'),
   validateSingleImage,
   updateGroupPhoto,
@@ -44,6 +54,12 @@ router.put(
 router.post(
   '/:conversationId/invite-unregistered',
   ensureAuthenticated,
+  ensureConversationExists,
+  requireGroupConversation,
+  requireGroupAdmin,
+  validateInvitationEmails,
+  checkExistingUsers,
+  checkExistingInvitations,
   inviteUnregisteredUsers,
 );
 

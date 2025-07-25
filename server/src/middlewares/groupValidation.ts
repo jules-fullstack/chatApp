@@ -9,16 +9,26 @@ interface AuthenticatedRequest extends Request {
 /**
  * Middleware to validate that the conversation is a group conversation
  */
-export const requireGroupConversation = (
+
+export const ensureConversationExists = (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const conversation = req.conversation;
-
   if (!conversation) {
     return res.status(400).json({ message: 'Conversation not found' });
   }
+
+  next();
+};
+
+export const requireGroupConversation = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const conversation = req.conversation;
 
   if (!conversation.isGroup) {
     return res.status(400).json({
@@ -35,23 +45,19 @@ export const requireGroupConversation = (
 export const requireGroupAdmin = (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const conversation = req.conversation;
   const userId = req.user!._id;
   const userRole = req.user?.role;
-
-  if (!conversation) {
-    return res.status(400).json({ message: 'Conversation not found' });
-  }
 
   // SuperAdmin bypass or user is the group admin
   if (
     conversation.groupAdmin?.toString() !== userId.toString() &&
     userRole !== 'superAdmin'
   ) {
-    return res.status(403).json({ 
-      message: 'Only group admin can perform this operation' 
+    return res.status(403).json({
+      message: 'Only group admin can perform this operation',
     });
   }
 
@@ -61,7 +67,9 @@ export const requireGroupAdmin = (
 /**
  * Middleware to validate that a user is a member of the group
  */
-export const requireGroupMembership = (userIdField: string = 'userToRemoveId') => {
+export const requireGroupMembership = (
+  userIdField: string = 'userToRemoveId',
+) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const conversation = req.conversation;
     const targetUserId = req.body[userIdField];
@@ -71,13 +79,15 @@ export const requireGroupMembership = (userIdField: string = 'userToRemoveId') =
     }
 
     if (!targetUserId) {
-      return res.status(400).json({ 
-        message: `${userIdField} is required` 
+      return res.status(400).json({
+        message: `${userIdField} is required`,
       });
     }
 
     // Check if target user is a participant
-    if (!conversation.participants.some((p: any) => p.toString() === targetUserId)) {
+    if (
+      !conversation.participants.some((p: any) => p.toString() === targetUserId)
+    ) {
       return res.status(400).json({
         message: 'User is not a member of this group',
       });
@@ -90,7 +100,9 @@ export const requireGroupMembership = (userIdField: string = 'userToRemoveId') =
 /**
  * Middleware to prevent admin from removing/modifying themselves
  */
-export const preventSelfModification = (userIdField: string = 'userToRemoveId') => {
+export const preventSelfModification = (
+  userIdField: string = 'userToRemoveId',
+) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const userId = req.user!._id;
     const targetUserId = req.body[userIdField];
@@ -109,21 +121,25 @@ export const preventSelfModification = (userIdField: string = 'userToRemoveId') 
  * Middleware to validate that users exist in the database
  */
 export const validateUsersExist = (userIdsField: string = 'userIds') => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const User = (await import('../models/User.js')).default;
       const userIds = req.body[userIdsField];
 
       if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        return res.status(400).json({ 
-          message: `${userIdsField} are required and must be an array` 
+        return res.status(400).json({
+          message: `${userIdsField} are required and must be an array`,
         });
       }
 
       const users = await User.find({ _id: { $in: userIds } });
       if (users.length !== userIds.length) {
-        return res.status(404).json({ 
-          message: 'One or more users not found' 
+        return res.status(404).json({
+          message: 'One or more users not found',
         });
       }
 
@@ -139,21 +155,25 @@ export const validateUsersExist = (userIdsField: string = 'userIds') => {
  * Middleware to validate single user exists in the database
  */
 export const validateUserExists = (userIdField: string = 'newAdminId') => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return async (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction,
+  ) => {
     try {
       const userService = (await import('../services/userService.js')).default;
       const userId = req.body[userIdField];
 
       if (!userId) {
-        return res.status(400).json({ 
-          message: `${userIdField} is required` 
+        return res.status(400).json({
+          message: `${userIdField} is required`,
         });
       }
 
       const user = await userService.getUserInfo(userId);
       if (!user) {
-        return res.status(404).json({ 
-          message: 'User not found' 
+        return res.status(404).json({
+          message: 'User not found',
         });
       }
 

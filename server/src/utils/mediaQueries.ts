@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 import Media from '../models/Media.js';
+import mediaService from '../services/mediaService.js';
 
 export const populateUserWithAvatar = async (userId: string | Types.ObjectId) => {
   return await User.findById(userId).populate({
@@ -100,26 +101,8 @@ export const getMessageAttachments = async (messageId: string | Types.ObjectId) 
 };
 
 export const createDefaultAvatarMedia = async (userId: string | Types.ObjectId) => {
-  const defaultAvatarUrl = 'https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg';
-  
-  const media = new Media({
-    filename: 'default-avatar.jpg',
-    originalName: 'default-avatar.jpg',
-    mimeType: 'image/jpeg',
-    size: 0,
-    url: defaultAvatarUrl,
-    storageKey: 'images/default-avatars/default-avatar.jpg',
-    parentType: 'User',
-    parentId: userId,
-    usage: 'avatar',
-    metadata: {
-      width: 400,
-      height: 400,
-      alt: 'Default avatar',
-    },
-  });
-
-  await media.save();
+  // Create default avatar using media service
+  const media = await mediaService.createDefaultAvatar(userId);
   
   // Update user with the new avatar
   await User.findByIdAndUpdate(userId, { avatar: media._id });
