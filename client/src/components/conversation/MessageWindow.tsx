@@ -153,13 +153,13 @@ export default function MessageWindow() {
 
     if (typingUsersArray.length === 1) {
       const user = typingUsersArray[0];
-      const displayName = user.firstName || user.userName || "Someone";
+      const displayName = user.userName || "Someone";
       return `${displayName} is typing...`;
     } else if (typingUsersArray.length === 2) {
       const user1 = typingUsersArray[0];
       const user2 = typingUsersArray[1];
-      const name1 = user1.firstName || user1.userName || "Someone";
-      const name2 = user2.firstName || user2.userName || "Someone";
+      const name1 = user1.userName || "Someone";
+      const name2 = user2.userName || "Someone";
       return `${name1} and ${name2} are typing...`;
     } else {
       return `${typingUsersArray.length} people are typing...`;
@@ -185,7 +185,7 @@ export default function MessageWindow() {
           </svg>
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Welcome to Chat App
+          Welcome to Echo
         </h3>
         <p className="text-sm text-gray-500">
           Select a conversation or start a new message

@@ -57,7 +57,10 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <Head>Welcome to ChatApp</Head>
+      <Head>
+        Echo helps you stay close to the people who matter, share real moments,
+        and spark lasting connections.
+      </Head>
 
       <AuthForm
         onSubmit={onSubmit}
@@ -87,7 +90,7 @@ export default function Login() {
 
       <AuthLink
         to="/register"
-        text="New to ChatApp? Click"
+        text="New to Echo? Click"
         linkText="here to register"
       />
     </AuthLayout>

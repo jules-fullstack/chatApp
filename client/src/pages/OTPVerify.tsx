@@ -132,7 +132,7 @@ export default function OTPVerify() {
   return (
     <AuthLayout>
       <Head>Verify Your Email</Head>
-      <h3 className="text-center text-gray-800 mb-4">
+      <h3 className="text-gray-800 mb-4">
         We have sent an email to {email}. Please check your inbox and enter the
         code below
       </h3>
@@ -148,9 +148,9 @@ export default function OTPVerify() {
         className="my-8"
       />
 
-      {error && <p className="text-red-900 text-center mb-4">{error}</p>}
+      {error && <p className="text-red-900 mb-4">{error}</p>}
       {successMessage && (
-        <p className="text-green-600 text-center mb-4">{successMessage}</p>
+        <p className="text-green-600 mb-4">{successMessage}</p>
       )}
 
       <Button
@@ -161,7 +161,7 @@ export default function OTPVerify() {
         {loading ? "Verifying..." : "Submit"}
       </Button>
 
-      <div className="text-center">
+      <div>
         {remainingAttempts !== null && (
           <p className="text-gray-600 text-sm mb-2">
             Remaining OTP resend attempts: {remainingAttempts}

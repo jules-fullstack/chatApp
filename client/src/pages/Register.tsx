@@ -114,7 +114,7 @@ export default function Register() {
 
   return (
     <AuthLayout>
-      <Head>Register for ChatApp</Head>
+      <Head>Register for Echo</Head>
 
       {invitationInfo && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
