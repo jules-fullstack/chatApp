@@ -1,4 +1,8 @@
-import { type SearchedUser, type Message, type Conversation } from "../types/index";
+import {
+  type SearchedUser,
+  type Message,
+  type Conversation,
+} from "../types/index";
 import { API_BASE_URL } from "../config";
 
 /**
@@ -158,7 +162,9 @@ class ConversationService {
    * Marks a conversation as read
    * @param conversationId - The conversation ID to mark as read
    */
-  async markConversationAsRead(conversationId: string): Promise<{ readAt: string }> {
+  async markConversationAsRead(
+    conversationId: string
+  ): Promise<{ readAt: string }> {
     const response = await fetch(
       `${API_BASE_URL}/conversations/${conversationId}/read`,
       {

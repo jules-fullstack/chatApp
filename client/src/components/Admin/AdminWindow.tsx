@@ -396,7 +396,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
       const userCount = confirmAction.data.length;
       return {
         title: "Confirm Remove Members",
-        message: `Are you sure you want to remove ${userCount} member(s) from "${selectedGroupChat.groupName || "this group"}"? This action cannot be undone.`,
+        message: `Are you sure you want to remove ${userCount} member(s) from "${selectedGroupChat.groupName || "this group"}"`,
         confirmText: `Remove ${userCount} Member(s)`,
         color: "red",
       };

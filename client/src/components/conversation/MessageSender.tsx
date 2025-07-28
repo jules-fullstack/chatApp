@@ -369,30 +369,91 @@ export default function MessageSender() {
           return;
         }
 
-        // Single recipient - send directly
-        const recipientIds = newMessageRecipients.map((r) => r._id);
+        // Single recipient - check if existing conversation exists
+        const recipientId = newMessageRecipients[0]._id;
+        const existingConversation = conversations.find(
+          (conv) =>
+            !conv.isGroup &&
+            ((conv.participant && conv.participant._id === recipientId) ||
+              // fallback for some data shapes
+              (conv.participants &&
+                conv.participants.length === 2 &&
+                conv.participants.some((p) => p._id === recipientId)))
+        );
 
-        if (hasText && hasImages) {
-          // Send text message first
-          await sendMessage(
-            recipientIds,
-            messageContent,
-            undefined,
-            "text",
-            []
-          );
-          // Send image message second
-          await sendMessage(recipientIds, "", undefined, "image", imageUrls);
+        if (existingConversation) {
+          // Existing conversation found - temporarily set as active and send
+          const originalIsNewMessage = isNewMessage;
+          const originalActiveConversation = activeConversation;
+          
+          // Temporarily modify state to treat as existing conversation
+          useConversationStore.setState({ 
+            isNewMessage: false, 
+            activeConversation: existingConversation._id 
+          });
+          
+          try {
+            if (hasText && hasImages) {
+              // Send text message first
+              await sendMessage(
+                [existingConversation._id],
+                messageContent,
+                undefined,
+                "text",
+                []
+              );
+              // Send image message second
+              await sendMessage(
+                [existingConversation._id],
+                "",
+                undefined,
+                "image",
+                imageUrls
+              );
+            } else {
+              // Send single message (either text or image)
+              const messageType = hasImages ? "image" : "text";
+              await sendMessage(
+                [existingConversation._id],
+                messageContent,
+                undefined,
+                messageType,
+                imageUrls
+              );
+            }
+          } finally {
+            // Restore original state
+            useConversationStore.setState({ 
+              isNewMessage: originalIsNewMessage, 
+              activeConversation: originalActiveConversation 
+            });
+          }
         } else {
-          // Send single message (either text or image)
-          const messageType = hasImages ? "image" : "text";
-          await sendMessage(
-            recipientIds,
-            messageContent,
-            undefined,
-            messageType,
-            imageUrls
-          );
+          // No existing conversation - create new message
+          const recipientIds = [recipientId]; // Ensure we're only passing the ID
+
+          if (hasText && hasImages) {
+            // Send text message first
+            await sendMessage(
+              recipientIds,
+              messageContent,
+              undefined,
+              "text",
+              []
+            );
+            // Send image message second
+            await sendMessage(recipientIds, "", undefined, "image", imageUrls);
+          } else {
+            // Send single message (either text or image)
+            const messageType = hasImages ? "image" : "text";
+            await sendMessage(
+              recipientIds,
+              messageContent,
+              undefined,
+              messageType,
+              imageUrls
+            );
+          }
         }
       } else if (activeConversation) {
         // For existing conversations,
@@ -485,11 +546,45 @@ export default function MessageSender() {
         return;
       }
 
-      // Single recipient - send directly
-      const recipientIds = newMessageRecipients.map((r) => r._id);
-      sendMessage(recipientIds, thumbsUpMessage).finally(() =>
-        setIsSubmitting(false)
+      // Single recipient - check if existing conversation exists
+      const recipientId = newMessageRecipients[0]._id;
+      const existingConversation = conversations.find(
+        (conv) =>
+          !conv.isGroup &&
+          ((conv.participant && conv.participant._id === recipientId) ||
+            // fallback for some data shapes
+            (conv.participants &&
+              conv.participants.length === 2 &&
+              conv.participants.some((p) => p._id === recipientId)))
       );
+
+      if (existingConversation) {
+        // Existing conversation found - temporarily set as active and send
+        const originalIsNewMessage = isNewMessage;
+        const originalActiveConversation = activeConversation;
+        
+        // Temporarily modify state to treat as existing conversation
+        useConversationStore.setState({ 
+          isNewMessage: false, 
+          activeConversation: existingConversation._id 
+        });
+        
+        sendMessage([existingConversation._id], thumbsUpMessage)
+          .finally(() => {
+            // Restore original state
+            useConversationStore.setState({ 
+              isNewMessage: originalIsNewMessage, 
+              activeConversation: originalActiveConversation 
+            });
+            setIsSubmitting(false);
+          });
+      } else {
+        // No existing conversation - create new message
+        const recipientIds = [recipientId]; // Ensure we're only passing the ID
+        sendMessage(recipientIds, thumbsUpMessage).finally(() =>
+          setIsSubmitting(false)
+        );
+      }
     } else if (activeConversation) {
       sendMessage([activeConversation], thumbsUpMessage).finally(() =>
         setIsSubmitting(false)

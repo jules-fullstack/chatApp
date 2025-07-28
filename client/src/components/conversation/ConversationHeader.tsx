@@ -98,8 +98,25 @@ export default function ConversationHeader({
   }, [searchValue, isNewMessage]);
 
   const handleUserSelect = (user: SearchedUser) => {
+    // Check if user is already selected
+    const isAlreadySelected = newMessageRecipients.some(
+      (recipient) => recipient._id === user._id
+    );
+
+    if (isAlreadySelected) {
+      // Clear search but don't add duplicate
+      setValue("search", "");
+      setShowResults(false);
+      setSearchResults([]);
+      return;
+    }
+
     // Add user to recipients
     addRecipient(user);
+
+    useConversationStore
+      .getState()
+      .setNewMessage(true, [...newMessageRecipients, user]);
 
     // Don't try to load messages here - let the UI handle it properly
     // The conversation will be created when the first message is sent
