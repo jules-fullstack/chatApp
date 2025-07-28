@@ -8,3 +8,6 @@ export { default as MessageTab } from "./MessageTab";
 export { default as MessageWindow } from "./MessageWindow";
 export { default as Sidebar } from "./Sidebar";
 export { default as TimestampSeparator } from "./TimestampSeparator";
+export { BlockingNotification } from "./BlockingNotification";
+export { MessageInputField } from "./MessageInputField";
+export { MessageActions } from "./MessageActions";
