@@ -1,46 +1,76 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { userStore } from "./userStore";
-import { API_BASE_URL } from "../config";
+import conversationService from "../services/conversationService";
 import type { Participant, Message, Conversation } from "../types";
 
+/**
+ * Interface defining the conversation store state and actions.
+ * Organized into logical groups for better maintainability.
+ */
 interface ConversationState {
-  // Active conversation
+  // ========== Core State ==========
+  /** Currently active conversation ID */
   activeConversation: string | null;
-
-  // Messages
+  /** Messages for the active conversation */
   messages: Message[];
+  /** All user conversations */
   conversations: Conversation[];
+
+  // ========== Pagination State ==========
+  /** Whether there are more messages to load */
   hasMoreMessages: boolean;
+  /** Cursor for loading older messages */
   messagesNextCursor: string | null;
+  /** Loading state for older messages pagination */
   isLoadingOlderMessages: boolean;
 
-  // Loading states
+  // ========== Loading States ==========
+  /** Loading state for conversations list */
   isConversationsLoading: boolean;
+  /** Loading state for messages */
   isMessagesLoading: boolean;
 
-  // Fallback participant for new conversations
+  // ========== New Message Composition State ==========
+  /** Fallback participant for new conversations */
   fallbackParticipant: Participant | null;
-  setFallbackParticipant: (participant: Participant | null) => void;
-
-  // New message state
+  /** Whether user is composing a new message */
   isNewMessage: boolean;
+  /** Recipients for new message being composed */
   newMessageRecipients: Participant[];
+
+  // ========== UI State ==========
+  /** Whether conversation details panel is shown */
+  showConversationDetails: boolean;
+
+  // ========== Core Actions ==========
+  /** Set the active conversation and load its messages */
+  setActiveConversation: (userId: string) => void;
+  /** Start composing a new message */
+  startNewMessage: () => void;
+  /** Reset all store state */
+  resetConversationStore: () => void;
+
+  // ========== New Message Composition Actions ==========
+  /** Set fallback participant for new conversations */
+  setFallbackParticipant: (participant: Participant | null) => void;
+  /** Set new message state and recipients */
   setNewMessage: (isNew: boolean, recipients?: Participant[]) => void;
+  /** Add a recipient to new message */
   addRecipient: (recipient: Participant) => void;
+  /** Remove a recipient from new message */
   removeRecipient: (recipientId: string) => void;
+  /** Clear all recipients from new message */
   clearRecipients: () => void;
 
-  // UI state
-  showConversationDetails: boolean;
+  // ========== UI Actions ==========
+  /** Set conversation details panel visibility */
   setShowConversationDetails: (show: boolean) => void;
+  /** Toggle conversation details panel visibility */
   toggleConversationDetails: () => void;
 
-  // Core actions
-  setActiveConversation: (userId: string) => void;
-  startNewMessage: () => void;
-
-  // Message actions
+  // ========== Message Actions ==========
+  /** Send a message to recipients or conversation */
   sendMessage: (
     recipientIds: string[],
     content: string,
@@ -48,54 +78,71 @@ interface ConversationState {
     messageType?: string,
     images?: string[]
   ) => Promise<void>;
+  /** Load messages for a conversation */
   loadMessages: (userId: string) => Promise<void>;
+  /** Load older messages for pagination */
   loadOlderMessages: (conversationId: string) => Promise<void>;
+  /** Load all conversations */
   loadConversations: () => Promise<void>;
+  /** Mark a conversation as read */
+  markConversationAsRead: (conversationId: string) => Promise<void>;
 
-  // Message handling
+  // ========== Real-time Message Handlers ==========
+  /** Handle incoming real-time message */
   handleIncomingMessage: (message: Message) => void;
+  /** Handle conversation read status update */
+  handleConversationRead: (data: unknown) => void;
+
+  // ========== Group Management Actions ==========
+  /** Update group name */
+  updateGroupName: (conversationId: string, groupName: string) => Promise<void>;
+  /** Leave a group conversation */
+  leaveGroup: (conversationId: string) => Promise<void>;
+  /** Change group admin */
+  changeGroupAdmin: (
+    conversationId: string,
+    newAdminId: string
+  ) => Promise<void>;
+  /** Remove member from group */
+  removeMemberFromGroup: (
+    conversationId: string,
+    userToRemoveId: string
+  ) => Promise<void>;
+
+  // ========== Real-time Group Event Handlers ==========
+  /** Handle group name update event */
+  handleGroupNameUpdated: (data: unknown) => void;
+  /** Handle group photo update event */
+  handleGroupPhotoUpdated: (data: unknown) => void;
+  /** Handle user left group event */
+  handleUserLeftGroup: (data: unknown) => void;
+  /** Handle members added to group event */
+  handleMembersAddedToGroup: (data: unknown) => void;
+  /** Handle group admin changed event */
+  handleGroupAdminChanged: (data: unknown) => void;
+  /** Handle member removed from group event */
+  handleMemberRemovedFromGroup: (data: unknown) => void;
+  /** Handle current user removed from group event */
+  handleRemovedFromGroup: (data: unknown) => void;
+
+  // ========== Utility Functions ==========
+  /** Get user info from conversations cache */
   getUserInfoFromConversations: (userId: string) => Partial<{
     userName?: string;
     firstName?: string;
     lastName?: string;
   }>;
-
-  // Read status actions
-  markConversationAsRead: (conversationId: string) => Promise<void>;
-  handleConversationRead: (data: unknown) => void;
-
-  // Group management actions
-  updateGroupName: (conversationId: string, groupName: string) => Promise<void>;
-  handleGroupNameUpdated: (data: unknown) => void;
-  handleGroupPhotoUpdated: (data: unknown) => void;
-  leaveGroup: (conversationId: string) => Promise<void>;
-  handleUserLeftGroup: (data: unknown) => void;
-  handleMembersAddedToGroup: (data: unknown) => void;
-  changeGroupAdmin: (
-    conversationId: string,
-    newAdminId: string
-  ) => Promise<void>;
-  handleGroupAdminChanged: (data: unknown) => void;
-  removeMemberFromGroup: (
-    conversationId: string,
-    userToRemoveId: string
-  ) => Promise<void>;
-  handleMemberRemovedFromGroup: (data: unknown) => void;
-  handleRemovedFromGroup: (data: unknown) => void;
-
-  // Message filtering for blocking
+  /** Filter messages based on user blocking status */
   filterMessagesForBlocking: (
     blockedUserIds: Set<string>,
     usersWhoBlockedMe: Set<string>
   ) => void;
-
-  // Reset
-  resetConversationStore: () => void;
 }
 
 export const useConversationStore = create<ConversationState>()(
   persist(
     (set, get) => ({
+      // ========== Initial State ==========
       activeConversation: null,
       messages: [],
       conversations: [],
@@ -109,6 +156,7 @@ export const useConversationStore = create<ConversationState>()(
       newMessageRecipients: [],
       showConversationDetails: false,
 
+      // ========== New Message Composition Actions ==========
       setFallbackParticipant: (participant: Participant | null) => {
         set({ fallbackParticipant: participant });
       },
@@ -142,6 +190,16 @@ export const useConversationStore = create<ConversationState>()(
         set({ newMessageRecipients: [] });
       },
 
+      // ========== UI Actions ==========
+      setShowConversationDetails: (show: boolean) => {
+        set({ showConversationDetails: show });
+      },
+
+      toggleConversationDetails: () => {
+        set({ showConversationDetails: !get().showConversationDetails });
+      },
+
+      // ========== Core Actions ==========
       startNewMessage: () => {
         set({
           isNewMessage: true,
@@ -150,14 +208,6 @@ export const useConversationStore = create<ConversationState>()(
           messages: [],
           fallbackParticipant: null,
         });
-      },
-
-      setShowConversationDetails: (show: boolean) => {
-        set({ showConversationDetails: show });
-      },
-
-      toggleConversationDetails: () => {
-        set({ showConversationDetails: !get().showConversationDetails });
       },
 
       setActiveConversation: (conversationId: string) => {
@@ -177,6 +227,24 @@ export const useConversationStore = create<ConversationState>()(
         }
       },
 
+      resetConversationStore: () => {
+        set({
+          activeConversation: null,
+          messages: [],
+          conversations: [],
+          hasMoreMessages: false,
+          messagesNextCursor: null,
+          isLoadingOlderMessages: false,
+          isConversationsLoading: false,
+          isMessagesLoading: false,
+          fallbackParticipant: null,
+          isNewMessage: false,
+          newMessageRecipients: [],
+          showConversationDetails: false,
+        });
+      },
+
+      // ========== Message Actions ==========
       sendMessage: async (
         targets: string[],
         content: string,
@@ -187,49 +255,15 @@ export const useConversationStore = create<ConversationState>()(
         try {
           const { isNewMessage, activeConversation } = get();
 
-          let requestBody;
-          if (isNewMessage) {
-            // New message - send to multiple recipients
-            requestBody = {
-              recipientIds: targets,
-              content,
-              messageType: messageType || "text",
-              ...(groupName !== undefined && { groupName }),
-              ...(images && images.length > 0 && { images }),
-            };
-          } else if (activeConversation?.startsWith("user:")) {
-            // Direct message to a user (new conversation)
-            const userId = activeConversation.replace("user:", "");
-            requestBody = {
-              recipientIds: [userId],
-              content,
-              messageType: messageType || "text",
-              ...(images && images.length > 0 && { images }),
-            };
-          } else {
-            // Existing conversation - send to conversation
-            requestBody = {
-              conversationId: activeConversation,
-              content,
-              messageType: messageType || "text",
-              ...(images && images.length > 0 && { images }),
-            };
-          }
-
-          const response = await fetch(`${API_BASE_URL}/messages/send`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(requestBody),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to send message");
-          }
-
-          const result = await response.json();
+          const result = await conversationService.sendMessage(
+            targets,
+            content,
+            groupName,
+            messageType,
+            images,
+            isNewMessage,
+            activeConversation
+          );
 
           set((state) => ({
             messages: [...state.messages, result.data],
@@ -248,34 +282,7 @@ export const useConversationStore = create<ConversationState>()(
       loadMessages: async (conversationId: string) => {
         set({ isMessagesLoading: true });
         try {
-          let url;
-          if (conversationId.startsWith("user:")) {
-            // Direct message to a user - use legacy endpoint
-            const userId = conversationId.replace("user:", "");
-            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50`;
-          } else {
-            // Existing conversation - load most recent 50 messages
-            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50`;
-          }
-
-          const response = await fetch(url, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            // If conversation doesn't exist yet, that's okay
-            if (response.status === 403 || response.status === 404) {
-              set({
-                messages: [],
-                hasMoreMessages: false,
-                messagesNextCursor: null,
-              });
-              return;
-            }
-            throw new Error("Failed to load messages");
-          }
-
-          const result = await response.json();
+          const result = await conversationService.loadMessages(conversationId);
           set({
             messages: result.messages || [],
             hasMoreMessages: result.pagination?.hasMore || false,
@@ -303,25 +310,10 @@ export const useConversationStore = create<ConversationState>()(
 
         set({ isLoadingOlderMessages: true });
         try {
-          let url;
-          if (conversationId.startsWith("user:")) {
-            // Direct message to a user - use legacy endpoint
-            const userId = conversationId.replace("user:", "");
-            url = `${API_BASE_URL}/messages/conversation/user/${userId}?limit=50&before=${messagesNextCursor}`;
-          } else {
-            // Existing conversation
-            url = `${API_BASE_URL}/messages/conversation/${conversationId}?limit=50&before=${messagesNextCursor}`;
-          }
-
-          const response = await fetch(url, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to load older messages");
-          }
-
-          const result = await response.json();
+          const result = await conversationService.loadOlderMessages(
+            conversationId,
+            messagesNextCursor
+          );
           const olderMessages = result.messages || [];
 
           set((state) => ({
@@ -339,15 +331,7 @@ export const useConversationStore = create<ConversationState>()(
       loadConversations: async () => {
         set({ isConversationsLoading: true });
         try {
-          const response = await fetch(`${API_BASE_URL}/conversations`, {
-            credentials: "include",
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to load conversations");
-          }
-
-          const conversations = await response.json();
+          const conversations = await conversationService.loadConversations();
           set({ conversations });
         } catch (error) {
           console.error("Error loading conversations:", error);
@@ -356,6 +340,35 @@ export const useConversationStore = create<ConversationState>()(
         }
       },
 
+      markConversationAsRead: async (conversationId: string) => {
+        try {
+          const result =
+            await conversationService.markConversationAsRead(conversationId);
+          const currentUserId = userStore.getState().user?.id || "";
+
+          // Update local state - update conversation read timestamp and unread count
+          set((state) => ({
+            conversations: state.conversations.map((conv) => {
+              if (conv._id === conversationId) {
+                const updatedConv = {
+                  ...conv,
+                  unreadCount: 0,
+                  readAt: {
+                    ...conv.readAt,
+                    [currentUserId]: result.readAt || new Date().toISOString(),
+                  },
+                };
+                return updatedConv;
+              }
+              return conv;
+            }),
+          }));
+        } catch (error) {
+          console.error("Error marking conversation as read:", error);
+        }
+      },
+
+      // ========== Real-time Message Handlers ==========
       handleIncomingMessage: (message: Message) => {
         const { activeConversation } = get();
 
@@ -388,76 +401,6 @@ export const useConversationStore = create<ConversationState>()(
         get().loadConversations();
       },
 
-      getUserInfoFromConversations: (userId: string) => {
-        const { conversations } = get();
-
-        // Find the user in conversations
-        for (const conversation of conversations) {
-          if (conversation.isGroup && conversation.participants) {
-            const participant = conversation.participants.find(
-              (p) => p._id === userId
-            );
-            if (participant) {
-              return {
-                userName: participant.userName,
-                firstName: participant.firstName,
-                lastName: participant.lastName,
-              };
-            }
-          } else if (
-            !conversation.isGroup &&
-            conversation.participant &&
-            conversation.participant._id === userId
-          ) {
-            return {
-              userName: conversation.participant.userName,
-              firstName: conversation.participant.firstName,
-              lastName: conversation.participant.lastName,
-            };
-          }
-        }
-        return {};
-      },
-
-      markConversationAsRead: async (conversationId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/conversations/${conversationId}/read`,
-            {
-              method: "PATCH",
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to mark conversation as read");
-          }
-
-          const result = await response.json();
-          const currentUserId = userStore.getState().user?.id || "";
-
-          // Update local state - update conversation read timestamp and unread count
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                const updatedConv = {
-                  ...conv,
-                  unreadCount: 0,
-                  readAt: {
-                    ...conv.readAt,
-                    [currentUserId]: result.readAt || new Date().toISOString(),
-                  },
-                };
-                return updatedConv;
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error marking conversation as read:", error);
-        }
-      },
-
       handleConversationRead: (data: unknown) => {
         const { conversationId, readBy, readAt } = data as {
           conversationId: string;
@@ -483,25 +426,13 @@ export const useConversationStore = create<ConversationState>()(
         }));
       },
 
+      // ========== Group Management Actions ==========
       updateGroupName: async (conversationId: string, groupName: string) => {
         try {
-          const response = await fetch(
-            `${API_BASE_URL}/conversations/${conversationId}/name`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              body: JSON.stringify({ groupName }),
-            }
+          const result = await conversationService.updateGroupName(
+            conversationId,
+            groupName
           );
-
-          if (!response.ok) {
-            throw new Error("Failed to update group name");
-          }
-
-          const result = await response.json();
 
           // Update local state immediately
           set((state) => ({
@@ -521,6 +452,89 @@ export const useConversationStore = create<ConversationState>()(
         }
       },
 
+      leaveGroup: async (conversationId: string) => {
+        try {
+          await conversationService.leaveGroup(conversationId);
+
+          // Remove conversation from local state
+          set((state) => ({
+            conversations: state.conversations.filter(
+              (conv) => conv._id !== conversationId
+            ),
+            // If this was the active conversation, clear it
+            activeConversation:
+              state.activeConversation === conversationId
+                ? null
+                : state.activeConversation,
+            messages:
+              state.activeConversation === conversationId ? [] : state.messages,
+            showConversationDetails: false,
+          }));
+        } catch (error) {
+          console.error("Error leaving group:", error);
+          throw error;
+        }
+      },
+
+      changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
+        try {
+          await conversationService.changeGroupAdmin(
+            conversationId,
+            newAdminId
+          );
+
+          // Update local state immediately
+          set((state) => ({
+            conversations: state.conversations.map((conv) => {
+              if (conv._id === conversationId) {
+                const newAdminUser = conv.participants?.find(
+                  (p) => p._id === newAdminId
+                );
+                return {
+                  ...conv,
+                  groupAdmin: newAdminUser,
+                };
+              }
+              return conv;
+            }),
+          }));
+        } catch (error) {
+          console.error("Error changing group admin:", error);
+          throw error;
+        }
+      },
+
+      removeMemberFromGroup: async (
+        conversationId: string,
+        userToRemoveId: string
+      ) => {
+        try {
+          await conversationService.removeMemberFromGroup(
+            conversationId,
+            userToRemoveId
+          );
+
+          // Update local state immediately
+          set((state) => ({
+            conversations: state.conversations.map((conv) => {
+              if (conv._id === conversationId) {
+                return {
+                  ...conv,
+                  participants: conv.participants?.filter(
+                    (p) => p._id !== userToRemoveId
+                  ),
+                };
+              }
+              return conv;
+            }),
+          }));
+        } catch (error) {
+          console.error("Error removing member from group:", error);
+          throw error;
+        }
+      },
+
+      // ========== Real-time Group Event Handlers ==========
       handleGroupNameUpdated: (data: unknown) => {
         const { conversationId, groupName, conversation } = data as {
           conversationId: string;
@@ -583,40 +597,6 @@ export const useConversationStore = create<ConversationState>()(
             return conv;
           }),
         }));
-      },
-
-      leaveGroup: async (conversationId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/conversations/${conversationId}/leave`,
-            {
-              method: "POST",
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to leave group");
-          }
-
-          // Remove conversation from local state
-          set((state) => ({
-            conversations: state.conversations.filter(
-              (conv) => conv._id !== conversationId
-            ),
-            // If this was the active conversation, clear it
-            activeConversation:
-              state.activeConversation === conversationId
-                ? null
-                : state.activeConversation,
-            messages:
-              state.activeConversation === conversationId ? [] : state.messages,
-            showConversationDetails: false,
-          }));
-        } catch (error) {
-          console.error("Error leaving group:", error);
-          throw error;
-        }
       },
 
       handleUserLeftGroup: (data: unknown) => {
@@ -701,47 +681,6 @@ export const useConversationStore = create<ConversationState>()(
         });
       },
 
-      changeGroupAdmin: async (conversationId: string, newAdminId: string) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/conversations/${conversationId}/admin`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-              body: JSON.stringify({ newAdminId }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to change group admin");
-          }
-
-          await response.json();
-
-          // Update local state immediately
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                const newAdminUser = conv.participants?.find(
-                  (p) => p._id === newAdminId
-                );
-                return {
-                  ...conv,
-                  groupAdmin: newAdminUser,
-                };
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error changing group admin:", error);
-          throw error;
-        }
-      },
-
       handleGroupAdminChanged: (data: unknown) => {
         const { conversationId, newAdmin, conversation } = data as {
           conversationId: string;
@@ -779,48 +718,6 @@ export const useConversationStore = create<ConversationState>()(
             return conv;
           }),
         }));
-      },
-
-      removeMemberFromGroup: async (
-        conversationId: string,
-        userToRemoveId: string
-      ) => {
-        try {
-          const response = await fetch(
-            `${API_BASE_URL}/conversations/${conversationId}/members/${userToRemoveId}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to remove member from group");
-          }
-
-          await response.json();
-
-          // Update local state immediately
-          set((state) => ({
-            conversations: state.conversations.map((conv) => {
-              if (conv._id === conversationId) {
-                return {
-                  ...conv,
-                  participants: conv.participants?.filter(
-                    (p) => p._id !== userToRemoveId
-                  ),
-                };
-              }
-              return conv;
-            }),
-          }));
-        } catch (error) {
-          console.error("Error removing member from group:", error);
-          throw error;
-        }
       },
 
       handleMemberRemovedFromGroup: (data: unknown) => {
@@ -880,6 +777,38 @@ export const useConversationStore = create<ConversationState>()(
         }));
       },
 
+      // ========== Utility Functions ==========
+      getUserInfoFromConversations: (userId: string) => {
+        const { conversations } = get();
+
+        // Find the user in conversations
+        for (const conversation of conversations) {
+          if (conversation.isGroup && conversation.participants) {
+            const participant = conversation.participants.find(
+              (p) => p._id === userId
+            );
+            if (participant) {
+              return {
+                userName: participant.userName,
+                firstName: participant.firstName,
+                lastName: participant.lastName,
+              };
+            }
+          } else if (
+            !conversation.isGroup &&
+            conversation.participant &&
+            conversation.participant._id === userId
+          ) {
+            return {
+              userName: conversation.participant.userName,
+              firstName: conversation.participant.firstName,
+              lastName: conversation.participant.lastName,
+            };
+          }
+        }
+        return {};
+      },
+
       filterMessagesForBlocking: (
         blockedUserIds: Set<string>,
         usersWhoBlockedMe: Set<string>
@@ -901,23 +830,6 @@ export const useConversationStore = create<ConversationState>()(
         });
 
         set({ messages: filteredMessages });
-      },
-
-      resetConversationStore: () => {
-        set({
-          activeConversation: null,
-          messages: [],
-          conversations: [],
-          hasMoreMessages: false,
-          messagesNextCursor: null,
-          isLoadingOlderMessages: false,
-          isConversationsLoading: false,
-          isMessagesLoading: false,
-          fallbackParticipant: null,
-          isNewMessage: false,
-          newMessageRecipients: [],
-          showConversationDetails: false,
-        });
       },
     }),
     {

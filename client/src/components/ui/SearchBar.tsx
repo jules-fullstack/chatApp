@@ -51,7 +51,7 @@ export default function SearchBar() {
           <button
             type="button"
             onClick={handleClearSearch}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 cursor-pointer hover:text-gray-600"
           >
             <XMarkIcon className="size-5" />
           </button>
