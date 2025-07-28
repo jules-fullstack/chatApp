@@ -1,5 +1,9 @@
 export { default as ConversationDetails } from "./ConversationDetails";
 export { default as ConversationHeader } from "./ConversationHeader";
+export { ConversationDetailsHeader } from "./ConversationDetailsHeader";
+export { ConversationActions } from "./ConversationActions";
+export { ConversationMembers } from "./ConversationMembers";
+export { ConversationPrivacy } from "./ConversationPrivacy";
 export { default as GroupEventMessage } from "./GroupEventMessage";
 export { default as ImagePreview } from "./ImagePreview";
 export { default as MessageBubble } from "./MessageBubble";

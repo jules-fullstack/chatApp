@@ -1,27 +1,14 @@
-import {
-  ChevronRightIcon,
-  ArrowRightStartOnRectangleIcon,
-  XMarkIcon,
-} from "@heroicons/react/24/outline";
-import {
-  PencilIcon,
-  EllipsisHorizontalIcon,
-  NoSymbolIcon,
-  ChatBubbleOvalLeftIcon,
-  UserPlusIcon,
-  UserIcon,
-  PhotoIcon,
-} from "@heroicons/react/24/solid";
-import { EnvelopeIcon } from "@heroicons/react/24/outline";
-import { Accordion, Menu } from "@mantine/core";
-import { notifications } from "@mantine/notifications";
-import { useState, useEffect, useRef } from "react";
-import { useChatStore } from "../../store/chatStore";
-import { useConversationStore } from "../../store/conversationStore";
+import { ChevronRightIcon } from "@heroicons/react/24/outline";
+import { Accordion } from "@mantine/core";
 import { userStore } from "../../store/userStore";
-import { API_BASE_URL } from "../../config";
 import { type Participant } from "../../types";
-import { Avatar, Container, GroupAvatar } from "../ui";
+import { Container } from "../ui";
+import { useConversationModals } from "../../hooks/useConversationModals";
+import { useConversationActions } from "../../hooks/useConversationActions";
+import { ConversationDetailsHeader } from "./ConversationDetailsHeader";
+import { ConversationActions } from "./ConversationActions";
+import { ConversationMembers } from "./ConversationMembers";
+import { ConversationPrivacy } from "./ConversationPrivacy";
 import {
   AddPeopleModal,
   BlockUserModal,
@@ -34,466 +21,111 @@ import {
 } from "../modals";
 
 export default function ConversationDetails() {
-  const {
-    activeConversation,
-    conversations,
-    updateGroupName,
-    fallbackParticipant,
-    leaveGroup,
-    changeGroupAdmin,
-    removeMemberFromGroup,
-    setActiveConversation,
-    setFallbackParticipant,
-    setShowConversationDetails,
-  } = useConversationStore();
-  const { blockUser, unblockUser, blockingUpdateTrigger } = useChatStore();
   const { user: currentUser } = userStore();
-  const [isGroupNameModalOpen, setIsGroupNameModalOpen] = useState(false);
-  const [isLeaveGroupModalOpen, setIsLeaveGroupModalOpen] = useState(false);
-  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
-  const [isAddPeopleModalOpen, setIsAddPeopleModalOpen] = useState(false);
-  const [isPromoteUserModalOpen, setIsPromoteUserModalOpen] = useState(false);
-  const [userToPromote, setUserToPromote] = useState<Participant | null>(null);
-  const [isPromotingUser, setIsPromotingUser] = useState(false);
-  const [isRemoveUserModalOpen, setIsRemoveUserModalOpen] = useState(false);
-  const [userToRemove, setUserToRemove] = useState<Participant | null>(null);
-  const [isRemovingUser, setIsRemovingUser] = useState(false);
-  const [isBlockUserModalOpen, setIsBlockUserModalOpen] = useState(false);
-  const [isUnblockUserModalOpen, setIsUnblockUserModalOpen] = useState(false);
-  const [userToBlock, setUserToBlock] = useState<Participant | null>(null);
-  const [isBlockingUser, setIsBlockingUser] = useState(false);
-  const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isInviteUnregisteredModalOpen, setIsInviteUnregisteredModalOpen] =
-    useState(false);
-  const [isInvitingUsers, setIsInvitingUsers] = useState(false);
+  
+  // Use custom hooks for modal management and business logic
+  const modals = useConversationModals();
+  const actions = useConversationActions();
 
-  const conversation = conversations.find(
-    (conversation) => conversation._id === activeConversation
-  );
-
-  const isGroup = conversation?.isGroup;
-  const isGroupAdmin = isGroup
-    ? conversation.groupAdmin?._id === currentUser?.id
-    : false;
-
-  // Load blocked users on component mount and when blocking status changes
-  useEffect(() => {
-    const loadBlockedUsers = async () => {
-      try {
-        // We need to get the full list to check each user
-        const blockedUsersList = await fetch(`${API_BASE_URL}/users/blocked`, {
-          credentials: "include",
-        })
-          .then((res) => res.json())
-          .then((data) => data.blockedUsers || []);
-
-        const blockedIds = new Set<string>(
-          blockedUsersList.map(
-            (user: { id?: string; _id?: string }) => user.id || user._id
-          )
-        );
-        setBlockedUsers(blockedIds);
-      } catch (error) {
-        console.error("Error loading blocked users:", error);
-      }
-    };
-
-    loadBlockedUsers();
-  }, [blockingUpdateTrigger]);
-
-  const getConversationTitle = () => {
-    if (!conversation && fallbackParticipant) {
-      return fallbackParticipant.userName;
-    }
-
-    if (!conversation) return "";
-
-    if (isGroup) {
-      if (conversation.groupName) {
-        return conversation.groupName;
-      }
-      // For group chats without a group name, show participant usernames excluding current user
-      return (
-        conversation.participants
-          ?.filter((participant) => participant._id !== currentUser?.id)
-          .map((participant) => participant.userName)
-          .join(", ") || ""
-      );
-    } else {
-      // For direct messages, show the other participant's username
-      return conversation.participant?.userName || "";
-    }
-  };
-
-  const getAvatarUser = () => {
-    if (!conversation && fallbackParticipant) {
-      return fallbackParticipant;
-    }
-
-    if (!conversation) return null;
-
-    if (isGroup) {
-      // For group chats, return null to show group avatar placeholder
-      return null;
-    } else {
-      // For direct messages, show the other participant's avatar
-      return conversation.participant || null;
-    }
-  };
-
-  const handleOpenGroupNameModal = () => {
-    setIsGroupNameModalOpen(true);
-  };
-
-  const handleCloseGroupNameModal = () => {
-    setIsGroupNameModalOpen(false);
-  };
-
-  const handleUpdateGroupName = async (groupName: string) => {
-    if (!conversation || !activeConversation) return;
-
-    try {
-      await updateGroupName(activeConversation, groupName);
-    } catch (error) {
-      console.error("Failed to update group name:", error);
-    }
-  };
-
-  const handleOpenLeaveGroupModal = () => {
-    setIsLeaveGroupModalOpen(true);
-  };
-
-  const handleCloseLeaveGroupModal = () => {
-    setIsLeaveGroupModalOpen(false);
-  };
-
-  const handleLeaveGroup = async () => {
-    if (!conversation || !activeConversation) return;
-
-    setIsLeavingGroup(true);
-    try {
-      await leaveGroup(activeConversation);
-    } catch (error) {
-      console.error("Failed to leave group:", error);
-    } finally {
-      setIsLeavingGroup(false);
-    }
-  };
-
-  const handleOpenAddPeopleModal = () => {
-    setIsAddPeopleModalOpen(true);
-  };
-
-  const handleCloseAddPeopleModal = () => {
-    setIsAddPeopleModalOpen(false);
-  };
-
+  // Helper functions for modal management with business logic
   const handleMembersAdded = (newMembers: Participant[]) => {
     // The WebSocket will handle updating the conversation
     // We could add additional logic here if needed
     console.log("Members added:", newMembers);
   };
 
-  const handleOpenPromoteUserModal = (participant: Participant) => {
-    setUserToPromote(participant);
-    setIsPromoteUserModalOpen(true);
-  };
-
-  const handleClosePromoteUserModal = () => {
-    setIsPromoteUserModalOpen(false);
-    setUserToPromote(null);
-  };
-
   const handlePromoteUser = async () => {
-    if (!conversation || !activeConversation || !userToPromote) return;
-
-    setIsPromotingUser(true);
+    if (!modals.userToPromote) return;
+    
+    actions.setIsPromotingUser(true);
     try {
-      await changeGroupAdmin(activeConversation, userToPromote._id);
-      handleClosePromoteUserModal();
+      await actions.handlePromoteUser(modals.userToPromote._id);
+      modals.closePromoteUserModal();
     } catch (error) {
-      console.error("Failed to change group admin:", error);
+      console.error("Failed to promote user:", error);
     } finally {
-      setIsPromotingUser(false);
+      actions.setIsPromotingUser(false);
     }
-  };
-
-  const handleOpenRemoveUserModal = (participant: Participant) => {
-    setUserToRemove(participant);
-    setIsRemoveUserModalOpen(true);
-  };
-
-  const handleCloseRemoveUserModal = () => {
-    setIsRemoveUserModalOpen(false);
-    setUserToRemove(null);
   };
 
   const handleRemoveUser = async () => {
-    if (!conversation || !activeConversation || !userToRemove) return;
-
-    setIsRemovingUser(true);
+    if (!modals.userToRemove) return;
+    
+    actions.setIsRemovingUser(true);
     try {
-      await removeMemberFromGroup(activeConversation, userToRemove._id);
-      handleCloseRemoveUserModal();
+      await actions.handleRemoveUser(modals.userToRemove._id);
+      modals.closeRemoveUserModal();
     } catch (error) {
-      console.error("Failed to remove user from group:", error);
+      console.error("Failed to remove user:", error);
     } finally {
-      setIsRemovingUser(false);
+      actions.setIsRemovingUser(false);
     }
-  };
-
-  const handleMessageUser = (participant: Participant) => {
-    setFallbackParticipant({
-      _id: participant._id,
-      firstName: participant.firstName,
-      lastName: participant.lastName,
-      userName: participant.userName,
-      avatar: participant.avatar,
-    });
-
-    // Try to find existing conversation with this user
-    const existingConversation = conversations.find(
-      (conv) => !conv.isGroup && conv.participant?._id === participant._id
-    );
-
-    if (existingConversation) {
-      setActiveConversation(existingConversation._id);
-    } else {
-      // For new conversations, we'll use a special format that the frontend can handle
-      // The backend will create the conversation when the first message is sent
-      setActiveConversation(`user:${participant._id}`);
-    }
-
-    // Close the conversation details panel
-    setShowConversationDetails(false);
-  };
-
-  const handleOpenBlockUserModal = (participant: Participant) => {
-    setUserToBlock(participant);
-    setIsBlockUserModalOpen(true);
-  };
-
-  const handleCloseBlockUserModal = () => {
-    setIsBlockUserModalOpen(false);
-    setUserToBlock(null);
-  };
-
-  const handleOpenUnblockUserModal = (participant: Participant) => {
-    setUserToBlock(participant);
-    setIsUnblockUserModalOpen(true);
-  };
-
-  const handleCloseUnblockUserModal = () => {
-    setIsUnblockUserModalOpen(false);
-    setUserToBlock(null);
   };
 
   const handleBlockUser = async () => {
-    if (!userToBlock) return;
-
-    setIsBlockingUser(true);
+    if (!modals.userToBlock) return;
+    
+    actions.setIsBlockingUser(true);
     try {
-      await blockUser(userToBlock._id);
-      setBlockedUsers((prev) => new Set([...prev, userToBlock._id]));
-      handleCloseBlockUserModal();
-
-      // Force refresh of conversations list to update UI
-      setTimeout(() => {
-        setShowConversationDetails(false);
-      }, 1000);
+      await actions.handleBlockUser(modals.userToBlock._id);
+      modals.closeBlockUserModal();
     } catch (error) {
       console.error("Failed to block user:", error);
     } finally {
-      setIsBlockingUser(false);
+      actions.setIsBlockingUser(false);
     }
   };
 
   const handleUnblockUser = async () => {
-    if (!userToBlock) return;
-
-    setIsBlockingUser(true);
+    if (!modals.userToUnblock) return;
+    
+    actions.setIsBlockingUser(true);
     try {
-      await unblockUser(userToBlock._id);
-      setBlockedUsers((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(userToBlock._id);
-        return newSet;
-      });
-      handleCloseUnblockUserModal();
-
-      // Force refresh of conversations list to update UI
-      setTimeout(() => {
-        setShowConversationDetails(false);
-      }, 1000);
+      await actions.handleUnblockUser(modals.userToUnblock._id);
+      modals.closeUnblockUserModal();
     } catch (error) {
       console.error("Failed to unblock user:", error);
     } finally {
-      setIsBlockingUser(false);
+      actions.setIsBlockingUser(false);
     }
   };
 
-  const handleBlockUserInDirectMessage = () => {
-    if (!conversation?.participant) return;
-
-    const participant = conversation.participant;
-    if (blockedUsers.has(participant._id)) {
-      handleOpenUnblockUserModal(participant);
-    } else {
-      handleOpenBlockUserModal(participant);
-    }
-  };
-
-  const validateImageFile = (file: File): string | null => {
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    const maxSize = 5 * 1024 * 1024; // 5MB
-
-    if (!allowedTypes.includes(file.type)) {
-      return "Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.";
-    }
-
-    if (file.size > maxSize) {
-      return "File size must be less than 5MB.";
-    }
-
-    return null;
-  };
-
-  const handlePhotoUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file || !conversation || !activeConversation) return;
-
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      notifications.show({
-        title: "Validation Error",
-        message: validationError || "Error in validating image.",
-        color: "red",
-      });
-      return;
-    }
-
-    setIsUploadingPhoto(true);
-
+  const handleLeaveGroup = async () => {
+    actions.setIsLeavingGroup(true);
     try {
-      const formData = new FormData();
-      formData.append("groupPhoto", file);
-
-      const response = await fetch(
-        `${API_BASE_URL}/conversations/${activeConversation}/photo`,
-        {
-          method: "PUT",
-          body: formData,
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to upload group photo");
-      }
-
-      await response.json();
-
-      // The WebSocket message will handle updating the conversation state
+      await actions.handleLeaveGroup();
+      modals.closeLeaveGroupModal();
     } catch (error) {
-      console.error("Failed to upload group photo:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to upload group photo"
-      );
+      console.error("Failed to leave group:", error);
     } finally {
-      setIsUploadingPhoto(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      actions.setIsLeavingGroup(false);
     }
-  };
-
-  const handleOpenPhotoUpload = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleOpenInviteUnregisteredModal = () => {
-    setIsInviteUnregisteredModalOpen(true);
-  };
-
-  const handleCloseInviteUnregisteredModal = () => {
-    setIsInviteUnregisteredModalOpen(false);
   };
 
   const handleInviteUnregisteredUsers = async (emails: string[]) => {
-    if (!conversation || !activeConversation) return;
-
-    setIsInvitingUsers(true);
+    actions.setIsInvitingUsers(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/conversations/${activeConversation}/invite-unregistered`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ emails }),
-          credentials: "include",
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to send invitations");
-      }
-
-      handleCloseInviteUnregisteredModal();
-      notifications.show({
-        title: "Success",
-        message: "Invitations sent successfully!",
-        color: "green",
-      });
+      await actions.handleInviteUnregisteredUsers(emails);
+      modals.closeInviteUnregisteredModal();
     } catch (error) {
       console.error("Failed to send invitations:", error);
-      notifications.show({
-        title: "Failed",
-        message: "Failed to send invitations.",
-        color: "red",
-      });
     } finally {
-      setIsInvitingUsers(false);
+      actions.setIsInvitingUsers(false);
     }
   };
 
   return (
     <Container size="sm">
-      <div className="flex flex-col items-center">
-        {isGroup ? (
-          <div className="mt-2">
-            <GroupAvatar
-              participants={conversation?.participants || []}
-              size="xl"
-              className="!w-28 !h-28"
-              groupPhoto={conversation?.groupPhoto}
-            />
-          </div>
-        ) : (
-          <div className="mt-2">
-            <Avatar user={getAvatarUser()} size="xl" className="!w-28 !h-28" />
-          </div>
-        )}
-        <p className={`font-semibold ${!isGroup ? "text-blue-500" : ""}`}>
-          {getConversationTitle()}
-        </p>
-      </div>
+      {/* Header Section */}
+      <ConversationDetailsHeader
+        isGroup={actions.isGroup}
+        conversationTitle={actions.conversationTitle}
+        avatarUser={actions.avatarUser}
+        participants={actions.conversation?.participants || []}
+        groupPhoto={actions.conversation?.groupPhoto}
+      />
 
+      {/* Main Accordion Sections */}
       <Accordion
         chevron={
           <ChevronRightIcon className="transition-transform duration-300" />
@@ -504,306 +136,118 @@ export default function ConversationDetails() {
         }}
         multiple={true}
       >
-        {isGroup && isGroupAdmin && (
-          <Accordion.Item value="customize-chat">
-            <Accordion.Control>
-              <p className="font-semibold">Customize chat</p>
-            </Accordion.Control>
+        {/* Customize Chat Section */}
+        <ConversationActions
+          isGroup={actions.isGroup}
+          isGroupAdmin={actions.isGroupAdmin}
+          isUploadingPhoto={actions.isUploadingPhoto}
+          onOpenGroupNameModal={modals.openGroupNameModal}
+          onOpenPhotoUpload={actions.handleOpenPhotoUpload}
+          onPhotoUpload={actions.handlePhotoUpload}
+          fileInputRef={actions.fileInputRef}
+        />
 
-            <div
-              className="cursor-pointer hover:bg-gray-50"
-              onClick={handleOpenGroupNameModal}
-            >
-              <Accordion.Panel>
-                <div className="flex items-center gap-2">
-                  <div className="bg-gray-200 rounded-full p-2">
-                    <PencilIcon className="size-4" />
-                  </div>
-                  <p className="font-medium">Change chat name</p>
-                </div>
-              </Accordion.Panel>
-            </div>
+        {/* Chat Members Section */}
+        <ConversationMembers
+          isGroup={actions.isGroup}
+          isGroupAdmin={actions.isGroupAdmin}
+          participants={actions.conversation?.participants || []}
+          currentUserId={currentUser?.id}
+          blockedUsers={actions.blockedUsers}
+          onMessageUser={actions.handleMessageUser}
+          onOpenPromoteUserModal={modals.openPromoteUserModal}
+          onOpenRemoveUserModal={modals.openRemoveUserModal}
+          onOpenBlockUserModal={modals.openBlockUserModal}
+          onOpenUnblockUserModal={modals.openUnblockUserModal}
+          onOpenLeaveGroupModal={modals.openLeaveGroupModal}
+          onOpenAddPeopleModal={modals.openAddPeopleModal}
+          onOpenInviteUnregisteredModal={modals.openInviteUnregisteredModal}
+        />
 
-            {isGroup && (
-              <div
-                className="cursor-pointer hover:bg-gray-50"
-                onClick={handleOpenPhotoUpload}
-              >
-                <Accordion.Panel>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gray-200 rounded-full p-2">
-                      <PhotoIcon className="size-4" />
-                    </div>
-                    <p className="font-medium">Change photo</p>
-                  </div>
-                </Accordion.Panel>
-              </div>
-            )}
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handlePhotoUpload}
-              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-              className="hidden"
-              disabled={isUploadingPhoto}
-            />
-          </Accordion.Item>
-        )}
-
-        {isGroup && (
-          <Accordion.Item value="chat-members">
-            <Accordion.Control>
-              <p className="font-semibold">Chat members</p>
-            </Accordion.Control>
-
-            {conversation.participants?.map((participant) => (
-              <div
-                key={participant._id}
-                className="cursor-pointer hover:bg-gray-50"
-              >
-                <Accordion.Panel>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex gap-1 items-center">
-                      <Avatar user={participant} size="lg" />
-                      <p className="font-medium">{participant.userName}</p>
-                    </div>
-                    <div className="rounded-full cursor-pointer hover:bg-gray-200 p-1">
-                      <Menu position="bottom-end" width={250}>
-                        <Menu.Target>
-                          <EllipsisHorizontalIcon className="size-6" />
-                        </Menu.Target>
-                        <Menu.Dropdown className="!rounded-2xl !rounded-tr-sm">
-                          {participant._id === currentUser?.id ? (
-                            <Menu.Item
-                              leftSection={
-                                <div className="bg-gray-200 rounded-full p-2">
-                                  <ArrowRightStartOnRectangleIcon className="size-4" />
-                                </div>
-                              }
-                              onClick={handleOpenLeaveGroupModal}
-                            >
-                              <span className="font-medium">Leave group</span>
-                            </Menu.Item>
-                          ) : (
-                            <>
-                              <Menu.Item
-                                leftSection={
-                                  <div className="bg-gray-200 rounded-full p-2">
-                                    <ChatBubbleOvalLeftIcon className="size-4" />
-                                  </div>
-                                }
-                                onClick={() => handleMessageUser(participant)}
-                              >
-                                <span className="font-medium">Message</span>
-                              </Menu.Item>
-
-                              {isGroupAdmin && (
-                                <Menu.Item
-                                  leftSection={
-                                    <div className="bg-gray-200 rounded-full p-2">
-                                      <UserIcon className="size-4" />
-                                    </div>
-                                  }
-                                  onClick={() =>
-                                    handleOpenPromoteUserModal(participant)
-                                  }
-                                >
-                                  <span className="font-medium">
-                                    Make admin
-                                  </span>
-                                </Menu.Item>
-                              )}
-
-                              <Menu.Item
-                                leftSection={
-                                  <div className="bg-gray-200 rounded-full p-2">
-                                    <NoSymbolIcon className="size-4" />
-                                  </div>
-                                }
-                                onClick={() => {
-                                  if (blockedUsers.has(participant._id)) {
-                                    handleOpenUnblockUserModal(participant);
-                                  } else {
-                                    handleOpenBlockUserModal(participant);
-                                  }
-                                }}
-                              >
-                                <span className="font-medium">
-                                  {blockedUsers.has(participant._id)
-                                    ? "Unblock"
-                                    : "Block"}
-                                </span>
-                              </Menu.Item>
-
-                              {isGroupAdmin && (
-                                <Menu.Item
-                                  leftSection={
-                                    <div className="bg-gray-200 rounded-full p-2">
-                                      <XMarkIcon className="size-4" />
-                                    </div>
-                                  }
-                                  onClick={() =>
-                                    handleOpenRemoveUserModal(participant)
-                                  }
-                                >
-                                  <span className="font-medium">
-                                    Remove from group
-                                  </span>
-                                </Menu.Item>
-                              )}
-                            </>
-                          )}
-                        </Menu.Dropdown>
-                      </Menu>
-                    </div>
-                  </div>
-                </Accordion.Panel>
-              </div>
-            ))}
-
-            {isGroupAdmin && (
-              <div
-                className="cursor-pointer hover:bg-gray-50"
-                onClick={handleOpenAddPeopleModal}
-              >
-                <Accordion.Panel>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gray-200 rounded-full p-2">
-                      <UserPlusIcon className="size-4" />
-                    </div>
-                    <p className="font-medium">Add people</p>
-                  </div>
-                </Accordion.Panel>
-              </div>
-            )}
-
-            {isGroupAdmin && (
-              <div
-                className="cursor-pointer hover:bg-gray-50"
-                onClick={handleOpenInviteUnregisteredModal}
-              >
-                <Accordion.Panel>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-gray-200 rounded-full p-2">
-                      <EnvelopeIcon className="size-4" />
-                    </div>
-                    <p className="font-medium">Invite unregistered users</p>
-                  </div>
-                </Accordion.Panel>
-              </div>
-            )}
-          </Accordion.Item>
-        )}
-
-        <Accordion.Item value="privacy-support">
-          <Accordion.Control>
-            <p className="font-semibold">Privacy & support</p>
-          </Accordion.Control>
-
-          <div
-            className="cursor-pointer hover:bg-gray-50"
-            onClick={
-              isGroup
-                ? handleOpenLeaveGroupModal
-                : handleBlockUserInDirectMessage
-            }
-          >
-            <Accordion.Panel>
-              <div className="flex items-center gap-2">
-                <div className="bg-gray-200 rounded-full p-2">
-                  {isGroup ? (
-                    <ArrowRightStartOnRectangleIcon className="size-4" />
-                  ) : (
-                    <NoSymbolIcon className="size-4" />
-                  )}
-                </div>
-                <p className="font-medium">
-                  {isGroup
-                    ? "Leave Group"
-                    : conversation?.participant &&
-                        blockedUsers.has(conversation.participant._id)
-                      ? "Unblock"
-                      : "Block"}
-                </p>
-              </div>
-            </Accordion.Panel>
-          </div>
-        </Accordion.Item>
+        {/* Privacy & Support Section */}
+        <ConversationPrivacy
+          isGroup={actions.isGroup}
+          participant={actions.conversation?.participant}
+          blockedUsers={actions.blockedUsers}
+          onOpenLeaveGroupModal={modals.openLeaveGroupModal}
+          onOpenBlockUserModal={modals.openBlockUserModal}
+          onOpenUnblockUserModal={modals.openUnblockUserModal}
+        />
       </Accordion>
 
+      {/* Modals */}
       <GroupNameModal
-        opened={isGroupNameModalOpen}
-        onClose={handleCloseGroupNameModal}
-        onConfirm={handleUpdateGroupName}
+        opened={modals.isGroupNameModalOpen}
+        onClose={modals.closeGroupNameModal}
+        onConfirm={actions.handleUpdateGroupName}
         mode="edit"
-        currentGroupName={conversation?.groupName || ""}
+        currentGroupName={actions.conversation?.groupName || ""}
       />
 
       <LeaveGroupModal
-        opened={isLeaveGroupModalOpen}
-        onClose={handleCloseLeaveGroupModal}
+        opened={modals.isLeaveGroupModalOpen}
+        onClose={modals.closeLeaveGroupModal}
         onConfirm={handleLeaveGroup}
-        isLoading={isLeavingGroup}
+        isLoading={actions.isLeavingGroup}
       />
 
-      {conversation && isGroup && (
+      {actions.conversation && actions.isGroup && (
         <AddPeopleModal
-          opened={isAddPeopleModalOpen}
-          onClose={handleCloseAddPeopleModal}
-          conversationId={conversation._id}
-          existingParticipants={conversation.participants || []}
+          opened={modals.isAddPeopleModalOpen}
+          onClose={modals.closeAddPeopleModal}
+          conversationId={actions.conversation._id}
+          existingParticipants={actions.conversation.participants || []}
           onMembersAdded={handleMembersAdded}
         />
       )}
 
-      {userToPromote && (
+      {modals.userToPromote && (
         <PromoteUserModal
-          opened={isPromoteUserModalOpen}
-          onClose={handleClosePromoteUserModal}
+          opened={modals.isPromoteUserModalOpen}
+          onClose={modals.closePromoteUserModal}
           onConfirm={handlePromoteUser}
-          isLoading={isPromotingUser}
-          userName={userToPromote.userName}
+          isLoading={actions.isPromotingUser}
+          userName={modals.userToPromote.userName}
         />
       )}
 
-      {userToRemove && (
+      {modals.userToRemove && (
         <RemoveUserModal
-          opened={isRemoveUserModalOpen}
-          onClose={handleCloseRemoveUserModal}
+          opened={modals.isRemoveUserModalOpen}
+          onClose={modals.closeRemoveUserModal}
           onConfirm={handleRemoveUser}
-          isLoading={isRemovingUser}
-          userName={userToRemove.userName}
+          isLoading={actions.isRemovingUser}
+          userName={modals.userToRemove.userName}
         />
       )}
 
-      {userToBlock && (
+      {modals.userToBlock && (
         <BlockUserModal
-          opened={isBlockUserModalOpen}
-          onClose={handleCloseBlockUserModal}
+          opened={modals.isBlockUserModalOpen}
+          onClose={modals.closeBlockUserModal}
           onConfirm={handleBlockUser}
-          isLoading={isBlockingUser}
-          userName={userToBlock.userName}
+          isLoading={actions.isBlockingUser}
+          userName={modals.userToBlock.userName}
         />
       )}
 
-      {userToBlock && (
+      {modals.userToUnblock && (
         <UnblockUserModal
-          opened={isUnblockUserModalOpen}
-          onClose={handleCloseUnblockUserModal}
+          opened={modals.isUnblockUserModalOpen}
+          onClose={modals.closeUnblockUserModal}
           onConfirm={handleUnblockUser}
-          isLoading={isBlockingUser}
-          userName={userToBlock.userName}
+          isLoading={actions.isBlockingUser}
+          userName={modals.userToUnblock.userName}
         />
       )}
 
-      {conversation && isGroup && isGroupAdmin && (
+      {actions.conversation && actions.isGroup && actions.isGroupAdmin && (
         <InviteUnregisteredUserModal
-          opened={isInviteUnregisteredModalOpen}
-          onClose={handleCloseInviteUnregisteredModal}
+          opened={modals.isInviteUnregisteredModalOpen}
+          onClose={modals.closeInviteUnregisteredModal}
           onConfirm={handleInviteUnregisteredUsers}
-          isLoading={isInvitingUsers}
-          conversationId={conversation._id}
+          isLoading={actions.isInvitingUsers}
+          conversationId={actions.conversation._id}
         />
       )}
     </Container>
