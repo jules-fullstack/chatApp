@@ -154,7 +154,7 @@ class UserService {
         match: { isDeleted: false },
         select: 'url filename originalName mimeType metadata',
       })
-      .sort({ createdAt: -1 })
+      .sort({ userName: 'asc' })
       .skip(skip)
       .limit(limit);
 
@@ -279,7 +279,11 @@ class UserService {
   /**
    * Search users by username (excluding current user)
    */
-  async searchUsers(searchQuery: string, currentUserId: string, limit: number = 10) {
+  async searchUsers(
+    searchQuery: string,
+    currentUserId: string,
+    limit: number = 10,
+  ) {
     const users = await User.find({
       _id: { $ne: currentUserId },
       role: 'user',
@@ -288,7 +292,9 @@ class UserService {
         $options: 'i',
       },
     })
-      .select('_id userName firstName lastName avatar')
+      .select(
+        '_id userName firstName lastName email role isEmailVerified isBlocked avatar',
+      )
       .populate({
         path: 'avatar',
         match: { isDeleted: false },
@@ -302,6 +308,10 @@ class UserService {
       userName: user.userName,
       firstName: user.firstName,
       lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified,
+      isBlocked: user.isBlocked,
       avatar: user.avatar,
     }));
   }
