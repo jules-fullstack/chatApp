@@ -27,6 +27,10 @@ export interface SearchedUser {
   userName: string;
   firstName: string;
   lastName: string;
+  email: string;
+  role: "user" | "superAdmin";
+  isEmailVerified: boolean;
+  isBlocked: boolean;
   avatar?: Media | string;
 }
 
@@ -86,7 +90,14 @@ export interface Message {
   content: string;
   messageType: "text" | "image" | "file" | "groupEvent";
   attachments?: Media[];
-  groupEventType?: "nameChange" | "photoChange" | "userLeft" | "userPromoted" | "userRemoved" | "userAdded" | "userJoinedViaInvitation";
+  groupEventType?:
+    | "nameChange"
+    | "photoChange"
+    | "userLeft"
+    | "userPromoted"
+    | "userRemoved"
+    | "userAdded"
+    | "userJoinedViaInvitation";
   groupEventData?: {
     targetUser?: User;
     oldValue?: string;

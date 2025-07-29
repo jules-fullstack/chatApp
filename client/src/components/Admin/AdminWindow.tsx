@@ -13,12 +13,7 @@ import {
 } from "@mantine/core";
 import { Container } from "../ui";
 import type { AdminTab } from "./AdminSidebar";
-import adminService from "../../services/adminService";
-import type {
-  AdminUser,
-  AdminGroupConversation,
-  PaginationInfo,
-} from "../../types/admin";
+import type { AdminGroupConversation, AdminUser } from "../../types/admin";
 import {
   NoSymbolIcon,
   LockOpenIcon,
@@ -31,25 +26,31 @@ import { AddPeopleModal } from "../modals";
 import AdminRemoveMembersModal from "./AdminRemoveMembersModal";
 import AdminPromoteMemberModal from "./AdminPromoteMemberModal";
 import AdminActionConfirmModal from "./AdminActionConfirmModal";
+import AdminSearchInput from "../admin/AdminSearchInput";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"; // Import TanStack Query hooks
+import adminService from "../../services/adminService"; // Keep this import
+import adminSearchService from "../../services/adminSearchService";
+import useDebounce from "../../hooks/useDebounce";
 
 interface AdminWindowProps {
   activeTab: AdminTab;
 }
 
+// Define query keys as constants for better maintainability
+const QUERY_KEYS = {
+  allUsers: "adminUsers",
+  allGroupChats: "adminGroupChats",
+};
+
 export default function AdminWindow({ activeTab }: AdminWindowProps) {
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [groupConversations, setGroupConversations] = useState<
-    AdminGroupConversation[]
-  >([]);
-  const [usersPagination, setUsersPagination] = useState<PaginationInfo | null>(
-    null
-  );
-  const [groupsPagination, setGroupsPagination] =
-    useState<PaginationInfo | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<AdminUser[]>([]);
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Group chat action states
   const [selectedGroupChat, setSelectedGroupChat] =
@@ -65,76 +66,183 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
     data: string | string[];
   } | null>(null);
 
+  const queryClient = useQueryClient(); // Initialize QueryClient
+
+  // TanStack Query for fetching users
+  const {
+    data: usersData,
+    isLoading: isLoadingUsers,
+    isError: isErrorUsers,
+    error: usersError,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.allUsers, currentPage], // Query key depends on currentPage
+    queryFn: () => adminService.getAllUsers({ page: currentPage, limit: 10 }),
+    enabled: activeTab === "users", // Only fetch if 'users' tab is active
+    placeholderData: (previousData) => previousData, // Keep previous data while fetching new
+  });
+
+  // TanStack Query for fetching group conversations
+  const {
+    data: groupChatsData,
+    isLoading: isLoadingGroupChats,
+    isError: isErrorGroupChats,
+    error: groupChatsError,
+  } = useQuery({
+    queryKey: [QUERY_KEYS.allGroupChats, currentPage], // Query key depends on currentPage
+    queryFn: () =>
+      adminService.getAllGroupConversations({ page: currentPage, limit: 10 }),
+    enabled: activeTab === "group-chats", // Only fetch if 'group-chats' tab is active
+    placeholderData: (previousData) => previousData,
+  });
+
+  // Effect to reset page when tab changes
   useEffect(() => {
-    setCurrentPage(1); // Reset page when tab changes
+    setCurrentPage(1);
   }, [activeTab]);
 
+  // Effect to reset search when tab changes
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
+    setSearchQuery("");
+    setSearchResults([]);
+  }, [activeTab]);
 
+  // Effect for debounced search
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!debouncedSearchQuery.trim() || activeTab !== "users") {
+        setSearchResults([]);
+        setIsLoadingSearch(false);
+        return;
+      }
+
+      setIsLoadingSearch(true);
       try {
-        if (activeTab === "users") {
-          const response = await adminService.getAllUsers({
-            page: currentPage,
-            limit: 10,
-          });
-          setUsers(response.users);
-          setUsersPagination(response.pagination);
-        } else if (activeTab === "group-chats") {
-          const response = await adminService.getAllGroupConversations({
-            page: currentPage,
-            limit: 10,
-          });
-          setGroupConversations(response.conversations);
-          setGroupsPagination(response.pagination);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
+        const results = await adminSearchService.searchUsers(debouncedSearchQuery);
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Search error:", error);
+        setSearchResults([]);
       } finally {
-        setLoading(false);
+        setIsLoadingSearch(false);
       }
     };
 
-    fetchData();
-  }, [activeTab, currentPage]);
+    performSearch();
+  }, [debouncedSearchQuery, activeTab]);
 
-  const handleBlockUser = async (userId: string) => {
-    setActionLoading(userId);
-    try {
-      await adminService.blockUser(userId);
-      // Refresh the data
-      const response = await adminService.getAllUsers({
-        page: currentPage,
-        limit: 10,
-      });
-      setUsers(response.users);
-      setUsersPagination(response.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to block user");
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  // Computed values
+  const isSearchActive = searchQuery.trim().length > 0;
+  const displayUsers = isSearchActive ? searchResults : usersData?.users || [];
 
-  const handleUnblockUser = async (userId: string) => {
-    setActionLoading(userId);
-    try {
-      await adminService.unblockUser(userId);
-      // Refresh the data
-      const response = await adminService.getAllUsers({
-        page: currentPage,
-        limit: 10,
-      });
-      setUsers(response.users);
-      setUsersPagination(response.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to unblock user");
-    } finally {
+  const handleBlockUser = useMutation({
+    mutationFn: adminService.blockUser,
+    onMutate: async (userId) => {
+      setActionLoading(userId);
+      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.allUsers] }); // Cancel outgoing queries
+
+      // Snapshot the previous value
+      const previousUsers = queryClient.getQueryData([
+        QUERY_KEYS.allUsers,
+        currentPage,
+      ]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(
+        [QUERY_KEYS.allUsers, currentPage],
+        (oldData: typeof usersData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            users: oldData.users.map((user) =>
+              user.id === userId ? { ...user, isBlocked: true } : user
+            ),
+          };
+        }
+      );
+
+      // Also update search results if search is active
+      if (isSearchActive) {
+        setSearchResults(prev => 
+          adminSearchService.updateUserBlockedStatus(userId, true, prev)
+        );
+      }
+
+      return { previousUsers };
+    },
+    onError: (err, userId, context) => {
+      queryClient.setQueryData(
+        [QUERY_KEYS.allUsers, currentPage],
+        context?.previousUsers
+      ); // Rollback on error
+      
+      // Also rollback search results if search is active
+      if (isSearchActive) {
+        setSearchResults(prev => 
+          adminSearchService.updateUserBlockedStatus(userId, false, prev)
+        );
+      }
+      
+      console.error("Failed to block user:", err);
+    },
+    onSettled: () => {
       setActionLoading(null);
-    }
-  };
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allUsers] }); // Invalidate to refetch fresh data
+    },
+  });
+
+  const handleUnblockUser = useMutation({
+    mutationFn: adminService.unblockUser,
+    onMutate: async (userId) => {
+      setActionLoading(userId);
+      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.allUsers] });
+
+      const previousUsers = queryClient.getQueryData([
+        QUERY_KEYS.allUsers,
+        currentPage,
+      ]);
+
+      queryClient.setQueryData(
+        [QUERY_KEYS.allUsers, currentPage],
+        (oldData: typeof usersData) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            users: oldData.users.map((user) =>
+              user.id === userId ? { ...user, isBlocked: false } : user
+            ),
+          };
+        }
+      );
+
+      // Also update search results if search is active
+      if (isSearchActive) {
+        setSearchResults(prev => 
+          adminSearchService.updateUserBlockedStatus(userId, false, prev)
+        );
+      }
+
+      return { previousUsers };
+    },
+    onError: (err, userId, context) => {
+      queryClient.setQueryData(
+        [QUERY_KEYS.allUsers, currentPage],
+        context?.previousUsers
+      );
+      
+      // Also rollback search results if search is active
+      if (isSearchActive) {
+        setSearchResults(prev => 
+          adminSearchService.updateUserBlockedStatus(userId, true, prev)
+        );
+      }
+      
+      console.error("Failed to unblock user:", err);
+    },
+    onSettled: () => {
+      setActionLoading(null);
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allUsers] });
+    },
+  });
 
   // Group chat action handlers
   const handleAddPeople = (conversation: AdminGroupConversation) => {
@@ -152,18 +260,9 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
     setIsPromoteMemberModalOpen(true);
   };
 
-  const handleMembersAdded = async () => {
-    // Refresh the group conversations data
-    try {
-      const response = await adminService.getAllGroupConversations({
-        page: currentPage,
-        limit: 10,
-      });
-      setGroupConversations(response.conversations);
-      setGroupsPagination(response.pagination);
-    } catch (err) {
-      console.error("Failed to refresh group conversations:", err);
-    }
+  const handleMembersAdded = () => {
+    // Invalidate group chats query to refetch data after members are added
+    queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allGroupChats] });
   };
 
   const handleConfirmRemoveMembers = (userIds: string[]) => {
@@ -184,39 +283,60 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
     setIsConfirmModalOpen(true);
   };
 
-  const executeConfirmAction = async () => {
+  const executeConfirmActionMutation = useMutation({
+    mutationFn: async ({
+      conversationId,
+      actionType,
+      data,
+    }: {
+      conversationId: string;
+      actionType: "remove" | "promote";
+      data: string | string[];
+    }) => {
+      if (actionType === "remove") {
+        await adminService.removeMembersFromGroup(
+          conversationId,
+          data as string[]
+        );
+      } else if (actionType === "promote") {
+        await adminService.promoteGroupMember(conversationId, data as string);
+      }
+    },
+    onMutate: async (variables) => {
+      setActionLoading(variables.conversationId);
+      await queryClient.cancelQueries({ queryKey: [QUERY_KEYS.allGroupChats] });
+
+      const previousGroupChats = queryClient.getQueryData([
+        QUERY_KEYS.allGroupChats,
+        currentPage,
+      ]);
+
+      // Optimistic update for group chats (more complex, consider if truly necessary for this UI)
+      // For simplicity, we'll just invalidate on success/error here.
+      return { previousGroupChats };
+    },
+    onError: (err, _variables, context) => {
+      queryClient.setQueryData(
+        [QUERY_KEYS.allGroupChats, currentPage],
+        context?.previousGroupChats
+      );
+      console.error("Action failed:", err);
+    },
+    onSettled: () => {
+      setActionLoading(null);
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.allGroupChats] }); // Invalidate to refetch fresh data
+      closeAllModals(); // Close modals after action
+    },
+  });
+
+  const executeConfirmAction = () => {
     if (!confirmAction || !selectedGroupChat) return;
 
-    setActionLoading(selectedGroupChat.id);
-    try {
-      if (confirmAction.type === "remove") {
-        await adminService.removeMembersFromGroup(
-          selectedGroupChat.id,
-          confirmAction.data as string[]
-        );
-      } else if (confirmAction.type === "promote") {
-        await adminService.promoteGroupMember(
-          selectedGroupChat.id,
-          confirmAction.data as string
-        );
-      }
-
-      // Refresh the data
-      const response = await adminService.getAllGroupConversations({
-        page: currentPage,
-        limit: 10,
-      });
-      setGroupConversations(response.conversations);
-      setGroupsPagination(response.pagination);
-
-      setIsConfirmModalOpen(false);
-      setConfirmAction(null);
-      setSelectedGroupChat(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed");
-    } finally {
-      setActionLoading(null);
-    }
+    executeConfirmActionMutation.mutate({
+      conversationId: selectedGroupChat.id,
+      actionType: confirmAction.type,
+      data: confirmAction.data,
+    });
   };
 
   const closeAllModals = () => {
@@ -242,11 +362,27 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   };
 
   const renderUsersTable = () => {
-    if (loading) return <Loader size="lg" className="mx-auto" />;
-    if (error) return <Alert color="red">{error}</Alert>;
-    if (users.length === 0) return <p>No users found.</p>;
+    // Show loading for regular data or search
+    if ((isLoadingUsers && !isSearchActive) || (isLoadingSearch && isSearchActive)) {
+      return <Loader size="lg" className="mx-auto" />;
+    }
+    
+    // Show error for regular data fetch
+    if (isErrorUsers && !isSearchActive) {
+      return (
+        <Alert color="red">{usersError?.message || "An error occurred"}</Alert>
+      );
+    }
+    
+    // Show no results message
+    if (displayUsers.length === 0) {
+      if (isSearchActive) {
+        return <Text ta="center" c="dimmed">No users found matching your search.</Text>;
+      }
+      return <Text ta="center" c="dimmed">No users found.</Text>;
+    }
 
-    const rows = users.map((user) => (
+    const rows = displayUsers.map((user) => (
       <Table.Tr key={user.id}>
         <Table.Td>{user.userName}</Table.Td>
         <Table.Td>{user.firstName}</Table.Td>
@@ -255,14 +391,22 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         <Table.Td>
           {user.isBlocked ? (
             <LockOpenIcon
-              className={`size-6 text-green-500 cursor-pointer ${actionLoading === user.id ? "opacity-50" : ""}`}
-              onClick={() => handleUnblockUser(user.id)}
+              className={`size-6 text-green-500 cursor-pointer ${
+                handleUnblockUser.isPending && actionLoading === user.id
+                  ? "opacity-50"
+                  : ""
+              }`}
+              onClick={() => handleUnblockUser.mutate(user.id)}
               title="Unblock user"
             />
           ) : (
             <NoSymbolIcon
-              className={`size-6 text-red-500 cursor-pointer ${actionLoading === user.id ? "opacity-50" : ""}`}
-              onClick={() => handleBlockUser(user.id)}
+              className={`size-6 text-red-500 cursor-pointer ${
+                handleBlockUser.isPending && actionLoading === user.id
+                  ? "opacity-50"
+                  : ""
+              }`}
+              onClick={() => handleBlockUser.mutate(user.id)}
               title="Block user"
             />
           )}
@@ -287,11 +431,17 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   };
 
   const renderGroupChatsTable = () => {
-    if (loading) return <Loader size="lg" className="mx-auto" />;
-    if (error) return <Alert color="red">{error}</Alert>;
-    if (groupConversations.length === 0) return <p>No group chats found.</p>;
+    if (isLoadingGroupChats) return <Loader size="lg" className="mx-auto" />;
+    if (isErrorGroupChats)
+      return (
+        <Alert color="red">
+          {groupChatsError?.message || "An error occurred"}
+        </Alert>
+      );
+    if (!groupChatsData || groupChatsData.conversations.length === 0)
+      return <p>No group chats found.</p>;
 
-    const rows = groupConversations.map((conversation) => (
+    const rows = groupChatsData.conversations.map((conversation) => (
       <Table.Tr key={conversation.id}>
         <Table.Td>{conversation.groupName || "Unnamed Group"}</Table.Td>
         <Table.Td>
@@ -303,8 +453,14 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
               <Button
                 variant="subtle"
                 size="sm"
-                disabled={actionLoading === conversation.id}
-                loading={actionLoading === conversation.id}
+                disabled={
+                  executeConfirmActionMutation.isPending &&
+                  actionLoading === conversation.id
+                }
+                loading={
+                  executeConfirmActionMutation.isPending &&
+                  actionLoading === conversation.id
+                }
               >
                 <EllipsisVerticalIcon className="size-4" />
               </Button>
@@ -362,8 +518,13 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   };
 
   const renderPagination = () => {
+    // Don't show pagination during search
+    if (isSearchActive) return null;
+    
     const pagination =
-      activeTab === "users" ? usersPagination : groupsPagination;
+      activeTab === "users"
+        ? usersData?.pagination
+        : groupChatsData?.pagination;
 
     if (!pagination || pagination.totalPages <= 1) return null;
 
@@ -393,7 +554,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
       return { title: "", message: "", confirmText: "", color: "blue" };
 
     if (confirmAction.type === "remove") {
-      const userCount = confirmAction.data.length;
+      const userCount = (confirmAction.data as string[]).length;
       return {
         title: "Confirm Remove Members",
         message: `Are you sure you want to remove ${userCount} member(s) from "${selectedGroupChat.groupName || "this group"}"`,
@@ -402,7 +563,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
       };
     } else if (confirmAction.type === "promote") {
       const selectedUser = selectedGroupChat.participants.find(
-        (p) => p.id === confirmAction.data
+        (p) => p.id === (confirmAction.data as string)
       );
       return {
         title: "Confirm Promote Member",
@@ -422,6 +583,19 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
           <Box mb="lg">
             <Title order={2}>{getTitle()}</Title>
           </Box>
+          
+          {/* Search input - only show for users tab */}
+          {activeTab === "users" && (
+            <AdminSearchInput
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              isSearchActive={isSearchActive}
+              isLoadingSearch={isLoadingSearch}
+              searchResults={searchResults}
+              placeholder="Search users by name or username..."
+            />
+          )}
+          
           {activeTab === "users" ? renderUsersTable() : renderGroupChatsTable()}
           {renderPagination()}
         </div>
@@ -467,7 +641,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
         opened={isConfirmModalOpen}
         onClose={closeAllModals}
         onConfirm={executeConfirmAction}
-        isLoading={actionLoading !== null}
+        isLoading={executeConfirmActionMutation.isPending}
         {...getConfirmMessage()}
       />
     </main>

@@ -6,7 +6,7 @@ import type { Message } from "../types";
  * @returns A formatted string describing the group event
  */
 export function getGroupEventText(message: Message): string {
-  const senderName = `${message.sender.userName}`;
+  const senderName = `${message.sender.role === "superAdmin" ? "An admin" : message.sender.userName}`;
   const targetName = message.groupEventData?.targetUser
     ? `${message.groupEventData.targetUser.userName}`
     : "";
