@@ -59,7 +59,7 @@ export const NewMessageView: React.FC<EmptyStateProps> = ({ className = "" }) =>
 );
 
 export const NoMessagesView: React.FC<EmptyStateProps> = ({ className = "" }) => (
-  <div className={`flex flex-col items-center justify-center py-8 ${className}`}>
+  <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 py-8 ${className}`}>
     <div className="text-center">
       <div className="mb-4">
         <svg

@@ -37,6 +37,11 @@ export default function MessageWindow() {
     null | typeof messages
   >(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewConversationId, setPreviewConversationId] = useState<string | null>(null);
+  const [previewHasMoreMessages, setPreviewHasMoreMessages] = useState(false);
+  const [previewIsLoadingOlderMessages, setPreviewIsLoadingOlderMessages] = useState(false);
+  
+  const previewLoadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Use intersection observer to mark conversation as read when visible
   const { ref: conversationRef } = useConversationRead(
@@ -66,6 +71,35 @@ export default function MessageWindow() {
     enabled: hasMoreMessages && !isLoadingOlderMessages,
   });
 
+  // Load older messages for preview window
+  const handleLoadOlderPreviewMessages = useCallback(() => {
+    if (previewConversationId && previewHasMoreMessages && !previewIsLoadingOlderMessages) {
+      setPreviewIsLoadingOlderMessages(true);
+      loadOlderMessages(previewConversationId)
+        .then(() => {
+          // Update preview messages with the new data from store
+          const currentMessages = useConversationStore.getState().messages;
+          setPreviewMessages([...currentMessages]);
+          // Update hasMoreMessages state based on the store
+          const currentHasMore = useConversationStore.getState().hasMoreMessages;
+          setPreviewHasMoreMessages(currentHasMore);
+        })
+        .finally(() => setPreviewIsLoadingOlderMessages(false));
+    }
+  }, [
+    previewConversationId,
+    previewHasMoreMessages,
+    previewIsLoadingOlderMessages,
+    loadOlderMessages,
+  ]);
+
+  // Use intersection observer to trigger loading more preview messages
+  useIntersectionObserverCallback({
+    target: previewLoadMoreTriggerRef,
+    onIntersect: handleLoadOlderPreviewMessages,
+    enabled: previewHasMoreMessages && !previewIsLoadingOlderMessages,
+  });
+
   useEffect(() => {
     const shouldPreview =
       isNewMessage && newMessageRecipients.length === 1 && !activeConversation;
@@ -85,19 +119,27 @@ export default function MessageWindow() {
 
       if (directConversation) {
         setPreviewLoading(true);
+        setPreviewConversationId(directConversation._id);
         // Load messages but do NOT set activeConversation
         loadMessages(directConversation._id)
           .then(() => {
             // After loading, copy messages from store
-            setPreviewMessages([...useConversationStore.getState().messages]);
+            const storeState = useConversationStore.getState();
+            setPreviewMessages([...storeState.messages]);
+            setPreviewHasMoreMessages(storeState.hasMoreMessages);
           })
           .finally(() => setPreviewLoading(false));
       } else {
         setPreviewMessages([]);
+        setPreviewConversationId(null);
+        setPreviewHasMoreMessages(false);
       }
     } else {
       setPreviewMessages(null);
       setPreviewLoading(false);
+      setPreviewConversationId(null);
+      setPreviewHasMoreMessages(false);
+      setPreviewIsLoadingOlderMessages(false);
     }
     // Only run when newMessageRecipients, isNewMessage, conversations change
   }, [
@@ -193,7 +235,16 @@ export default function MessageWindow() {
             {previewLoading ? (
               <MessagesLoadingSpinner />
             ) : previewMessages && previewMessages.length > 0 ? (
-              renderMessages()
+              <MessageList
+                messages={previewMessages}
+                hasMoreMessages={previewHasMoreMessages}
+                isLoadingOlderMessages={previewIsLoadingOlderMessages}
+                loadMoreTriggerRef={previewLoadMoreTriggerRef}
+                activeConversationData={conversations.find(
+                  (conv) => conv._id === previewConversationId
+                )}
+                usersWhoLastReadEachMessage={new Map()} // No read status for preview
+              />
             ) : (
               <EmptyStates type="noMessages" />
             )}
