@@ -24,27 +24,14 @@ export const MessageList: React.FC<MessageListProps> = ({
   usersWhoLastReadEachMessage,
 }) => {
   const renderedElements: ReactElement[] = [];
+  
+  // Reverse messages array for display (newest at bottom visually due to column-reverse)
+  const reversedMessages = [...messages].reverse();
 
-  // Add load more trigger at the top if there are more messages
-  if (hasMoreMessages) {
-    renderedElements.push(
-      <div
-        key="load-more-trigger"
-        ref={loadMoreTriggerRef}
-        className="flex justify-center py-4"
-      >
-        {isLoadingOlderMessages ? (
-          <OlderMessagesLoadingSpinner />
-        ) : (
-          <div className="text-gray-400 text-sm">
-            Scroll up to load older messages
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  messages.forEach((message, index) => {
+  // Add messages to rendered elements
+  reversedMessages.forEach((message, reverseIndex) => {
+    // Calculate original index for read status
+    const index = messages.length - 1 - reverseIndex;
     const isLast = index === messages.length - 1;
     const previousMessage = index > 0 ? messages[index - 1] : null;
     const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
@@ -56,16 +43,6 @@ export const MessageList: React.FC<MessageListProps> = ({
       message.createdAt,
       previousMessage?.createdAt || null
     );
-
-    // Add timestamp separator if needed
-    if (showSeparator) {
-      renderedElements.push(
-        <TimestampSeparator
-          key={`separator-${message._id}`}
-          timestamp={message.createdAt}
-        />
-      );
-    }
 
     // Check if there will be a timestamp separator after this message
     const nextMessageShowsSeparator = nextMessage
@@ -93,7 +70,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     const usersWhoLastReadThisMessage =
       usersWhoLastReadEachMessage.get(index) || [];
 
-    // Add the message bubble
+    // Add the message bubble first
     renderedElements.push(
       <MessageBubble
         key={message._id}
@@ -104,7 +81,36 @@ export const MessageList: React.FC<MessageListProps> = ({
         showAvatar={showAvatar}
       />
     );
+
+    // Add timestamp separator after message (will appear above message due to column-reverse)
+    if (showSeparator) {
+      renderedElements.push(
+        <TimestampSeparator
+          key={`separator-${message._id}`}
+          timestamp={message.createdAt}
+        />
+      );
+    }
   });
+
+  // Add load more trigger at the end (will appear at top due to column-reverse)
+  if (hasMoreMessages) {
+    renderedElements.push(
+      <div
+        key="load-more-trigger"
+        ref={loadMoreTriggerRef}
+        className="flex justify-center py-4"
+      >
+        {isLoadingOlderMessages ? (
+          <OlderMessagesLoadingSpinner />
+        ) : (
+          <div className="text-gray-400 text-sm">
+            Scroll up to load older messages
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return <>{renderedElements}</>;
 };

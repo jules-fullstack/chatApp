@@ -92,6 +92,26 @@ export default function MessageBubble({
 
   return (
     <>
+      {/* Read status with user avatars - positioned first so it appears below message due to column-reverse */}
+      {isOwnMessage && hasBeenRead && readByUsers.length > 0 && (
+        <div className="flex justify-end mb-1">
+          <div className="flex items-center space-x-1">
+            {readByUsers.slice(0, 3).map(({ userId, user }) => (
+              <Avatar
+                key={userId}
+                user={user}
+                size="sm"
+                className="!w-4 !h-4"
+              />
+            ))}
+            {readByUsers.length > 3 && (
+              <span className="text-xs text-gray-500">
+                +{readByUsers.length - 3}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       <div
         className={`flex items-end ${isOwnMessage ? "justify-end" : "justify-start"} mb-1`}
       >
@@ -135,26 +155,6 @@ export default function MessageBubble({
           )}
         </div>
       </div>
-      {/* Read status with user avatars - only show for users who last read this specific message */}
-      {isOwnMessage && hasBeenRead && readByUsers.length > 0 && (
-        <div className="flex justify-end mb-1">
-          <div className="flex items-center space-x-1">
-            {readByUsers.slice(0, 3).map(({ userId, user }) => (
-              <Avatar
-                key={userId}
-                user={user}
-                size="sm"
-                className="!w-4 !h-4"
-              />
-            ))}
-            {readByUsers.length > 3 && (
-              <span className="text-xs text-gray-500">
-                +{readByUsers.length - 3}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Image Modal */}
       {message.attachments && message.attachments.length > 0 && (

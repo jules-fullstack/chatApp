@@ -11,7 +11,6 @@ import { useChatStore } from "../../store/chatStore";
 import { useConversationStore } from "../../store/conversationStore";
 import { useConversationRead } from "../../hooks/useMessageRead";
 import { useIntersectionObserverCallback } from "../../hooks/useIntersectionObserver";
-import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { useMessageFiltering } from "../../hooks/useMessageFiltering";
 import { useReadStatus } from "../../hooks/useReadStatus";
 import type { Message } from "../../types";
@@ -45,11 +44,8 @@ export default function MessageWindow() {
     !!activeConversation
   );
 
-  // Auto-scroll functionality
-  const { messagesEndRef, messagesContainerRef } = useAutoScroll({
-    messages,
-    activeConversation,
-  });
+  // Message container ref for scroll functionality
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Load older messages when user scrolls to top
   const handleLoadOlderMessages = useCallback(() => {
@@ -192,14 +188,16 @@ export default function MessageWindow() {
     return (
       <Container size="lg">
         <ConversationHeader />
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          {previewLoading ? (
-            <MessagesLoadingSpinner />
-          ) : previewMessages && previewMessages.length > 0 ? (
-            renderMessages()
-          ) : (
-            <EmptyStates type="noMessages" />
-          )}
+        <div className="flex-1 overflow-y-auto p-4 pb-20 flex flex-col-reverse">
+          <div className="flex flex-col-reverse">
+            {previewLoading ? (
+              <MessagesLoadingSpinner />
+            ) : previewMessages && previewMessages.length > 0 ? (
+              renderMessages()
+            ) : (
+              <EmptyStates type="noMessages" />
+            )}
+          </div>
         </div>
         <MessageSender />
       </Container>
@@ -221,12 +219,11 @@ export default function MessageWindow() {
 
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 pb-20"
+        className="flex-1 overflow-y-auto p-4 pb-20 flex flex-col-reverse"
       >
-        <div ref={conversationRef}>
-          {renderMessages()}
+        <div ref={conversationRef} className="flex flex-col-reverse">
           {isTyping && <TypingIndicator typingUsers={typingUsersArray} />}
-          <div ref={messagesEndRef} />
+          {renderMessages()}
         </div>
       </div>
 

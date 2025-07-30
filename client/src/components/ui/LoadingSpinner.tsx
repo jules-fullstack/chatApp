@@ -19,7 +19,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   const getVariantClasses = () => {
     switch (variant) {
       case 'messages':
-        return 'flex items-center justify-center py-8';
+        return 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 py-8';
       case 'inline':
         return 'flex items-center space-x-2';
       default:
