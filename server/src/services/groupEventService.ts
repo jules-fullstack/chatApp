@@ -12,8 +12,15 @@ export interface GroupEventData {
 
 export class GroupEventService {
   static async createGroupEvent(
-    eventType: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded' | 'userJoinedViaInvitation',
-    data: GroupEventData
+    eventType:
+      | 'nameChange'
+      | 'photoChange'
+      | 'userLeft'
+      | 'userPromoted'
+      | 'userRemoved'
+      | 'userAdded'
+      | 'userJoinedViaInvitation',
+    data: GroupEventData,
   ) {
     const eventMessage = new Message({
       conversation: data.conversationId,
@@ -28,16 +35,16 @@ export class GroupEventService {
     });
 
     const savedMessage = await eventMessage.save();
-    
+
     // Update the conversation's lastMessage and lastMessageAt
     await Conversation.findByIdAndUpdate(data.conversationId, {
       lastMessage: savedMessage._id,
       lastMessageAt: new Date(),
     });
-    
+
     // Populate the message with sender and target user data
     return await Message.findById(savedMessage._id)
-      .populate('sender', 'firstName lastName userName')
+      .populate('sender', 'firstName lastName userName role')
       .populate({
         path: 'sender',
         populate: {
@@ -61,7 +68,7 @@ export class GroupEventService {
     conversationId: Types.ObjectId,
     actorUserId: Types.ObjectId,
     oldName: string,
-    newName: string
+    newName: string,
   ) {
     return this.createGroupEvent('nameChange', {
       conversationId,
@@ -73,7 +80,7 @@ export class GroupEventService {
 
   static async createPhotoChangeEvent(
     conversationId: Types.ObjectId,
-    actorUserId: Types.ObjectId
+    actorUserId: Types.ObjectId,
   ) {
     return this.createGroupEvent('photoChange', {
       conversationId,
@@ -83,7 +90,7 @@ export class GroupEventService {
 
   static async createUserLeftEvent(
     conversationId: Types.ObjectId,
-    userId: Types.ObjectId
+    userId: Types.ObjectId,
   ) {
     return this.createGroupEvent('userLeft', {
       conversationId,
@@ -95,7 +102,7 @@ export class GroupEventService {
   static async createUserPromotedEvent(
     conversationId: Types.ObjectId,
     actorUserId: Types.ObjectId,
-    targetUserId: Types.ObjectId
+    targetUserId: Types.ObjectId,
   ) {
     return this.createGroupEvent('userPromoted', {
       conversationId,
@@ -107,7 +114,7 @@ export class GroupEventService {
   static async createUserRemovedEvent(
     conversationId: Types.ObjectId,
     actorUserId: Types.ObjectId,
-    targetUserId: Types.ObjectId
+    targetUserId: Types.ObjectId,
   ) {
     return this.createGroupEvent('userRemoved', {
       conversationId,
@@ -119,7 +126,7 @@ export class GroupEventService {
   static async createUserAddedEvent(
     conversationId: Types.ObjectId,
     actorUserId: Types.ObjectId,
-    targetUserId: Types.ObjectId
+    targetUserId: Types.ObjectId,
   ) {
     return this.createGroupEvent('userAdded', {
       conversationId,
@@ -130,7 +137,7 @@ export class GroupEventService {
 
   static async createUserJoinedViaInvitationEvent(
     conversationId: Types.ObjectId,
-    userId: Types.ObjectId
+    userId: Types.ObjectId,
   ) {
     return this.createGroupEvent('userJoinedViaInvitation', {
       conversationId,

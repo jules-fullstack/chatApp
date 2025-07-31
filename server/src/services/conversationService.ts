@@ -51,7 +51,7 @@ class ConversationService {
       'sender',
       {
         path: 'sender',
-        select: 'firstName lastName userName',
+        select: 'firstName lastName userName role',
         populate: {
           path: 'avatar',
           match: { isDeleted: false },
@@ -112,11 +112,11 @@ class ConversationService {
         populate: [
           {
             path: 'sender',
-            select: 'firstName lastName userName',
+            select: 'firstName lastName userName role',
           },
           {
             path: 'groupEventData.targetUser',
-            select: 'firstName lastName userName',
+            select: 'firstName lastName userName role',
           },
         ],
       },
@@ -143,7 +143,11 @@ class ConversationService {
   /**
    * Get messages for a conversation with pagination
    */
-  async getConversationMessages(conversationId: string, limit: number, before?: string) {
+  async getConversationMessages(
+    conversationId: string,
+    limit: number,
+    before?: string,
+  ) {
     let messageQuery: any = { conversation: conversationId };
 
     if (before) {
@@ -173,7 +177,10 @@ class ConversationService {
    */
   async findOrCreateDirectConversation(senderId: string, recipientId: string) {
     // Try to find existing conversation
-    let conversation = await (Conversation as any).findBetweenUsers(senderId, recipientId);
+    let conversation = await (Conversation as any).findBetweenUsers(
+      senderId,
+      recipientId,
+    );
 
     if (!conversation) {
       // Create new direct conversation
@@ -199,7 +206,11 @@ class ConversationService {
   /**
    * Create a new group conversation
    */
-  async createGroupConversation(participants: string[], groupName: string | null, adminId: string) {
+  async createGroupConversation(
+    participants: string[],
+    groupName: string | null,
+    adminId: string,
+  ) {
     // Create group conversation using existing model method
     const conversation = await (Conversation as any).createGroup(
       participants,
@@ -210,12 +221,15 @@ class ConversationService {
     // Initialize unread counts and readAt for all participants
     const unreadCount = new Map();
     const readAt = new Map();
-    
+
     participants.forEach((participantId) => {
       unreadCount.set(participantId, 0);
-      readAt.set(participantId, participantId === adminId ? new Date() : new Date(0));
+      readAt.set(
+        participantId,
+        participantId === adminId ? new Date() : new Date(0),
+      );
     });
-    
+
     conversation.unreadCount = unreadCount;
     conversation.readAt = readAt;
     await conversation.save();
@@ -235,8 +249,14 @@ class ConversationService {
   /**
    * Find conversation between two users
    */
-  async findConversationBetweenUsers(currentUserId: string, otherUserId: string) {
-    return await (Conversation as any).findBetweenUsers(currentUserId, otherUserId);
+  async findConversationBetweenUsers(
+    currentUserId: string,
+    otherUserId: string,
+  ) {
+    return await (Conversation as any).findBetweenUsers(
+      currentUserId,
+      otherUserId,
+    );
   }
 
   /**
