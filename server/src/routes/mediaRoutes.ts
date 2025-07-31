@@ -27,10 +27,10 @@ const router = express.Router();
 router.post(
   '/upload',
   ensureAuthenticated,
-  uploadMiddleware,
-  validateFileUpload,
-  validateMediaUploadFields,
-  validateParentExists,
+  uploadMiddleware as any,
+  validateFileUpload as any,
+  validateMediaUploadFields as any,
+  validateParentExists as any,
   uploadMedia as any,
 );
 
@@ -38,8 +38,8 @@ router.post(
 router.delete(
   '/:mediaId',
   ensureAuthenticated,
-  validateMediaExists,
-  validateMediaOwnership, // Optional: remove if not needed
+  validateMediaExists as any,
+  validateMediaOwnership as any, // Optional: remove if not needed
   deleteMedia as any,
 );
 
@@ -47,7 +47,7 @@ router.delete(
 router.get(
   '/:parentType/:parentId',
   validateGetMediaParams,
-  getMediaByParent as any,
+  getMediaByParent,
 );
 
 // Image upload route (moved from messageRoutes) with file validation

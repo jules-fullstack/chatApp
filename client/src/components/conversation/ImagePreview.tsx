@@ -16,7 +16,6 @@ export default function ImagePreview({
   onAddImages,
   maxFiles,
   maxTotalSize,
-  isSubmitting = false,
 }: ImagePreviewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,15 +29,15 @@ export default function ImagePreview({
       onAddImages(files);
     }
     // Reset the input value so the same file can be selected again
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
+    const sizes = ["Bytes", "KB", "MB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const getTotalSize = (): number => {
@@ -57,11 +56,13 @@ export default function ImagePreview({
         <span className="text-sm font-medium text-gray-700">
           Images ({images.length}/{maxFiles})
         </span>
-        <span className={`text-xs ${isOverSizeLimit ? 'text-red-500' : 'text-gray-500'}`}>
+        <span
+          className={`text-xs ${isOverSizeLimit ? "text-red-500" : "text-gray-500"}`}
+        >
           {formatFileSize(totalSize)} / {formatFileSize(maxTotalSize)}
         </span>
       </div>
-      
+
       <div className="flex flex-wrap gap-2">
         {images.map((image, index) => (
           <div key={index} className="relative group">
@@ -78,7 +79,7 @@ export default function ImagePreview({
             </button>
           </div>
         ))}
-        
+
         {!isAtMaxFiles && (
           <button
             onClick={handleAddClick}

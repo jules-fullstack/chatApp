@@ -1,12 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { IUser } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 import { userIdsSchema, singleUserIdSchema } from '../schemas/validations.js';
 import { validateBody } from './zodValidation.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-  conversation?: any;
-}
+// Remove local interface - using the one from types/index.ts
 
 /**
  * Middleware to validate that the conversation is a group conversation
@@ -61,27 +58,30 @@ export const requireGroupAdmin = (
 export const requireGroupMembership = (
   userIdField: string = 'userToRemoveId',
 ) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     const conversation = req.conversation;
-    const targetUserId = req.body[userIdField];
+    const targetUserId = req.body?.[userIdField];
 
     if (!conversation) {
-      return res.status(400).json({ message: 'Conversation not found' });
+      res.status(400).json({ message: 'Conversation not found' });
+      return;
     }
 
     if (!targetUserId) {
-      return res.status(400).json({
+      res.status(400).json({
         message: `${userIdField} is required`,
       });
+      return;
     }
 
     // Check if target user is a participant
     if (
       !conversation.participants.some((p: any) => p.toString() === targetUserId)
     ) {
-      return res.status(400).json({
+      res.status(400).json({
         message: 'User is not a member of this group',
       });
+      return;
     }
 
     next();
@@ -94,14 +94,15 @@ export const requireGroupMembership = (
 export const preventSelfModification = (
   userIdField: string = 'userToRemoveId',
 ) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     const userId = req.user!._id;
-    const targetUserId = req.body[userIdField];
+    const targetUserId = req.body?.[userIdField];
 
     if (targetUserId === userId.toString()) {
-      return res.status(400).json({
+      res.status(400).json({
         message: 'Cannot perform this operation on yourself',
       });
+      return;
     }
 
     next();
@@ -125,7 +126,7 @@ export const validateUsersExist = (userIdsField: string = 'userIds') => {
     ): Promise<void> => {
       try {
         const User = (await import('../models/User.js')).default;
-        const userIds = req.body[userIdsField];
+        const userIds = req.body?.[userIdsField];
 
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
           res.status(400).json({
@@ -181,7 +182,7 @@ export const validateUserExists = (userIdField: string = 'newAdminId') => {
       try {
         const userService = (await import('../services/userService.js'))
           .default;
-        const userId = req.body[userIdField];
+        const userId = req.body?.[userIdField];
 
         if (!userId) {
           res.status(400).json({
@@ -203,7 +204,9 @@ export const validateUserExists = (userIdField: string = 'newAdminId') => {
         }
 
         // Store user info for later use
-        req.body[`${userIdField}Info`] = user;
+        if (req.body) {
+          req.body[`${userIdField}Info`] = user;
+        }
         next();
       } catch (error) {
         console.error('Error validating user exists:', error);

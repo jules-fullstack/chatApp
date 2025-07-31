@@ -1,5 +1,5 @@
 import { RouterProvider } from "@tanstack/react-router";
-import { router } from "./router";
+import { router } from "./routes/__root";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { useEffect } from "react";

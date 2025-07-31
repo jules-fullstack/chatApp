@@ -1,11 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import Conversation from '../models/Conversation.js';
-import { IUser } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-  conversation?: any;
-}
+// Using centralized AuthenticatedRequest from types/index.ts
 
 /**
  * Middleware to validate message sending permissions for existing conversations
@@ -14,7 +11,7 @@ export const requireMessagePermission = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const { conversationId } = req.body;
     const userId = req.user!._id;
@@ -28,16 +25,18 @@ export const requireMessagePermission = async (
     const conversation = await Conversation.findById(conversationId);
     
     if (!conversation) {
-      return res.status(404).json({
+      res.status(404).json({
         message: 'Conversation not found',
       });
+      return;
     }
 
     // Check if user is a participant in the conversation
     if (!conversation.participants.includes(userId)) {
-      return res.status(403).json({
+      res.status(403).json({
         message: 'Not authorized to send message to this conversation',
       });
+      return;
     }
 
     // Attach conversation to request for use in controller

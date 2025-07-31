@@ -31,6 +31,8 @@ import {
   checkExistingUsers,
   checkExistingInvitations,
 } from '../middlewares/invitationValidation.js';
+import { AuthenticatedRequest } from '../types/index.js';
+import { Request, Response, NextFunction } from 'express';
 
 const router = express.Router();
 
@@ -122,7 +124,7 @@ router.post(
   requireConversationAccess,
   requireGroupConversation,
   requireGroupAdmin,
-  (req, res, next) => {
+  (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
     // Move userToRemoveId from params to body for middleware compatibility
     req.body.userToRemoveId = req.params.userToRemoveId;
     next();

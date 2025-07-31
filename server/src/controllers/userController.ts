@@ -1,12 +1,9 @@
 import { Request, Response } from 'express';
-import { IUser, AuthRequest } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 import userService from '../services/userService.js';
 import WebSocketManager from '../config/websocket.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-  file?: Express.Multer.File;
-}
+// Using centralized AuthenticatedRequest from types/index.ts
 
 export const updateProfile = async (
   req: AuthenticatedRequest,
@@ -248,7 +245,7 @@ export const checkIfBlockedBy = async (
 };
 
 export const searchUsers = async (
-  req: AuthRequest & { validatedQuery: { query: string } },
+  req: AuthenticatedRequest & { validatedQuery: { query: string } },
   res: Response,
 ): Promise<void> => {
   try {

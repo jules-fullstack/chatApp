@@ -1,20 +1,14 @@
 import { Request, Response } from 'express';
 import mediaService from '../services/mediaService.js';
 import invitationService from '../services/invitationService.js';
-import { IUser } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 import { GroupEventService } from '../services/groupEventService.js';
 import conversationService from '../services/conversationService.js';
 import userService from '../services/userService.js';
 import notificationService from '../services/notificationService.js';
 import messageService from '../services/messageService.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-  conversation?: any;
-  validatedEmails?: string[];
-  newEmails?: string[];
-  alreadyInvitedEmails?: string[];
-}
+// Using centralized AuthenticatedRequest from types/index.ts
 
 export const getAllGroupConversations = async (
   req: AuthenticatedRequest,
@@ -287,7 +281,7 @@ export const getConversations = async (
   }
 };
 
-export const markAsRead = async (req: AuthenticatedRequest, res: Response) => {
+export const markAsRead = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
     const conversation = req.conversation; // From middleware
@@ -379,7 +373,7 @@ export const updateGroupName = async (
   }
 };
 
-export const leaveGroup = async (req: AuthenticatedRequest, res: Response) => {
+export const leaveGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!._id;
     const conversation = req.conversation; // From middleware
@@ -462,9 +456,10 @@ export const addMembersToGroup = async (
     );
 
     if (newUserIds.length === 0) {
-      return res
+      res
         .status(400)
         .json({ message: 'All users are already members of this group' });
+      return;
     }
 
     // Add new members to the conversation

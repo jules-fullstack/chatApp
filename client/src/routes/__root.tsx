@@ -5,13 +5,13 @@ import {
   Outlet,
   redirect,
 } from "@tanstack/react-router";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import UserDashboard from "./pages/UserDashboard";
-import OTPVerify from "./pages/OTPVerify";
-import AdminDashboard from "./pages/AdminDashboard";
-import { API_BASE_URL } from "./config";
-import { userStore } from "./store/userStore";
+import Login from "../pages/Login";
+import Register from "../pages/Register";
+import UserDashboard from "../pages/UserDashboard";
+import OTPVerify from "../pages/OTPVerify";
+import AdminDashboard from "../pages/AdminDashboard";
+import { API_BASE_URL } from "../config";
+import { userStore } from "../store/userStore";
 
 const checkPendingVerification = async (): Promise<boolean> => {
   try {

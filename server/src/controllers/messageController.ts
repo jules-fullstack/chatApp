@@ -1,18 +1,14 @@
 import { Request, Response } from 'express';
-import { IUser } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 import offlineNotificationService from '../services/offlineNotificationService.js';
 import notificationService from '../services/notificationService.js';
 import blockingService from '../services/blockingService.js';
 import messageService from '../services/messageService.js';
 import conversationService from '../services/conversationService.js';
 
-interface AuthenticatedRequest extends Request {
-  user?: IUser;
-  files?: Express.Multer.File[];
-  conversation?: any;
-}
+// Using centralized AuthenticatedRequest from types/index.ts
 
-export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
+export const sendMessage = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const {
       conversationId,
@@ -33,9 +29,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
       const recipientsExist =
         await conversationService.validateRecipientsExist(recipients);
       if (!recipientsExist) {
-        return res
+        res
           .status(404)
           .json({ message: 'One or more recipients not found' });
+        return;
       }
 
       // Check blocking for direct messages only
@@ -46,9 +43,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
             recipients,
           );
         if (blockingResult.isBlocked) {
-          return res
+          res
             .status(blockingResult.message === 'Sender not found' ? 404 : 403)
             .json({ message: blockingResult.message });
+          return;
         }
 
         // Create or find direct conversation
@@ -76,9 +74,10 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
             conversation.participants,
           );
         if (blockingResult.isBlocked) {
-          return res
+          res
             .status(blockingResult.message === 'Sender not found' ? 404 : 403)
             .json({ message: blockingResult.message });
+          return;
         }
       }
 
@@ -146,7 +145,7 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
   }
 };
 
-export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
+export const getMessages = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { conversationId } = req.params;
     const { page = 1, limit = 50, before } = req.query;
@@ -180,7 +179,7 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
 export const getDirectMessages = async (
   req: AuthenticatedRequest,
   res: Response,
-) => {
+): Promise<void> => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user!._id;
@@ -192,12 +191,13 @@ export const getDirectMessages = async (
     );
 
     if (!conversation) {
-      return res.json({ messages: [] });
+      res.json({ messages: [] });
+      return;
     }
 
     // Use the main getMessages logic
     req.params.conversationId = conversation._id.toString();
-    return getMessages(req, res);
+    await getMessages(req, res);
   } catch (error) {
     console.error('Error fetching direct messages:', error);
     res.status(500).json({ message: 'Internal server error' });

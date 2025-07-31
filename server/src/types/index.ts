@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { Request } from 'express';
 import './session.js';
 
 export interface IUser extends Document {
@@ -42,12 +43,17 @@ export interface OTPVerifyRequest {
   otp: string;
 }
 
-export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    userName: string;
-  };
+// Removed AuthRequest to avoid conflicts with Express global User type
+
+export interface AuthenticatedRequest extends Request {
+  user?: IUser;
+  conversation?: any;
+  validatedEmails?: string[];
+  newEmails?: string[];
+  alreadyInvitedEmails?: string[];
+  files?: any; // Use any to avoid multer type conflicts
+  file?: any; // Use any to avoid multer type conflicts
+  body: any; // Override the strict type to allow dynamic field access
 }
 
 export interface AuthResponse {

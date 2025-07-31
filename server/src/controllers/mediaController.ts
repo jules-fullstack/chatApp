@@ -1,17 +1,16 @@
 import { Request, Response } from 'express';
-import { IUser } from '../types/index.js';
+import { IUser, AuthenticatedRequest } from '../types/index.js';
 import mediaService from '../services/mediaService.js';
 import User from '../models/User.js';
 import Message from '../models/Message.js';
 
-interface AuthRequest extends Request {
-  user?: IUser;
-  file?: Express.Multer.File;
-  files?: Express.Multer.File[];
+// Using centralized AuthenticatedRequest from types/index.ts
+// Adding specific properties needed for media controller
+interface MediaAuthenticatedRequest extends AuthenticatedRequest {
   targetMedia?: any;
 }
 
-export const uploadMedia = async (req: AuthRequest, res: Response) => {
+export const uploadMedia = async (req: MediaAuthenticatedRequest, res: Response): Promise<void> => {
   try {
     // All validations are now handled by middleware
     const { parentType, parentId, usage } = req.body;
@@ -51,7 +50,7 @@ export const uploadMedia = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const deleteMedia = async (req: AuthRequest, res: Response) => {
+export const deleteMedia = async (req: MediaAuthenticatedRequest, res: Response): Promise<void> => {
   try {
     // Media existence and ownership validation handled by middleware
     const targetMedia = req.targetMedia;
@@ -78,7 +77,7 @@ export const deleteMedia = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getMediaByParent = async (req: Request, res: Response) => {
+export const getMediaByParent = async (req: Request, res: Response): Promise<void> => {
   try {
     // Parameter validation handled by middleware
     const { parentType, parentId } = req.params;
@@ -100,7 +99,7 @@ export const getMediaByParent = async (req: Request, res: Response) => {
 
 // Image upload function for temporary/preview uploads
 export const uploadImages = async (
-  req: AuthRequest,
+  req: MediaAuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
