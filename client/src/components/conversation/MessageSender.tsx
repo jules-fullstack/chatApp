@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect, useMemo, type KeyboardEvent } from "react";
 import { useForm } from "react-hook-form";
 import { type MessageFormData } from "../../schemas/messageSchema";
 import { useConversationStore } from "../../store/conversationStore";
@@ -7,7 +7,13 @@ import { ImagePreview } from "./";
 import { BlockingNotification } from "./BlockingNotification";
 import { MessageInputField } from "./MessageInputField";
 import { MessageActions } from "./MessageActions";
-import { useBlockingStatus, useImageUpload, useMessageSender , useMessageValidation,  useTypingIndicator } from "../../hooks";
+import {
+  useBlockingStatus,
+  useImageUpload,
+  useMessageSender,
+  useMessageValidation,
+  useTypingIndicator,
+} from "../../hooks";
 
 export default function MessageSender() {
   const {
@@ -52,8 +58,18 @@ export default function MessageSender() {
 
   const messageValue = watch("message");
 
+  // Reset form when conversation changes or recipients change
+  const recipientIds = useMemo(
+    () => newMessageRecipients.map((r) => r._id).join(","),
+    [newMessageRecipients]
+  );
+
+  useEffect(() => {
+    reset({ message: "" });
+  }, [activeConversation, isNewMessage, recipientIds, reset]);
+
   // Handle typing changes
-  React.useEffect(() => {
+  useEffect(() => {
     handleTypingChange(messageValue);
   }, [messageValue, handleTypingChange]);
 
@@ -95,7 +111,7 @@ export default function MessageSender() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(onSubmit)();
