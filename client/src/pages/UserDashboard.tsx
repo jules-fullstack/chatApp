@@ -8,7 +8,7 @@ import {
   Sidebar,
 } from "../components/conversation";
 import { ProfileModal, UserMenu } from "../components/ui";
-import { useProfileManagement } from "../hooks/useProfileManagement";
+import { useProfileManagement } from "../hooks";
 
 export default function UserDashboard() {
   const user = userStore((state) => state.user);

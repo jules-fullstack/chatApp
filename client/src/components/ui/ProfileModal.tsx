@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Modal, LoadingOverlay } from "@mantine/core";
 import { AvatarUploadSection } from "./AvatarUploadSection";
 import { ProfileForm } from "./ProfileForm";
-import { useProfileManagement } from "../../hooks/useProfileManagement";
+import { useProfileManagement } from "../../hooks";
 
 interface ProfileModalProps {
   isOpen: boolean;

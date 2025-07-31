@@ -3,7 +3,7 @@ import {
   UsersIcon,
   ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
-import { useLogout } from "../../hooks/useLogout";
+import { useLogout } from "../../hooks";
 
 export type AdminTab = "users" | "group-chats";
 

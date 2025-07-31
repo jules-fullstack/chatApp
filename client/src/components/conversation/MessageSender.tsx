@@ -7,11 +7,7 @@ import { ImagePreview } from "./";
 import { BlockingNotification } from "./BlockingNotification";
 import { MessageInputField } from "./MessageInputField";
 import { MessageActions } from "./MessageActions";
-import { useMessageValidation } from "../../hooks/useMessageValidation";
-import { useImageUpload } from "../../hooks/useImageUpload";
-import { useTypingIndicator } from "../../hooks/useTypingIndicator";
-import { useBlockingStatus } from "../../hooks/useBlockingStatus";
-import { useMessageSender } from "../../hooks/useMessageSender";
+import { useBlockingStatus, useImageUpload, useMessageSender , useMessageValidation,  useTypingIndicator } from "../../hooks";
 
 export default function MessageSender() {
   const {

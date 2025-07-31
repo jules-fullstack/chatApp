@@ -3,7 +3,7 @@ import { Modal, Button, Checkbox, ScrollArea } from "@mantine/core";
 import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useForm } from "react-hook-form";
 import { Avatar, FormField } from "../ui";
-import useDebounce from "../../hooks/useDebounce";
+import {useDebounce} from "../../hooks";
 import conversationService from "../../services/conversationService";
 import userSearchService from "../../services/userSearchService";
 import type { SearchedUser, Participant } from "../../types/index";

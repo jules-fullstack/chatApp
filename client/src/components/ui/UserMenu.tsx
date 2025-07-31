@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Menu } from "@mantine/core";
 import { ArrowRightStartOnRectangleIcon, Cog6ToothIcon } from "@heroicons/react/24/outline";
 import Avatar from "./Avatar";
-import { useLogout } from "../../hooks/useLogout";
+import { useLogout } from "../../hooks";
 import { transformUserForAvatar } from "../../utils/profileUtils";
 
 import type { Media } from "../../types";

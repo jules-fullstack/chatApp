@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import adminSearchService from "../../services/adminSearchService";
-import useDebounce from "../useDebounce";
+import {useDebounce} from "../useDebounce";
 import type { AdminUser } from "../../types/admin";
 
 interface UseAdminSearchProps {
