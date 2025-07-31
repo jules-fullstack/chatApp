@@ -13,18 +13,22 @@ interface AuthenticatedRequest extends Request {
 export const requireConversationAccess = async (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
-) => {
+  next: NextFunction,
+): Promise<void> => {
   try {
     const { conversationId } = req.params;
     const userId = req.user!._id;
     const userRole = req.user?.role;
 
     const conversation = await Conversation.findById(conversationId);
-    if (!conversation || (!conversation.participants.includes(userId) && userRole !== 'superAdmin')) {
-      return res.status(403).json({
-        message: 'Not authorized to access this conversation'
+    if (
+      !conversation ||
+      (!conversation.participants.includes(userId) && userRole !== 'superAdmin')
+    ) {
+      res.status(403).json({
+        message: 'Not authorized to access this conversation',
       });
+      return;
     }
 
     // Attach conversation to request for controller reuse
@@ -33,5 +37,6 @@ export const requireConversationAccess = async (
   } catch (error) {
     console.error('Error in conversation auth middleware:', error);
     res.status(500).json({ message: 'Internal server error' });
+    return;
   }
 };

@@ -32,11 +32,13 @@ export const ensureAuthenticated = (
             res.status(403).json({
               message: 'Your account has been blocked from the platform.',
             });
+            return;
           });
         } else {
           res.status(403).json({
             message: 'Your account has been blocked from the platform.',
           });
+          return;
         }
       });
       return;
@@ -45,6 +47,7 @@ export const ensureAuthenticated = (
     return next();
   }
   res.status(401).json({ message: 'Not authenticated' });
+  return;
 };
 
 export const ensureNotAuthenticated = (

@@ -16,13 +16,14 @@ export const requireGroupConversation = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
+): void => {
   const conversation = req.conversation;
 
   if (!conversation.isGroup) {
-    return res.status(400).json({
+    res.status(400).json({
       message: 'This operation is only available for group conversations',
     });
+    return;
   }
 
   next();
@@ -35,7 +36,7 @@ export const requireGroupAdmin = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
-) => {
+): void => {
   const conversation = req.conversation;
   const userId = req.user!._id;
   const userRole = req.user?.role;
@@ -45,9 +46,10 @@ export const requireGroupAdmin = (
     conversation.groupAdmin?.toString() !== userId.toString() &&
     userRole !== 'superAdmin'
   ) {
-    return res.status(403).json({
+    res.status(403).json({
       message: 'Only group admin can perform this operation',
     });
+    return;
   }
 
   next();
@@ -111,8 +113,9 @@ export const preventSelfModification = (
  */
 export const validateUsersExist = (userIdsField: string = 'userIds') => {
   // Only validate if the field name matches the schema
-  const middleware = userIdsField === 'userIds' ? [validateBody(userIdsSchema)] : [];
-  
+  const middleware =
+    userIdsField === 'userIds' ? [validateBody(userIdsSchema)] : [];
+
   return [
     ...middleware,
     async (
@@ -127,7 +130,12 @@ export const validateUsersExist = (userIdsField: string = 'userIds') => {
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
           res.status(400).json({
             message: 'Validation error',
-            errors: [{ field: userIdsField, message: `${userIdsField} are required and must be an array` }],
+            errors: [
+              {
+                field: userIdsField,
+                message: `${userIdsField} are required and must be an array`,
+              },
+            ],
           });
           return;
         }
@@ -136,7 +144,9 @@ export const validateUsersExist = (userIdsField: string = 'userIds') => {
         if (users.length !== userIds.length) {
           res.status(404).json({
             message: 'Validation error',
-            errors: [{ field: userIdsField, message: 'One or more users not found' }],
+            errors: [
+              { field: userIdsField, message: 'One or more users not found' },
+            ],
           });
           return;
         }
@@ -158,8 +168,9 @@ export const validateUsersExist = (userIdsField: string = 'userIds') => {
  */
 export const validateUserExists = (userIdField: string = 'newAdminId') => {
   // Only validate if the field name matches the schema
-  const middleware = userIdField === 'newAdminId' ? [validateBody(singleUserIdSchema)] : [];
-  
+  const middleware =
+    userIdField === 'newAdminId' ? [validateBody(singleUserIdSchema)] : [];
+
   return [
     ...middleware,
     async (
@@ -168,13 +179,16 @@ export const validateUserExists = (userIdField: string = 'newAdminId') => {
       next: NextFunction,
     ): Promise<void> => {
       try {
-        const userService = (await import('../services/userService.js')).default;
+        const userService = (await import('../services/userService.js'))
+          .default;
         const userId = req.body[userIdField];
 
         if (!userId) {
           res.status(400).json({
             message: 'Validation error',
-            errors: [{ field: userIdField, message: `${userIdField} is required` }],
+            errors: [
+              { field: userIdField, message: `${userIdField} is required` },
+            ],
           });
           return;
         }

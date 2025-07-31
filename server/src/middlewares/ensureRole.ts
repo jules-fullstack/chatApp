@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 
 export const ensureRole = (role: 'user' | 'superAdmin') => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.isAuthenticated() || !req.user) {
-      return res.status(401).json({ message: 'Not authenticated' });
+      res.status(401).json({ message: 'Not authenticated' });
+      return;
     }
     if (req.user.role !== role) {
-      return res
-        .status(403)
-        .json({ message: 'Forbidden: insufficient rights' });
+      res.status(403).json({ message: 'Forbidden: insufficient rights' });
+      return;
     }
     next();
   };
