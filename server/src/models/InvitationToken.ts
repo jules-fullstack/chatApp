@@ -47,14 +47,16 @@ const InvitationTokenSchema = new Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Index for faster lookups
-InvitationTokenSchema.index({ token: 1 });
 InvitationTokenSchema.index({ email: 1, conversationId: 1 });
 InvitationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const InvitationToken = model<IInvitationToken>('InvitationToken', InvitationTokenSchema);
+const InvitationToken = model<IInvitationToken>(
+  'InvitationToken',
+  InvitationTokenSchema,
+);
 
 export default InvitationToken;
