@@ -38,6 +38,7 @@ export default function MessageSender() {
     sendLikeMessage,
     handleGroupNameConfirm,
     handleGroupModalClose,
+    setSubmittingState,
   } = useMessageSender();
 
   // Form setup
@@ -62,25 +63,36 @@ export default function MessageSender() {
     const hasImages = selectedImages.length > 0;
     const messageContent = hasText ? data.message.trim() : "";
 
-    // Upload images first if any
-    let imageUrls: string[] = [];
-    if (hasImages) {
-      try {
-        imageUrls = await uploadImages(selectedImages);
-      } catch {
-        return; // uploadImages handles error notifications
-      }
-    }
+    // Set submitting state immediately for instant UI feedback
+    setSubmittingState(true);
 
-    await sendRegularMessage(
-      messageContent,
-      imageUrls,
-      hasText,
-      hasImages,
-      () => reset({ message: "" }),
-      clearImages,
-      stopTypingIndicator
-    );
+    try {
+      // Upload images first if any
+      let imageUrls: string[] = [];
+      if (hasImages) {
+        try {
+          imageUrls = await uploadImages(selectedImages);
+        } catch (error) {
+          // Reset submitting state on upload error
+          setSubmittingState(false);
+          return; // uploadImages handles error notifications
+        }
+      }
+
+      await sendRegularMessage(
+        messageContent,
+        imageUrls,
+        hasText,
+        hasImages,
+        () => reset({ message: "" }),
+        clearImages,
+        stopTypingIndicator
+      );
+    } catch (error) {
+      // Ensure submitting state is reset on any error
+      setSubmittingState(false);
+      console.error("Error in form submission:", error);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -91,16 +103,30 @@ export default function MessageSender() {
   };
 
   const handleLikeClick = async () => {
-    await sendLikeMessage(stopTypingIndicator);
+    // Set submitting state immediately for like messages too
+    setSubmittingState(true);
+    try {
+      await sendLikeMessage(stopTypingIndicator);
+    } catch (error) {
+      setSubmittingState(false);
+      console.error("Error sending like message:", error);
+    }
   };
 
   const handleGroupConfirm = async (groupName: string) => {
-    await handleGroupNameConfirm(
-      groupName,
-      () => reset({ message: "" }),
-      clearImages,
-      stopTypingIndicator
-    );
+    // Set submitting state immediately for group message creation
+    setSubmittingState(true);
+    try {
+      await handleGroupNameConfirm(
+        groupName,
+        () => reset({ message: "" }),
+        clearImages,
+        stopTypingIndicator
+      );
+    } catch (error) {
+      setSubmittingState(false);
+      console.error("Error creating group message:", error);
+    }
   };
 
   const handleMessageSenderClick = () => {

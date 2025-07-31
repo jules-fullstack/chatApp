@@ -108,10 +108,8 @@ export const uploadImages = async (
     const files = req.files as Express.Multer.File[];
     const userId = req.user!._id;
 
-    // Upload images as temporary files for User (for backward compatibility)
-    const uploadedMedia: any[] = [];
-
-    for (const file of files) {
+    // Upload images in parallel using Promise.allSettled for better error handling
+    const uploadPromises = files.map(async (file) => {
       try {
         // Create media record using mediaService - using User as parent for temp uploads
         const media = await mediaService.createMediaFromFile({
@@ -121,24 +119,60 @@ export const uploadImages = async (
           usage: 'general',
         });
 
-        uploadedMedia.push({
-          url: media.url,
-          id: media._id,
-          filename: media.filename,
-          originalName: media.originalName,
-        });
+        return {
+          status: 'fulfilled' as const,
+          value: {
+            url: media.url,
+            id: media._id,
+            filename: media.filename,
+            originalName: media.originalName,
+          },
+        };
       } catch (error) {
         console.error('Error uploading file:', file.originalname, error);
-        throw new Error(`Failed to upload ${file.originalname}`);
+        return {
+          status: 'rejected' as const,
+          reason: `Failed to upload ${file.originalname}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        };
       }
+    });
+
+    const results = await Promise.allSettled(uploadPromises);
+    
+    // Extract successful uploads and failed uploads
+    const uploadedMedia: any[] = [];
+    const failedUploads: string[] = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.status === 'fulfilled') {
+        uploadedMedia.push(result.value.value);
+      } else if (result.status === 'fulfilled' && result.value.status === 'rejected') {
+        failedUploads.push(result.value.reason);
+      } else if (result.status === 'rejected') {
+        failedUploads.push(`Failed to upload ${files[index].originalname}: ${result.reason}`);
+      }
+    });
+
+    // If all uploads failed, return error
+    if (uploadedMedia.length === 0 && failedUploads.length > 0) {
+      throw new Error(`All uploads failed: ${failedUploads.join(', ')}`);
     }
 
-    res.status(200).json({
+    // Return success response with partial failures info if any
+    const response: any = {
       success: true,
       images: uploadedMedia.map((m) => m.url), // Backward compatibility
       media: uploadedMedia, // New format with more details
       count: uploadedMedia.length,
-    });
+    };
+
+    // Include failed uploads info if there were any partial failures
+    if (failedUploads.length > 0) {
+      response.partialFailures = failedUploads;
+      response.totalAttempted = files.length;
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error('Image upload error:', error);
     res.status(500).json({ error: 'Failed to upload images' });

@@ -1,5 +1,6 @@
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import { HandThumbUpIcon, PaperAirplaneIcon } from "@heroicons/react/24/solid";
+import { Loader } from "@mantine/core";
 
 interface MessageActionsProps {
   messageValue: string;
@@ -28,12 +29,12 @@ export function MessageActions({
     <>
       <PhotoIcon
         className={`size-6 mr-4 transition-colors ${
-          hasBlockedUser || isBlockedByUser
+          hasBlockedUser || isBlockedByUser || isSubmitting
             ? "cursor-not-allowed text-gray-400"
             : "cursor-pointer text-gray-500 hover:text-gray-700"
         }`}
         onClick={
-          hasBlockedUser || isBlockedByUser ? undefined : onPhotoClick
+          hasBlockedUser || isBlockedByUser || isSubmitting ? undefined : onPhotoClick
         }
       />
 
@@ -44,7 +45,7 @@ export function MessageActions({
         accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
         onChange={onFileChange}
         className="hidden"
-        disabled={hasBlockedUser || isBlockedByUser}
+        disabled={hasBlockedUser || isBlockedByUser || isSubmitting}
       />
 
       {(messageValue && messageValue.trim()) ||
@@ -58,7 +59,11 @@ export function MessageActions({
               : "text-blue-500 hover:text-blue-700"
           }`}
         >
-          <PaperAirplaneIcon className="size-6 cursor-pointer" />
+          {isSubmitting ? (
+            <Loader size="sm" className="w-6 h-6" />
+          ) : (
+            <PaperAirplaneIcon className="size-6 cursor-pointer" />
+          )}
         </button>
       ) : (
         <button
@@ -73,7 +78,11 @@ export function MessageActions({
               : "text-blue-500 hover:text-blue-700"
           }`}
         >
-          <HandThumbUpIcon className="size-6 cursor-pointer" />
+          {isSubmitting ? (
+            <Loader size="sm" className="w-6 h-6" />
+          ) : (
+            <HandThumbUpIcon className="size-6 cursor-pointer" />
+          )}
         </button>
       )}
     </>

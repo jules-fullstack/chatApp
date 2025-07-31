@@ -42,15 +42,20 @@ export function useMessageSender() {
         color: "orange",
         autoClose: 3000,
       });
+      setIsSubmitting(false); // Reset state if validation fails
       return;
     }
 
     // Validate text if present
     if (hasText && !validateMessage(messageContent)) {
+      setIsSubmitting(false); // Reset state if validation fails
       return;
     }
 
-    setIsSubmitting(true);
+    // Only set submitting state if it's not already set (to avoid overriding external state)
+    if (!isSubmitting) {
+      setIsSubmitting(true);
+    }
 
     try {
       if (isNewMessage) {
@@ -209,10 +214,14 @@ export function useMessageSender() {
 
     if (!validateMessage(thumbsUpMessage)) {
       console.error("Thumbs up message failed validation");
+      setIsSubmitting(false); // Reset state if validation fails
       return;
     }
 
-    setIsSubmitting(true);
+    // Only set submitting state if it's not already set
+    if (!isSubmitting) {
+      setIsSubmitting(true);
+    }
 
     if (isNewMessage) {
       if (newMessageRecipients.length === 0) return;
@@ -288,11 +297,14 @@ export function useMessageSender() {
     if (
       (!pendingMessage && pendingImageUrls.length === 0) ||
       newMessageRecipients.length === 0
-    )
+    ) {
+      setIsSubmitting(false); // Reset state if validation fails
       return;
+    }
 
     if (pendingMessage && !validateMessage(pendingMessage)) {
       console.error("Pending message failed validation");
+      setIsSubmitting(false); // Reset state if validation fails
       return;
     }
 
@@ -301,7 +313,10 @@ export function useMessageSender() {
       return;
     }
 
-    setIsSubmitting(true);
+    // Only set submitting state if it's not already set
+    if (!isSubmitting) {
+      setIsSubmitting(true);
+    }
 
     try {
       const recipientIds = newMessageRecipients.map((r) => r._id);
@@ -352,6 +367,11 @@ export function useMessageSender() {
     setPendingMessageType("text");
   };
 
+  // External state control methods for immediate UI feedback
+  const setSubmittingState = (submitting: boolean) => {
+    setIsSubmitting(submitting);
+  };
+
   return {
     isSubmitting,
     showGroupModal,
@@ -366,5 +386,6 @@ export function useMessageSender() {
     setPendingMessage,
     setPendingAttachmentIds,
     setPendingMessageType,
+    setSubmittingState,
   };
 }

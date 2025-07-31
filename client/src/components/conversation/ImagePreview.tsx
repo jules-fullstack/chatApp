@@ -7,6 +7,7 @@ interface ImagePreviewProps {
   onAddImages: (files: File[]) => void;
   maxFiles: number;
   maxTotalSize: number;
+  isSubmitting?: boolean;
 }
 
 export default function ImagePreview({
@@ -15,6 +16,7 @@ export default function ImagePreview({
   onAddImages,
   maxFiles,
   maxTotalSize,
+  isSubmitting = false,
 }: ImagePreviewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 

@@ -81,12 +81,19 @@ class MessageService {
     // Save with validation disabled temporarily
     await message.save({ validateBeforeSave: false });
 
-    const mediaIds = [];
-    for (const imageUrl of images) {
-      // Create Media object for each image URL using media service
-      const media = await mediaService.createMessageAttachment(imageUrl, message._id);
-      mediaIds.push(media._id);
-    }
+    // Create media attachments in parallel for better performance
+    const mediaPromises = images.map(async (imageUrl) => {
+      try {
+        // Create Media object for each image URL using media service
+        const media = await mediaService.createMessageAttachment(imageUrl, message._id);
+        return media._id;
+      } catch (error) {
+        console.error('Error creating media attachment for URL:', imageUrl, error);
+        throw new Error(`Failed to create attachment for ${imageUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    });
+
+    const mediaIds = await Promise.all(mediaPromises);
 
     // Update message with media IDs and save with validation
     message.attachments = mediaIds;
