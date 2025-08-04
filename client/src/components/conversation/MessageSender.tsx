@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useCallback, type KeyboardEvent } from "react";
 import { useForm } from "react-hook-form";
 import { type MessageFormData } from "../../schemas/messageSchema";
 import { useConversationStore } from "../../store/conversationStore";
@@ -73,43 +73,54 @@ export default function MessageSender() {
     handleTypingChange(messageValue);
   }, [messageValue, handleTypingChange]);
 
-  const onSubmit = async (data: MessageFormData) => {
-    // Allow sending if there's either text or images
-    const hasText = Boolean(data.message && data.message.trim().length > 0);
-    const hasImages = selectedImages.length > 0;
-    const messageContent = hasText ? data.message.trim() : "";
+  const onSubmit = useCallback(
+    async (data: MessageFormData) => {
+      // Allow sending if there's either text or images
+      const hasText = Boolean(data.message && data.message.trim().length > 0);
+      const hasImages = selectedImages.length > 0;
+      const messageContent = hasText ? data.message.trim() : "";
 
-    // Set submitting state immediately for instant UI feedback
-    setSubmittingState(true);
+      // Set submitting state immediately for instant UI feedback
+      setSubmittingState(true);
 
-    try {
-      // Upload images first if any
-      let imageUrls: string[] = [];
-      if (hasImages) {
-        try {
-          imageUrls = await uploadImages(selectedImages);
-        } catch (error) {
-          // Reset submitting state on upload error
-          setSubmittingState(false);
-          return; // uploadImages handles error notifications
+      try {
+        // Upload images first if any
+        let imageUrls: string[] = [];
+        if (hasImages) {
+          try {
+            imageUrls = await uploadImages(selectedImages);
+          } catch (error) {
+            // Reset submitting state on upload error
+            setSubmittingState(false);
+            return; // uploadImages handles error notifications
+          }
         }
-      }
 
-      await sendRegularMessage(
-        messageContent,
-        imageUrls,
-        hasText,
-        hasImages,
-        () => reset({ message: "" }),
-        clearImages,
-        stopTypingIndicator
-      );
-    } catch (error) {
-      // Ensure submitting state is reset on any error
-      setSubmittingState(false);
-      console.error("Error in form submission:", error);
-    }
-  };
+        await sendRegularMessage(
+          messageContent,
+          imageUrls,
+          hasText,
+          hasImages,
+          () => reset({ message: "" }),
+          clearImages,
+          stopTypingIndicator
+        );
+      } catch (error) {
+        // Ensure submitting state is reset on any error
+        setSubmittingState(false);
+        console.error("Error in form submission:", error);
+      }
+    },
+    [
+      selectedImages,
+      setSubmittingState,
+      uploadImages,
+      sendRegularMessage,
+      reset,
+      clearImages,
+      stopTypingIndicator,
+    ]
+  );
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -123,8 +134,8 @@ export default function MessageSender() {
     const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
       // Only handle Enter when images are selected and input is not focused
       if (
-        e.key === "Enter" && 
-        !e.shiftKey && 
+        e.key === "Enter" &&
+        !e.shiftKey &&
         selectedImages.length > 0 &&
         document.activeElement?.tagName !== "INPUT" &&
         document.activeElement?.tagName !== "TEXTAREA"
