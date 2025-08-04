@@ -43,7 +43,7 @@ export const validateUsernameAvailable = async (
     const userId = req.user!._id;
 
     const existingUser = await User.findOne({
-      userName: userName.toLowerCase(),
+      userName: userName,
       _id: { $ne: userId },
     });
 

@@ -24,8 +24,7 @@ const userNameSchema = z
   .regex(
     /^[a-zA-Z0-9_]+$/,
     'Username can only contain letters, numbers, and underscores',
-  )
-  .transform((val) => val.toLowerCase());
+  );
 
 const mongoIdSchema = z
   .string()
@@ -110,19 +109,10 @@ export const messageContentSchema = z.object({
     .string()
     .max(2000, 'Message content must be no more than 2000 characters')
     .optional(),
-  messageType: z
-    .enum(['text', 'image'])
-    .optional(),
-  recipientIds: z
-    .union([
-      z.string(),
-      z.array(z.string()),
-    ])
-    .optional(),
+  messageType: z.enum(['text', 'image']).optional(),
+  recipientIds: z.union([z.string(), z.array(z.string())]).optional(),
   conversationId: mongoIdSchema.optional(),
-  attachmentIds: z
-    .array(mongoIdSchema)
-    .optional(),
+  attachmentIds: z.array(mongoIdSchema).optional(),
   images: z.array(z.any()).optional(), // For uploaded images
   groupName: z
     .string()

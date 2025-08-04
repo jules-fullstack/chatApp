@@ -114,7 +114,7 @@ class UserService {
     // Update user fields
     userInstance.firstName = firstName;
     userInstance.lastName = lastName;
-    userInstance.userName = userName.toLowerCase();
+    userInstance.userName = userName;
 
     // Update password if provided
     if (newPassword && newPassword.trim() !== '') {
