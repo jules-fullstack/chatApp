@@ -1,7 +1,7 @@
 import { Button, Head } from "../components/ui";
 import AuthLayout from "../layouts/AuthLayout";
 import { PinInput } from "@mantine/core";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type KeyboardEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { userStore } from "../store/userStore";
 import { API_BASE_URL } from "../config";
@@ -43,6 +43,13 @@ export default function OTPVerify() {
       navigate({ to: "/login", replace: true });
     }
   }, [navigate]);
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && pin.length === 6) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
 
   const handleSubmit = async () => {
     if (pin.length !== 6) {
@@ -146,6 +153,7 @@ export default function OTPVerify() {
         size="lg"
         aria-label="One time code"
         className="my-8"
+        onKeyDown={handleKeyDown}
       />
 
       {error && <p className="text-red-900 mb-4">{error}</p>}
