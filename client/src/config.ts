@@ -4,6 +4,7 @@ import { z } from "zod";
 const envSchema = z.object({
   VITE_API_BASE_URL: z.string().url("Must be a valid API URL"),
   VITE_WEBSOCKET_URL: z.string().url("Must be a valid WebSocket URL"),
+  VITE_AWS_BUCKET: z.string().min(1, "S3 Bucket name is required"),
   VITE_APP_NAME: z.string().optional().default("Chat App"),
   VITE_NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -17,6 +18,7 @@ const parseEnv = () => {
     return envSchema.parse({
       VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
       VITE_WEBSOCKET_URL: import.meta.env.VITE_WEBSOCKET_URL,
+      VITE_AWS_BUCKET: import.meta.env.VITE_AWS_BUCKET,
       VITE_APP_NAME: import.meta.env.VITE_APP_NAME,
       VITE_NODE_ENV: import.meta.env.VITE_NODE_ENV,
     });
@@ -41,5 +43,6 @@ export const config = parseEnv();
 // Export individual values for backward compatibility
 export const API_BASE_URL = config.VITE_API_BASE_URL;
 export const WEBSOCKET_URL = config.VITE_WEBSOCKET_URL;
+export const AWS_BUCKET = config.VITE_AWS_BUCKET;
 export const APP_NAME = config.VITE_APP_NAME;
 export const NODE_ENV = config.VITE_NODE_ENV;

@@ -32,7 +32,7 @@ import {
   checkExistingInvitations,
 } from '../middlewares/invitationValidation.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 
 const router = express.Router();
 

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { userStore } from "./userStore";
 import conversationService from "../services/conversationService";
 import type { Participant, Message, Conversation } from "../types";
+import { AWS_BUCKET } from "../config";
 
 /**
  * Interface defining the conversation store state and actions.
@@ -709,7 +710,7 @@ export const useConversationStore = create<ConversationState>()(
                   role: "user" as const, // Add required role field
                   avatar:
                     newAdmin.avatar ||
-                    "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg",
+                    `https://${AWS_BUCKET}.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg`,
                 },
                 // Update with any other fields from the populated conversation
                 participants: conversation.participants || conv.participants,

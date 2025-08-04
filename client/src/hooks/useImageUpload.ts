@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useMessageValidation } from "./useMessageValidation";
+import { notifications } from "@mantine/notifications";
 
 export function useImageUpload() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -45,6 +46,24 @@ export function useImageUpload() {
     );
 
     if (!response.ok) {
+      try {
+        const errorData = await response.json();
+        const errorMessage = errorData.error || "Failed to upload images";
+
+        notifications.show({
+          title: "Upload Failed",
+          message: errorMessage,
+          color: "red",
+          autoClose: 5000,
+        });
+      } catch (parseError) {
+        notifications.show({
+          title: "Upload Failed",
+          message: "Failed to upload images",
+          color: "red",
+          autoClose: 5000,
+        });
+      }
       throw new Error("Failed to upload images");
     }
 
