@@ -83,8 +83,35 @@ export const login = (
       return;
     }
 
+    // Check if user is superAdmin and handle admin login directly
+    if (user.role === 'superAdmin') {
+      // Log the admin in directly without OTP verification
+      req.login(user, async (err) => {
+        if (err) {
+          res.status(500).json({ message: 'Error logging in' });
+          return;
+        }
+
+        try {
+          // Get user with populated avatar
+          const avatarUrl = await authService.getUserWithAvatar(
+            user._id.toString(),
+          );
+
+          res.json({
+            message: 'Admin login successful',
+            user: formatUserResponse(user, avatarUrl),
+          });
+        } catch (error) {
+          console.error('Error getting admin user data:', error);
+          res.status(500).json({ message: 'Error fetching user data' });
+        }
+      });
+      return;
+    }
+
     try {
-      // Generate and send OTP
+      // Generate and send OTP for regular users
       await authService.generateAndSendOTP(user);
 
       // Store user info in session for OTP verification
@@ -108,8 +135,6 @@ export const verifyOTP = async (
     const { email, otp } = req.body;
 
     const user = req.user!;
-
-    console.log(email, otp);
 
     if (!user.verifyOTP(otp)) {
       res.status(400).json({ message: 'Invalid or expired OTP' });
@@ -261,3 +286,4 @@ export const checkInvitation = async (
   const invitationInfo = (req as any).invitationInfo;
   res.json(invitationInfo);
 };
+

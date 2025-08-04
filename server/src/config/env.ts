@@ -33,6 +33,10 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS Secret Access Key is required'),
   AWS_DEFAULT_REGION: z.string().min(1, 'AWS Region is required'),
   AWS_BUCKET: z.string().min(1, 'S3 Bucket name is required'),
+
+  // Default admin credentials
+  DEFAULT_ADMIN_EMAIL: z.string().email('Must be a valid admin email address'),
+  DEFAULT_ADMIN_PASSWORD: z.string().min(8, 'Default admin password must be at least 8 characters'),
 });
 
 const parseEnv = () => {

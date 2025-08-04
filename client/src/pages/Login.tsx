@@ -4,6 +4,7 @@ import { API_BASE_URL } from "../config";
 import AuthLayout from "../layouts/AuthLayout";
 import { AuthForm, AuthLink } from "../components/auth";
 import { FormField, Head } from "../components/ui";
+import { userStore } from "../store/userStore";
 
 interface LoginInputs {
   email: string;
@@ -14,12 +15,18 @@ interface ApiResponse {
   message: string;
   user?: {
     id: string;
+    firstName: string;
+    lastName: string;
+    userName: string;
     email: string;
+    role: "user" | "superAdmin";
+    avatar?: string;
   };
 }
 
 export default function Login() {
   const navigate = useNavigate();
+  const setUser = userStore((state) => state.setUser);
   const {
     register,
     handleSubmit,
@@ -41,6 +48,10 @@ export default function Login() {
       const result: ApiResponse = await response.json();
 
       if (response.ok) {
+        if (result.user) {
+          setUser(result.user);
+          navigate({ to: "/dashboard", replace: true });
+        }
         localStorage.setItem("pendingEmail", data.email);
         navigate({ to: "/verify", replace: true });
       } else {
