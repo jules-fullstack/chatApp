@@ -1,0 +1,135 @@
+import { Document, Types } from 'mongoose';
+import { Request } from 'express';
+import './session.js';
+
+export interface IUser extends Document {
+  _id: Types.ObjectId;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  email: string;
+  password: string;
+  avatar?: Types.ObjectId;
+  otp?: string;
+  otpExpiry?: Date;
+  isEmailVerified: boolean;
+  role: 'user' | 'superAdmin';
+  isBlocked: boolean;
+  blockedUsers: Types.ObjectId[];
+  lastActive: Date;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  generateOTP(): string;
+  verifyOTP(inputOTP: string): boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
+  userName: string;
+  email: string;
+  password: string;
+  invitationToken?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface OTPVerifyRequest {
+  email: string;
+  otp: string;
+}
+
+// Removed AuthRequest to avoid conflicts with Express global User type
+
+export interface AuthenticatedRequest extends Request {
+  user?: IUser;
+  conversation?: any;
+  validatedEmails?: string[];
+  newEmails?: string[];
+  alreadyInvitedEmails?: string[];
+  files?: any; // Use any to avoid multer type conflicts
+  file?: any; // Use any to avoid multer type conflicts
+  body: any; // Override the strict type to allow dynamic field access
+}
+
+export interface AuthResponse {
+  message: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    userName: string;
+    email: string;
+    role: 'user' | 'superAdmin';
+    avatar?: string | null;
+  };
+  remainingAttempts?: number;
+  timeUntilReset?: number;
+}
+
+export interface IConversation extends Document {
+  _id: Types.ObjectId;
+  participants: Types.ObjectId[];
+  isGroup: boolean;
+  groupName?: string | null;
+  groupAdmin?: Types.ObjectId;
+  groupPhoto?: Types.ObjectId;
+  lastMessage?: Types.ObjectId;
+  lastMessageAt: Date;
+  isActive: boolean;
+  unreadCount: Map<string, number>;
+  readAt: Map<string, Date>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMedia extends Document {
+  _id: Types.ObjectId;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  storageKey: string;
+  parentType: 'User' | 'Message' | 'Conversation';
+  parentId: Types.ObjectId;
+  usage: 'avatar' | 'groupPhoto' | 'messageAttachment' | 'general';
+  metadata: {
+    width?: number;
+    height?: number;
+    blurhash?: string;
+    alt?: string;
+  };
+  isDeleted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IMessage extends Document {
+  _id: Types.ObjectId;
+  conversation: Types.ObjectId;
+  sender: Types.ObjectId;
+  content: string;
+  messageType: 'text' | 'image' | 'file' | 'groupEvent';
+  attachments?: Types.ObjectId[];
+  isEdited: boolean;
+  editedAt: Date | null;
+  groupEventType?: 'nameChange' | 'photoChange' | 'userLeft' | 'userPromoted' | 'userRemoved' | 'userAdded' | 'userJoinedViaInvitation';
+  groupEventData?: {
+    targetUser?: Types.ObjectId;
+    oldValue?: string;
+    newValue?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+declare global {
+  namespace Express {
+    interface User extends IUser {}
+  }
+}
