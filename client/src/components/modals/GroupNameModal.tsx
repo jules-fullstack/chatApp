@@ -94,7 +94,9 @@ export default function GroupNameModal({
           <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
-          <Button type="submit">{buttonText}</Button>
+          <Button data-autofocus type="submit">
+            {buttonText}
+          </Button>
         </div>
       </form>
     </Modal>
