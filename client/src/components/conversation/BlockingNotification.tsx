@@ -3,7 +3,10 @@ interface BlockingNotificationProps {
   isBlockedByUser: boolean;
 }
 
-export function BlockingNotification({ hasBlockedUser, isBlockedByUser }: BlockingNotificationProps) {
+export function BlockingNotification({
+  hasBlockedUser,
+  isBlockedByUser,
+}: BlockingNotificationProps) {
   if (!hasBlockedUser && !isBlockedByUser) return null;
 
   return (
@@ -14,8 +17,7 @@ export function BlockingNotification({ hasBlockedUser, isBlockedByUser }: Blocki
             You blocked this person
           </p>
           <p className="text-orange-600 text-xs mt-1">
-            You won't receive messages from them and they can't see when
-            you're active.
+            You won't receive messages from them.
           </p>
         </div>
       )}
