@@ -118,6 +118,28 @@ export default function MessageSender() {
     }
   };
 
+  // Global keydown handler for when images are selected
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
+      // Only handle Enter when images are selected and input is not focused
+      if (
+        e.key === "Enter" && 
+        !e.shiftKey && 
+        selectedImages.length > 0 &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        handleSubmit(onSubmit)();
+      }
+    };
+
+    if (selectedImages.length > 0) {
+      document.addEventListener("keydown", handleGlobalKeyDown);
+      return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+    }
+  }, [selectedImages.length, handleSubmit, onSubmit]);
+
   const handleLikeClick = async () => {
     // Set submitting state immediately for like messages too
     setSubmittingState(true);
