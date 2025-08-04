@@ -44,11 +44,7 @@ router.delete(
 );
 
 // Get media by parent with parameter validation
-router.get(
-  '/:parentType/:parentId',
-  validateGetMediaParams,
-  getMediaByParent,
-);
+router.get('/:parentType/:parentId', validateGetMediaParams, getMediaByParent);
 
 // Image upload route (moved from messageRoutes) with file validation
 router.post(

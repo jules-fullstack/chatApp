@@ -3,6 +3,7 @@ import {
   getActiveStatus,
   shouldShowActiveIndicator,
 } from "../../utils/activeStatus";
+import { AWS_BUCKET } from "../../config";
 
 interface AvatarProps {
   user?: {
@@ -33,8 +34,7 @@ const indicatorSizeClasses = {
   xl: "w-4 h-4",
 };
 
-const defaultAvatarUrl =
-  "https://fullstack-hq-chat-app-bucket.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg";
+const defaultAvatarUrl = `https://${AWS_BUCKET}.s3.ap-southeast-1.amazonaws.com/images/default-avatars/default-avatar.jpg`;
 
 export default function Avatar({
   user,
