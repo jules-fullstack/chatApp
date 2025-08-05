@@ -22,6 +22,9 @@ import {
   validateInvitationToken,
   requireValidInvitationToken,
 } from '../middlewares/invitationAuth';
+import {
+  validateEmailForOTP,
+} from '../middlewares/emailValidation';
 
 const router = express.Router();
 
@@ -29,6 +32,7 @@ router.post(
   '/register',
   ensureNotAuthenticated,
   validateRegister,
+  validateEmailForOTP,
   validateInvitationToken,
   register,
 );
@@ -48,6 +52,7 @@ router.post(
   '/resend-otp',
   ensureNotAuthenticated,
   validateEmail,
+  validateEmailForOTP,
   ensureUserExists,
   validatePendingSession,
   resendOTP,

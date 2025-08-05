@@ -31,6 +31,9 @@ import {
   checkExistingUsers,
   checkExistingInvitations,
 } from '../middlewares/invitationValidation.js';
+import {
+  validateEmailBatch,
+} from '../middlewares/emailValidation.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { Response, NextFunction } from 'express';
 
@@ -59,6 +62,7 @@ router.post(
   requireGroupConversation,
   requireGroupAdmin,
   validateInvitationEmails,
+  validateEmailBatch({ emailsField: 'emails', allowRisky: false }),
   checkExistingUsers,
   checkExistingInvitations,
   inviteUnregisteredUsers,
