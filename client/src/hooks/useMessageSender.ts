@@ -20,6 +20,86 @@ export function useMessageSender() {
 
   const { validateMessage } = useMessageValidation();
 
+  // Focused utility: Find existing 1:1 conversation with a recipient
+  const findExistingConversation = (recipientId: string) => {
+    return conversations.find(
+      (conv) =>
+        !conv.isGroup &&
+        ((conv.participant && conv.participant._id === recipientId) ||
+          (conv.participants &&
+            conv.participants.length === 2 &&
+            conv.participants.some((p) => p._id === recipientId)))
+    );
+  };
+
+  // Focused utility: Handle multiple recipients for individual messaging
+  const handleMultipleRecipientsForIndividualMessage = (
+    messageContent: string,
+    imageUrls: string[],
+    messageType: string
+  ) => {
+    setPendingMessage(messageContent);
+    setPendingAttachmentIds(imageUrls);
+    setPendingMessageType(messageType);
+    setShowGroupModal(true);
+    setIsSubmitting(false);
+  };
+
+  // Focused utility: Send messages in sequence (text first, then images)
+  const sendMessagesInSequence = async (
+    recipients: string[],
+    content: string,
+    imageUrls: string[],
+    hasText: boolean,
+    hasImages: boolean,
+    groupName?: string
+  ) => {
+    if (hasText && hasImages) {
+      // Send text message first
+      await sendMessage(recipients, content, groupName, "text", []);
+      // Send image message second (no group name for second message)
+      await sendMessage(recipients, "", undefined, "image", imageUrls);
+    } else {
+      // Send single message (either text or image)
+      const messageType = hasImages ? "image" : "text";
+      await sendMessage(recipients, content, groupName, messageType, imageUrls);
+    }
+  };
+
+  // Focused utility: Handle existing conversation with state restoration
+  const sendToExistingConversationWithStateRestore = async (
+    existingConversation: { _id: string },
+    messageContent: string,
+    imageUrls: string[],
+    hasText: boolean,
+    hasImages: boolean
+  ) => {
+    const originalIsNewMessage = isNewMessage;
+    const originalActiveConversation = activeConversation;
+    
+    // Temporarily modify state to treat as existing conversation
+    useConversationStore.setState({ 
+      isNewMessage: false, 
+      activeConversation: existingConversation._id 
+    });
+    
+    try {
+      await sendMessagesInSequence(
+        [existingConversation._id],
+        messageContent,
+        imageUrls,
+        hasText,
+        hasImages
+      );
+    } finally {
+      // Restore original state
+      useConversationStore.setState({ 
+        isNewMessage: originalIsNewMessage, 
+        activeConversation: originalActiveConversation 
+      });
+    }
+  };
+
   const sendRegularMessage = async (
     messageContent: string,
     imageUrls: string[],
@@ -42,20 +122,17 @@ export function useMessageSender() {
         color: "orange",
         autoClose: 3000,
       });
-      setIsSubmitting(false); // Reset state if validation fails
+      setIsSubmitting(false);
       return;
     }
 
     // Validate text if present
     if (hasText && !validateMessage(messageContent)) {
-      setIsSubmitting(false); // Reset state if validation fails
+      setIsSubmitting(false);
       return;
     }
 
-    // Only set submitting state if it's not already set (to avoid overriding external state)
-    if (!isSubmitting) {
-      setIsSubmitting(true);
-    }
+    setIsSubmitting(true);
 
     try {
       if (isNewMessage) {
@@ -63,139 +140,36 @@ export function useMessageSender() {
 
         // If multiple recipients, show group modal first
         if (newMessageRecipients.length > 1) {
-          setPendingMessage(messageContent);
-          setPendingAttachmentIds(imageUrls);
-          setPendingMessageType(hasImages ? "image" : "text");
-          setShowGroupModal(true);
-          setIsSubmitting(false); // Reset submitting state when showing modal
+          const messageType = hasImages ? "image" : "text";
+          handleMultipleRecipientsForIndividualMessage(messageContent, imageUrls, messageType);
           return;
         }
 
         // Single recipient - check if existing conversation exists
         const recipientId = newMessageRecipients[0]._id;
-        const existingConversation = conversations.find(
-          (conv) =>
-            !conv.isGroup &&
-            ((conv.participant && conv.participant._id === recipientId) ||
-              // fallback for some data shapes
-              (conv.participants &&
-                conv.participants.length === 2 &&
-                conv.participants.some((p) => p._id === recipientId)))
-        );
+        const existingConversation = findExistingConversation(recipientId);
 
         if (existingConversation) {
-          // Existing conversation found - temporarily set as active and send
-          const originalIsNewMessage = isNewMessage;
-          const originalActiveConversation = activeConversation;
-          
-          // Temporarily modify state to treat as existing conversation
-          useConversationStore.setState({ 
-            isNewMessage: false, 
-            activeConversation: existingConversation._id 
-          });
-          
-          try {
-            if (hasText && hasImages) {
-              // Send text message first
-              await sendMessage(
-                [existingConversation._id],
-                messageContent,
-                undefined,
-                "text",
-                []
-              );
-              // Send image message second
-              await sendMessage(
-                [existingConversation._id],
-                "",
-                undefined,
-                "image",
-                imageUrls
-              );
-            } else {
-              // Send single message (either text or image)
-              const messageType = hasImages ? "image" : "text";
-              await sendMessage(
-                [existingConversation._id],
-                messageContent,
-                undefined,
-                messageType,
-                imageUrls
-              );
-            }
-          } finally {
-            // Restore original state
-            useConversationStore.setState({ 
-              isNewMessage: originalIsNewMessage, 
-              activeConversation: originalActiveConversation 
-            });
-          }
+          await sendToExistingConversationWithStateRestore(
+            existingConversation,
+            messageContent,
+            imageUrls,
+            hasText,
+            hasImages
+          );
         } else {
           // No existing conversation - create new message
-          const recipientIds = [recipientId]; // Ensure we're only passing the ID
-
-          if (hasText && hasImages) {
-            // Send text message first
-            await sendMessage(
-              recipientIds,
-              messageContent,
-              undefined,
-              "text",
-              []
-            );
-            // Send image message second
-            await sendMessage(recipientIds, "", undefined, "image", imageUrls);
-          } else {
-            // Send single message (either text or image)
-            const messageType = hasImages ? "image" : "text";
-            await sendMessage(
-              recipientIds,
-              messageContent,
-              undefined,
-              messageType,
-              imageUrls
-            );
-          }
+          await sendMessagesInSequence([recipientId], messageContent, imageUrls, hasText, hasImages);
         }
       } else if (activeConversation) {
-        // For existing conversations,
-        // Send to the conversation endpoint with conversationId
-        if (hasText && hasImages) {
-          // Send text message first
-          await sendMessage(
-            [activeConversation],
-            messageContent,
-            undefined,
-            "text",
-            []
-          );
-          // Send image message second
-          await sendMessage(
-            [activeConversation],
-            "",
-            undefined,
-            "image",
-            imageUrls
-          );
-        } else {
-          // Send single message (either text or image)
-          const messageType = hasImages ? "image" : "text";
-          await sendMessage(
-            [activeConversation],
-            messageContent,
-            undefined,
-            messageType,
-            imageUrls
-          );
-        }
+        // For existing conversations
+        await sendMessagesInSequence([activeConversation], messageContent, imageUrls, hasText, hasImages);
       } else {
         return;
       }
 
       reset();
       clearImages();
-
-      // Stop typing indicator
       stopTypingIndicator();
     } catch (error) {
       console.error("Error sending message:", error);
@@ -214,76 +188,46 @@ export function useMessageSender() {
 
     if (!validateMessage(thumbsUpMessage)) {
       console.error("Thumbs up message failed validation");
-      setIsSubmitting(false); // Reset state if validation fails
+      setIsSubmitting(false);
       return;
     }
 
-    // Only set submitting state if it's not already set
-    if (!isSubmitting) {
-      setIsSubmitting(true);
-    }
+    setIsSubmitting(true);
 
-    if (isNewMessage) {
-      if (newMessageRecipients.length === 0) return;
+    try {
+      if (isNewMessage) {
+        if (newMessageRecipients.length === 0) return;
 
-      // If multiple recipients, show group modal first
-      if (newMessageRecipients.length > 1) {
-        setPendingMessage(thumbsUpMessage);
-        setPendingAttachmentIds([]);
-        setPendingMessageType("text");
-        setShowGroupModal(true);
-        setIsSubmitting(false); // Reset submitting state when showing modal
-        return;
+        // If multiple recipients, show group modal first
+        if (newMessageRecipients.length > 1) {
+          handleMultipleRecipientsForIndividualMessage(thumbsUpMessage, [], "text");
+          return;
+        }
+
+        // Single recipient - check if existing conversation exists
+        const recipientId = newMessageRecipients[0]._id;
+        const existingConversation = findExistingConversation(recipientId);
+
+        if (existingConversation) {
+          await sendToExistingConversationWithStateRestore(
+            existingConversation,
+            thumbsUpMessage,
+            [],
+            true,
+            false
+          );
+        } else {
+          // No existing conversation - create new message
+          await sendMessage([recipientId], thumbsUpMessage);
+        }
+      } else if (activeConversation) {
+        await sendMessage([activeConversation], thumbsUpMessage);
       }
 
-      // Single recipient - check if existing conversation exists
-      const recipientId = newMessageRecipients[0]._id;
-      const existingConversation = conversations.find(
-        (conv) =>
-          !conv.isGroup &&
-          ((conv.participant && conv.participant._id === recipientId) ||
-            // fallback for some data shapes
-            (conv.participants &&
-              conv.participants.length === 2 &&
-              conv.participants.some((p) => p._id === recipientId)))
-      );
-
-      if (existingConversation) {
-        // Existing conversation found - temporarily set as active and send
-        const originalIsNewMessage = isNewMessage;
-        const originalActiveConversation = activeConversation;
-        
-        // Temporarily modify state to treat as existing conversation
-        useConversationStore.setState({ 
-          isNewMessage: false, 
-          activeConversation: existingConversation._id 
-        });
-        
-        sendMessage([existingConversation._id], thumbsUpMessage)
-          .finally(() => {
-            // Restore original state
-            useConversationStore.setState({ 
-              isNewMessage: originalIsNewMessage, 
-              activeConversation: originalActiveConversation 
-            });
-            stopTypingIndicator();
-            setIsSubmitting(false);
-          });
-      } else {
-        // No existing conversation - create new message
-        const recipientIds = [recipientId]; // Ensure we're only passing the ID
-        sendMessage(recipientIds, thumbsUpMessage).finally(() => {
-          stopTypingIndicator();
-          setIsSubmitting(false);
-        });
-      }
-    } else if (activeConversation) {
-      sendMessage([activeConversation], thumbsUpMessage).finally(() => {
-        stopTypingIndicator();
-        setIsSubmitting(false);
-      });
-    } else {
       stopTypingIndicator();
+    } catch (error) {
+      console.error("Error sending like message:", error);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -320,38 +264,24 @@ export function useMessageSender() {
 
     try {
       const recipientIds = newMessageRecipients.map((r) => r._id);
-      const hasText = pendingMessage && pendingMessage.trim().length > 0;
-      const hasImages = pendingImageUrls.length > 0;
+      const hasText = Boolean(pendingMessage && pendingMessage.trim().length > 0);
+      const hasImages = Boolean(pendingImageUrls.length > 0);
 
-      if (hasText && hasImages) {
-        // Send text message first
-        await sendMessage(recipientIds, pendingMessage, groupName, "text", []);
-        // Send image message second
-        await sendMessage(
-          recipientIds,
-          "",
-          undefined, // Don't set group name again for second message
-          "image",
-          pendingImageUrls
-        );
-      } else {
-        // Send single message (either text or image)
-        await sendMessage(
-          recipientIds,
-          pendingMessage,
-          groupName,
-          pendingMessageType,
-          pendingImageUrls
-        );
-      }
+      // Use shared utility for group message sending
+      await sendMessagesInSequence(
+        recipientIds,
+        pendingMessage,
+        pendingImageUrls,
+        hasText,
+        hasImages,
+        groupName
+      );
 
       reset();
       setPendingMessage("");
       setPendingAttachmentIds([]);
       setPendingMessageType("text");
       clearImages();
-
-      // Stop typing indicator
       stopTypingIndicator();
     } catch (error) {
       console.error("Error sending message:", error);
