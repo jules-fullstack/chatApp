@@ -11,6 +11,12 @@ import passportConfig from './config/passport';
 import webSocketManager from './config/websocket';
 import offlineNotificationService from './services/offlineNotificationService.js';
 import { authRateLimitService } from './services/authRateLimitService.js';
+import { 
+  securityMiddleware, 
+  webSocketSecurityMiddleware, 
+  apiSecurityHeaders,
+  securityHeadersLogger 
+} from './middlewares/security.js';
 import { config } from './config/index.js';
 
 const app = express();
@@ -18,6 +24,15 @@ const app = express();
 connectDB();
 
 passportConfig(passport);
+
+// Apply security middleware first (before CORS and other middleware)
+app.use(securityMiddleware);
+app.use(webSocketSecurityMiddleware);
+
+// Development security headers logging
+if (config.nodeEnv === 'development') {
+  app.use(securityHeadersLogger);
+}
 
 app.use(
   cors({
@@ -63,6 +78,8 @@ app.use('/api/chat', (req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Apply API-specific security headers
+app.use('/api', apiSecurityHeaders);
 app.use('/api', routes);
 
 app.get('/', (req: Request, res: Response) => {

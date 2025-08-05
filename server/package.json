@@ -51,6 +51,7 @@
     "express-validator": "^7.2.1",
     "express-ws": "^5.0.2",
     "file-type": "^21.0.0",
+    "helmet": "^8.1.0",
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.2",
     "multer": "^2.0.2",

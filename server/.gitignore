@@ -1,3 +1,5 @@
 .env
 node_modules
 dist
+nginx-http-config.md
+nginx-security-config.md
