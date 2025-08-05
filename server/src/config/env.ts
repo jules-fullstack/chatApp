@@ -22,10 +22,10 @@ const envSchema = z.object({
     .min(32, 'Session secret must be at least 32 characters'),
 
   // Client
-  CLIENT_URL: z.string().url('Must be a valid client URL'),
+  CLIENT_URL: z.url('Must be a valid client URL'),
 
   // Email configuration
-  EMAIL_USER: z.string().email('Must be a valid email address'),
+  EMAIL_USER: z.email('Must be a valid email address'),
   EMAIL_APP_PASSWORD: z.string().min(1, 'Email password is required'),
 
   // AWS S3 configuration
@@ -35,8 +35,12 @@ const envSchema = z.object({
   AWS_BUCKET: z.string().min(1, 'S3 Bucket name is required'),
 
   // Default admin credentials
-  DEFAULT_ADMIN_EMAIL: z.string().email('Must be a valid admin email address'),
-  DEFAULT_ADMIN_PASSWORD: z.string().min(8, 'Default admin password must be at least 8 characters'),
+  DEFAULT_ADMIN_EMAIL: z.email('Must be a valid admin email address'),
+  DEFAULT_ADMIN_PASSWORD: z
+    .string()
+    .min(8, 'Default admin password must be at least 8 characters'),
+
+  HUNTER_API_KEY: z.string().min(1, 'Hunter API Key is required'),
 });
 
 const parseEnv = () => {
