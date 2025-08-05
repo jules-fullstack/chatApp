@@ -25,23 +25,33 @@ import {
 import {
   validateEmailForOTP,
 } from '../middlewares/emailValidation';
+import {
+  loginRateLimit,
+  registerRateLimit,
+  otpRateLimit,
+  recordAuthAttempt,
+} from '../middlewares/authRateLimit';
 
 const router = express.Router();
 
 router.post(
   '/register',
   ensureNotAuthenticated,
+  registerRateLimit,
+  recordAuthAttempt,
   validateRegister,
   validateEmailForOTP,
   validateInvitationToken,
   register,
 );
 
-router.post('/login', ensureNotAuthenticated, validateLogin, login);
+router.post('/login', ensureNotAuthenticated, loginRateLimit, recordAuthAttempt, validateLogin, login);
 
 router.post(
   '/verify-otp',
   ensureNotAuthenticated,
+  otpRateLimit,
+  recordAuthAttempt,
   validateOTP,
   ensureUserExists,
   validatePendingSession,

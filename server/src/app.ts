@@ -10,6 +10,7 @@ import routes from './routes';
 import passportConfig from './config/passport';
 import webSocketManager from './config/websocket';
 import offlineNotificationService from './services/offlineNotificationService.js';
+import { authRateLimitService } from './services/authRateLimitService.js';
 import { config } from './config/index.js';
 
 const app = express();
@@ -74,6 +75,15 @@ setInterval(
     offlineNotificationService.cleanup();
   },
   10 * 60 * 1000,
+);
+
+// Start periodic cleanup for rate limit records (every 15 minutes)
+setInterval(
+  () => {
+    authRateLimitService.cleanupExpiredRecords()
+      .catch(error => console.error('Rate limit cleanup error:', error));
+  },
+  15 * 60 * 1000,
 );
 
 export default app;
