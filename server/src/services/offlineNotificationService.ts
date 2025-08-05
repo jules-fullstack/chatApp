@@ -1,4 +1,5 @@
 import { sendOfflineMessageNotification } from './emailService.js';
+import { emailValidationService } from './emailValidationService.js';
 import User from '../models/User.js';
 import webSocketManager from '../config/websocket.js';
 
@@ -108,6 +109,14 @@ class OfflineNotificationService {
         if (!firstSenderName) {
           firstSenderName = messageInfo.senderName;
         }
+      }
+
+      // Validate email before sending notification
+      const emailValidation = await emailValidationService.validateEmail(notification.email);
+      
+      if (!emailValidation.isValid) {
+        console.warn(`Skipping offline notification for invalid email ${notification.email}: ${emailValidation.reasons.join(', ')}`);
+        return;
       }
 
       // Send email notification
