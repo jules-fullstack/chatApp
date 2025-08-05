@@ -128,6 +128,20 @@ export interface IMessage extends Document {
   updatedAt: Date;
 }
 
+export interface IRateLimit extends Document {
+  _id: Types.ObjectId;
+  key: string;
+  type: 'ip' | 'user';
+  successfulAttempts: number;
+  failedAttempts: number;
+  totalFailedAttempts: number;
+  windowStart: Date;
+  lockedUntil?: Date;
+  lockoutLevel: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 declare global {
   namespace Express {
     interface User extends IUser {}
