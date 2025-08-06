@@ -7,10 +7,12 @@ import AdminPromoteMemberModal from "./AdminPromoteMemberModal";
 import AdminActionConfirmModal from "./AdminActionConfirmModal";
 
 // Import custom hooks
-import { useAdminUsers } from "../../hooks/admin/useAdminUsers";
-import { useAdminGroupChats } from "../../hooks/admin/useAdminGroupChats";
-import { useAdminSearch } from "../../hooks/admin/useAdminSearch";
-import { useAdminModals } from "../../hooks/admin/useAdminModals";
+import {
+  useAdminUsers,
+  useAdminGroupChats,
+  useAdminSearch,
+  useAdminModals,
+} from "../../hooks/admin/";
 
 // Import components
 import { AdminUsersTable } from "./tables/AdminUsersTable";
@@ -122,6 +124,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             existingParticipants={modals.convertAdminParticipantsToParticipants(
               modals.selectedGroupChat.participants
             )}
+            onMembersAdded={groupChats.handleMembersAdded}
           />
 
           <AdminRemoveMembersModal

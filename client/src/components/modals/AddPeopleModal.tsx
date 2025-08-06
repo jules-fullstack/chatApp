@@ -17,6 +17,7 @@ interface AddPeopleModalProps {
   onClose: () => void;
   conversationId: string;
   existingParticipants: Participant[];
+  onMembersAdded?: () => void;
 }
 
 export default function AddPeopleModal({
@@ -24,6 +25,7 @@ export default function AddPeopleModal({
   onClose,
   conversationId,
   existingParticipants,
+  onMembersAdded,
 }: AddPeopleModalProps) {
   const [selectedUsers, setSelectedUsers] = useState<SearchedUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -117,6 +119,9 @@ export default function AddPeopleModal({
     try {
       const userIds = selectedUsers.map((user) => user._id);
       await conversationService.addMembersToGroup(conversationId, userIds);
+
+      // Notify admin panel to refresh data
+      onMembersAdded?.();
 
       onClose();
 
