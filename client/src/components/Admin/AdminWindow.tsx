@@ -32,7 +32,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
 
   // Initialize custom hooks
   const search = useAdminSearch({ activeTab });
-  
+
   const users = useAdminUsers({
     currentPage,
     isSearchActive: search.isSearchActive,
@@ -41,7 +41,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   });
 
   const groupChats = useAdminGroupChats({ currentPage, activeTab });
-  
+
   const modals = useAdminModals();
 
   // Execute confirm action
@@ -68,7 +68,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             isLoadingSearch={search.isLoadingSearch}
             searchResults={search.searchResults}
           />
-          
+
           {activeTab === "users" ? (
             <AdminUsersTable
               displayUsers={users.displayUsers}
@@ -90,13 +90,15 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
               isErrorGroupChats={groupChats.isErrorGroupChats}
               groupChatsError={groupChats.groupChatsError}
               actionLoading={groupChats.actionLoading}
-              isExecutePending={groupChats.executeConfirmActionMutation.isPending}
+              isExecutePending={
+                groupChats.executeConfirmActionMutation.isPending
+              }
               onAddPeople={modals.handleAddPeople}
               onRemoveMembers={modals.handleRemoveMembers}
               onPromoteMember={modals.handlePromoteMember}
             />
           )}
-          
+
           <AdminPagination
             pagination={
               activeTab === "users"
@@ -120,7 +122,6 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             existingParticipants={modals.convertAdminParticipantsToParticipants(
               modals.selectedGroupChat.participants
             )}
-            onMembersAdded={groupChats.handleMembersAdded}
           />
 
           <AdminRemoveMembersModal

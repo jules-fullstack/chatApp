@@ -1,9 +1,8 @@
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 import { Accordion } from "@mantine/core";
 import { userStore } from "../../store/userStore";
-import { type Participant } from "../../types";
 import { Container } from "../ui";
-import { useConversationModals, useConversationActions  } from "../../hooks";
+import { useConversationModals, useConversationActions } from "../../hooks";
 import { ConversationDetailsHeader } from "./ConversationDetailsHeader";
 import { ConversationActions } from "./ConversationActions";
 import { ConversationMembers } from "./ConversationMembers";
@@ -21,21 +20,14 @@ import {
 
 export default function ConversationDetails() {
   const { user: currentUser } = userStore();
-  
+
   // Use custom hooks for modal management and business logic
   const modals = useConversationModals();
   const actions = useConversationActions();
 
-  // Helper functions for modal management with business logic
-  const handleMembersAdded = (newMembers: Participant[]) => {
-    // The WebSocket will handle updating the conversation
-    // We could add additional logic here if needed
-    console.log("Members added:", newMembers);
-  };
-
   const handlePromoteUser = async () => {
     if (!modals.userToPromote) return;
-    
+
     actions.setIsPromotingUser(true);
     try {
       await actions.handlePromoteUser(modals.userToPromote._id);
@@ -49,7 +41,7 @@ export default function ConversationDetails() {
 
   const handleRemoveUser = async () => {
     if (!modals.userToRemove) return;
-    
+
     actions.setIsRemovingUser(true);
     try {
       await actions.handleRemoveUser(modals.userToRemove._id);
@@ -63,7 +55,7 @@ export default function ConversationDetails() {
 
   const handleBlockUser = async () => {
     if (!modals.userToBlock) return;
-    
+
     actions.setIsBlockingUser(true);
     try {
       await actions.handleBlockUser(modals.userToBlock._id);
@@ -77,7 +69,7 @@ export default function ConversationDetails() {
 
   const handleUnblockUser = async () => {
     if (!modals.userToUnblock) return;
-    
+
     actions.setIsBlockingUser(true);
     try {
       await actions.handleUnblockUser(modals.userToUnblock._id);
@@ -196,7 +188,6 @@ export default function ConversationDetails() {
           onClose={modals.closeAddPeopleModal}
           conversationId={actions.conversation._id}
           existingParticipants={actions.conversation.participants || []}
-          onMembersAdded={handleMembersAdded}
         />
       )}
 
