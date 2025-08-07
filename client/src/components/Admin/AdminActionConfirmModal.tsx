@@ -1,5 +1,7 @@
-import { Modal, Button } from "@mantine/core";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { Modal } from "@mantine/core";
+import AdminModalContainer from "./ui/AdminModalContainer";
+import AdminModalDetails from "./ui/AdminModalDetails";
+import AdminModalButtons from "./ui/AdminModalButtons";
 
 interface AdminActionConfirmModalProps {
   opened: boolean;
@@ -23,37 +25,19 @@ export default function AdminActionConfirmModal({
   confirmColor = "blue",
 }: AdminActionConfirmModalProps) {
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={title}
-      size="sm"
-      centered
-    >
-      <div className="space-y-4">
-        <div className="flex flex-col items-center text-center space-y-3">
-          <div className="bg-amber-100 rounded-full p-3">
-            <ExclamationTriangleIcon className="size-8 text-amber-600" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900">
-              {title}
-            </h3>
-            <p className="text-sm text-gray-600">
-              {message}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button onClick={onConfirm} loading={isLoading} color={confirmColor}>
-            {confirmText}
-          </Button>
-        </div>
-      </div>
+    <Modal opened={opened} onClose={onClose} title={title} size="sm" centered>
+      <AdminModalContainer>
+        <AdminModalDetails title={title} message={message} color="amber" />
+        <AdminModalButtons
+          onClose={onClose}
+          isLoading={isLoading}
+          isCancelDisabled={isLoading}
+          onConfirm={onConfirm}
+          color={confirmColor}
+        >
+          {confirmText}
+        </AdminModalButtons>
+      </AdminModalContainer>
     </Modal>
   );
 }

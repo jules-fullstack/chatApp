@@ -7,10 +7,12 @@ import AdminPromoteMemberModal from "./AdminPromoteMemberModal";
 import AdminActionConfirmModal from "./AdminActionConfirmModal";
 
 // Import custom hooks
-import { useAdminUsers } from "../../hooks/admin/useAdminUsers";
-import { useAdminGroupChats } from "../../hooks/admin/useAdminGroupChats";
-import { useAdminSearch } from "../../hooks/admin/useAdminSearch";
-import { useAdminModals } from "../../hooks/admin/useAdminModals";
+import {
+  useAdminUsers,
+  useAdminGroupChats,
+  useAdminSearch,
+  useAdminModals,
+} from "../../hooks/admin/";
 
 // Import components
 import { AdminUsersTable } from "./tables/AdminUsersTable";
@@ -32,7 +34,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
 
   // Initialize custom hooks
   const search = useAdminSearch({ activeTab });
-  
+
   const users = useAdminUsers({
     currentPage,
     isSearchActive: search.isSearchActive,
@@ -41,7 +43,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
   });
 
   const groupChats = useAdminGroupChats({ currentPage, activeTab });
-  
+
   const modals = useAdminModals();
 
   // Execute confirm action
@@ -68,7 +70,7 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
             isLoadingSearch={search.isLoadingSearch}
             searchResults={search.searchResults}
           />
-          
+
           {activeTab === "users" ? (
             <AdminUsersTable
               displayUsers={users.displayUsers}
@@ -90,13 +92,15 @@ export default function AdminWindow({ activeTab }: AdminWindowProps) {
               isErrorGroupChats={groupChats.isErrorGroupChats}
               groupChatsError={groupChats.groupChatsError}
               actionLoading={groupChats.actionLoading}
-              isExecutePending={groupChats.executeConfirmActionMutation.isPending}
+              isExecutePending={
+                groupChats.executeConfirmActionMutation.isPending
+              }
               onAddPeople={modals.handleAddPeople}
               onRemoveMembers={modals.handleRemoveMembers}
               onPromoteMember={modals.handlePromoteMember}
             />
           )}
-          
+
           <AdminPagination
             pagination={
               activeTab === "users"

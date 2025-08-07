@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
-import { Modal, Button, Radio, ScrollArea } from "@mantine/core";
-import { ExclamationTriangleIcon, UserIcon } from "@heroicons/react/24/outline";
+import { Modal, Radio } from "@mantine/core";
+import { UserIcon } from "@heroicons/react/24/outline";
 import type { Participant } from "../../types";
 import { Avatar } from "../ui";
+import AdminModalContainer from "./ui/AdminModalContainer";
+import AdminModalDetails from "./ui/AdminModalDetails";
+import AdminModalScrollArea from "./ui/AdminModalScrollArea";
+import AdminModalButtons from "./ui/AdminModalButtons";
 
 interface AdminPromoteMemberModalProps {
   opened: boolean;
@@ -50,51 +54,38 @@ export default function AdminPromoteMemberModal({
       size="md"
       centered
     >
-      <div className="space-y-4">
-        <div className="flex flex-col items-center text-center space-y-3">
-          <div className="bg-amber-100 rounded-full p-3">
-            <ExclamationTriangleIcon className="size-8 text-amber-600" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900">
-              Promote member in "{groupName}"
-            </h3>
-            <p className="text-sm text-gray-600">
-              Select a member to promote to admin. This will give them
-              administrative privileges in this group.
-            </p>
-          </div>
-        </div>
+      <AdminModalContainer>
+        <AdminModalDetails
+          title={`Promote member in "${groupName}"`}
+          message="Select a member to promote to admin. This will give them
+              administrative privileges in this group."
+          color="amber"
+        />
 
         {/* Member Selection */}
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">
-            Choose a member:
-          </h4>
-          <ScrollArea className="h-64 border rounded-lg p-2">
-            <Radio.Group value={selectedUserId} onChange={setSelectedUserId}>
-              <div className="space-y-2">
-                {eligibleParticipants.map((participant) => (
-                  <div
-                    key={participant._id}
-                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg"
-                  >
-                    <Radio value={participant._id} />
-                    <Avatar user={participant} size="md" />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {participant.firstName} {participant.lastName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        @{participant.userName}
-                      </div>
+        <AdminModalScrollArea title="Choose a member:">
+          <Radio.Group value={selectedUserId} onChange={setSelectedUserId}>
+            <div className="space-y-2">
+              {eligibleParticipants.map((participant) => (
+                <div
+                  key={participant._id}
+                  className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg"
+                >
+                  <Radio value={participant._id} />
+                  <Avatar user={participant} size="md" />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">
+                      {participant.firstName} {participant.lastName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      @{participant.userName}
                     </div>
                   </div>
-                ))}
-              </div>
-            </Radio.Group>
-          </ScrollArea>
-        </div>
+                </div>
+              ))}
+            </div>
+          </Radio.Group>
+        </AdminModalScrollArea>
 
         {/* Selected User Summary */}
         {selectedUser && (
@@ -115,20 +106,17 @@ export default function AdminPromoteMemberModal({
           </div>
         )}
 
-        <div className="flex justify-end space-x-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            loading={isLoading}
-            color="orange"
-            disabled={!selectedUserId}
-          >
-            Promote Member
-          </Button>
-        </div>
-      </div>
+        <AdminModalButtons
+          onClose={onClose}
+          isLoading={isLoading}
+          isCancelDisabled={isLoading}
+          isConfirmDisabled={!selectedUserId}
+          onConfirm={handleConfirm}
+          color="orange"
+        >
+          Promote Member
+        </AdminModalButtons>
+      </AdminModalContainer>
     </Modal>
   );
 }

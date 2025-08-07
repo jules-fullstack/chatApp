@@ -33,7 +33,6 @@ export class WebSocketManager {
         this.storeActions.setWebSocket(this.ws);
 
         this.ws.onopen = () => {
-          console.log("WebSocket connected");
           this.reconnectAttempts = 0;
           this.isManualDisconnect = false;
           this.storeActions.setConnectionState(true);
@@ -47,7 +46,6 @@ export class WebSocketManager {
         };
 
         this.ws.onclose = (event) => {
-          console.log("WebSocket disconnected:", event.code, event.reason);
           this.storeActions.setConnectionState(false);
           this.storeActions.setWebSocket(null);
 
@@ -62,7 +60,6 @@ export class WebSocketManager {
         };
 
         this.ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
           this.storeActions.setConnectionState(false);
           this.storeActions.setWebSocket(null);
           reject(error);
@@ -141,10 +138,6 @@ export class WebSocketManager {
   private attemptReconnect(): void {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-
-    console.log(
-      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms`
-    );
 
     setTimeout(() => {
       this.connect().catch((error) => {

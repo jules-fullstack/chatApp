@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Modal, Button, Checkbox, ScrollArea } from "@mantine/core";
-import {
-  ExclamationTriangleIcon,
-  UserMinusIcon,
-} from "@heroicons/react/24/outline";
+import { Modal, Checkbox } from "@mantine/core";
+import { UserMinusIcon } from "@heroicons/react/24/outline";
 import type { Participant } from "../../types";
 import { Avatar } from "../ui";
+import AdminModalContainer from "./ui/AdminModalContainer";
+import AdminModalDetails from "./ui/AdminModalDetails";
+import AdminModalScrollArea from "./ui/AdminModalScrollArea";
+import AdminModalButtons from "./ui/AdminModalButtons";
 
 interface AdminRemoveMembersModalProps {
   opened: boolean;
@@ -56,58 +57,47 @@ export default function AdminRemoveMembersModal({
       size="md"
       centered
     >
-      <div className="space-y-4">
-        <div className="flex flex-col items-center text-center space-y-3">
-          <div className="bg-red-100 rounded-full p-3">
-            <ExclamationTriangleIcon className="size-8 text-red-600" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900">
-              Remove members from "{groupName}"
-            </h3>
-            <p className="text-sm text-gray-600">
-              Select the members you want to remove from this group. They will
-              no longer have access to the conversation.
-            </p>
-          </div>
-        </div>
+      <AdminModalContainer>
+        <AdminModalDetails
+          title={`Remove members from "${groupName}"`}
+          message="Select the members you want to remove from this group. They will
+              no longer have access to the conversation."
+          color="red"
+        />
 
         {/* Member Selection */}
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Group Members:</h4>
-          <ScrollArea className="h-64 border rounded-lg p-2">
-            <div className="space-y-2">
-              {participants.map((participant) => {
-                const isSelected = selectedUsers.includes(participant._id);
-                return (
-                  <div
-                    key={participant._id}
-                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg"
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={(event) =>
-                        handleUserSelect(
-                          participant._id,
-                          event.currentTarget.checked
-                        )
-                      }
-                    />
-                    <Avatar user={participant} size="md" />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {participant.firstName} {participant.lastName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        @{participant.userName}
-                      </div>
+        <AdminModalScrollArea title="Group Members:">
+          <div className="space-y-2">
+            {participants.map((participant) => {
+              const isSelected = selectedUsers.includes(participant._id);
+              return (
+                <div
+                  key={participant._id}
+                  className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg"
+                >
+                  <Checkbox
+                    checked={isSelected}
+                    onChange={(event) =>
+                      handleUserSelect(
+                        participant._id,
+                        event.currentTarget.checked
+                      )
+                    }
+                  />
+                  <Avatar user={participant} size="md" />
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">
+                      {participant.firstName} {participant.lastName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      @{participant.userName}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </div>
+                </div>
+              );
+            })}
+          </div>
+        </AdminModalScrollArea>
 
         {/* Selected Users Summary */}
         {selectedUsers.length > 0 && (
@@ -124,21 +114,18 @@ export default function AdminRemoveMembersModal({
           </div>
         )}
 
-        <div className="flex justify-end space-x-2 pt-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirm}
-            loading={isLoading}
-            color="red"
-            disabled={selectedUsers.length === 0}
-          >
-            Remove {selectedUsers.length}{" "}
-            {selectedUsers.length === 1 ? "Member" : "Members"}
-          </Button>
-        </div>
-      </div>
+        <AdminModalButtons
+          onClose={onClose}
+          isLoading={isLoading}
+          isCancelDisabled={isLoading}
+          isConfirmDisabled={selectedUsers.length === 0}
+          onConfirm={handleConfirm}
+          color="red"
+        >
+          Remove {selectedUsers.length}{" "}
+          {selectedUsers.length === 1 ? "Member" : "Members"}
+        </AdminModalButtons>
+      </AdminModalContainer>
     </Modal>
   );
 }

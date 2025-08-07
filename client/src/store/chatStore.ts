@@ -58,7 +58,7 @@ interface ChatState {
   amIBlockedByUser: (userId: string) => boolean;
 
   // Blocking handlers (for WebSocket)
-  handleBlockingUpdate: (data: unknown) => void;
+  handleBlockingUpdate: () => void;
 
   resetStore: () => void;
 }
@@ -130,16 +130,15 @@ export const useChatStore = create<ChatState>()(
           triggerBlockingUpdate: get().triggerBlockingUpdate,
           resetStore: get().resetStore,
           getState: () => ({
-            activeConversation: useConversationStore.getState().activeConversation,
+            activeConversation:
+              useConversationStore.getState().activeConversation,
           }),
         };
 
         const manager = new WebSocketManager(storeActions);
         set({ webSocketManager: manager });
 
-        manager.connect().catch((error) => {
-          console.error("Failed to connect WebSocket:", error);
-        });
+        manager.connect().catch(() => {});
       },
 
       disconnect: () => {
@@ -170,11 +169,6 @@ export const useChatStore = create<ChatState>()(
         const { webSocketManager } = get();
         if (webSocketManager && webSocketManager.isConnected) {
           webSocketManager.sendTyping(target);
-        } else {
-          console.log(
-            "DEBUG: WebSocket not ready, readyState:",
-            webSocketManager?.readyState
-          );
         }
       },
 
@@ -214,7 +208,7 @@ export const useChatStore = create<ChatState>()(
         const conversationStore = useConversationStore.getState();
         const activeConversation = conversationStore.activeConversation;
         if (!activeConversation) return [];
-        
+
         return Array.from(typingUsers.values()).filter(
           (user) => user.conversationId === activeConversation
         );
@@ -405,17 +399,7 @@ export const useChatStore = create<ChatState>()(
         })();
       },
 
-      handleBlockingUpdate: (data: unknown) => {
-        const { action, userId, blockedUserId } = data as {
-          action: "block" | "unblock";
-          userId: string;
-          blockedUserId: string;
-        };
-
-        console.log(
-          `Blocking update: ${action} - User ${userId} ${action}ed User ${blockedUserId}`
-        );
-
+      handleBlockingUpdate: () => {
         // Trigger blocking data reload and UI update
         get().triggerBlockingUpdate();
       },
